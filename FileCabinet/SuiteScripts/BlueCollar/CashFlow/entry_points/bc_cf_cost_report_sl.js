@@ -108,9 +108,12 @@ define([
      * Wrapped in try/catch — returns empty on failure so forecast-only still works.
      */
     const fetchCostActuals = (projectId) => {
-        const empty = { rows: [], periods: [] };
+        const allRows = [];
+        const periodSet = new Set();
+
+        // Query 1: Vendor Bills (billed costs)
         try {
-            const sql = `
+            const billSql = `
                 SELECT
                     NVL(NVL(e.entitytitle, e.entityid), 'Vendor') AS cost_group,
                     TO_CHAR(t.trandate, 'YYYY-MM') AS period,
@@ -123,37 +126,38 @@ define([
                   AND tl.mainline = 'F'
                   AND tl.taxline = 'F'
                 GROUP BY NVL(NVL(e.entitytitle, e.entityid), 'Vendor'), TO_CHAR(t.trandate, 'YYYY-MM')
+            `;
+            const billRows = query.runSuiteQL({ query: billSql, params: [projectId] }).asMappedResults() || [];
+            billRows.forEach((r) => { allRows.push(r); periodSet.add(r.period); });
+        } catch (e) {
+            log.error({ title: MODULE + '.fetchCostActuals.bills', details: e.message });
+        }
 
-                UNION ALL
-
+        // Query 2: Vendor Payments (independent — failure doesn't kill bills)
+        try {
+            const pmtSql = `
                 SELECT
                     'Paid' AS cost_group,
                     TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
                     SUM(pmt.foreigntotal) AS amount
                 FROM transaction pmt
                 WHERE pmt.type = 'VendPmt'
-                  AND EXISTS (
-                    SELECT 1 FROM transactionline billl
-                    WHERE billl.transaction = pmt.createdfrom
+                  AND pmt.createdfrom IN (
+                    SELECT DISTINCT bill.id FROM transaction bill
+                    JOIN transactionline billl ON billl.transaction = bill.id
+                    WHERE bill.type = 'VendBill'
                       AND billl.cseg_bc_project = ?
                       AND billl.mainline = 'F'
                   )
                 GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
             `;
-            const results = query.runSuiteQL({
-                query: sql,
-                params: [projectId, projectId]
-            }).asMappedResults();
-
-            if (!results || !results.length) return empty;
-
-            const periodSet = new Set();
-            results.forEach((r) => periodSet.add(r.period));
-            return { rows: results, periods: Array.from(periodSet).sort() };
+            const pmtRows = query.runSuiteQL({ query: pmtSql, params: [projectId] }).asMappedResults() || [];
+            pmtRows.forEach((r) => { allRows.push(r); periodSet.add(r.period); });
         } catch (e) {
-            log.error({ title: MODULE + '.fetchCostActuals', details: e.message + '\n' + (e.stack || '') });
-            return empty;
+            log.error({ title: MODULE + '.fetchCostActuals.payments', details: e.message });
         }
+
+        return { rows: allRows, periods: Array.from(periodSet).sort() };
     };
 
     // ─── Pivot & Aggregate ──────────────────────────────────────────────────────

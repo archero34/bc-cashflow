@@ -261,68 +261,70 @@ define([
      * Wrapped in try/catch — returns empty on failure so forecast-only still works.
      */
     const fetchActuals = (projectId) => {
-        const empty = {
-            revActualGroups: {}, costActualGroups: {},
-            revActualTotals: {}, costActualTotals: {},
-            grandRevActual: 0, grandCostActual: 0,
-            actualPeriods: []
-        };
-        try {
-            const rs = query.runSuiteQL({
-                query: ACTUALS_SQL,
-                params: [projectId, projectId, projectId, projectId]
-            }).asMappedResults();
+        const periodsSet = new Set();
+        const revGroups = {};
+        const costGroups = {};
 
-            if (!rs || !rs.length) return empty;
-
-            const periodsSet = new Set();
-            const revGroups = {};
-            const costGroups = {};
-
-            rs.forEach((r) => {
-                const dir = r.flow_direction;
+        const addRows = (rows, bucket) => {
+            (rows || []).forEach((r) => {
                 const grp = r.cost_group;
                 const per = r.period;
                 const amt = Number(r.amount) || 0;
                 periodsSet.add(per);
-
-                const bucket = dir === 'Revenue Actual' ? revGroups : costGroups;
                 if (!bucket[grp]) bucket[grp] = {};
                 bucket[grp][per] = (bucket[grp][per] || 0) + amt;
             });
+        };
 
-            const periods = Array.from(periodsSet).sort();
+        // Each query independent — failure in one doesn't kill the others
+        const runQ = (sql, params, label) => {
+            try {
+                return query.runSuiteQL({ query: sql, params }).asMappedResults() || [];
+            } catch (e) {
+                log.error({ title: MODULE + '.fetchActuals.' + label, details: e.message });
+                return [];
+            }
+        };
 
-            // Compute totals
-            const revTotals = {};
-            const costTotals = {};
-            let grandRev = 0;
-            let grandCost = 0;
+        // 1. Revenue Invoiced
+        addRows(runQ(`SELECT 'Invoiced' AS cost_group, TO_CHAR(t.trandate, 'YYYY-MM') AS period, SUM(-tl.foreignamount) AS amount FROM transaction t JOIN transactionline tl ON tl.transaction = t.id WHERE t.type = 'CustInvc' AND tl.cseg_bc_project = ? AND tl.mainline = 'F' AND tl.taxline = 'F' GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')`, [projectId], 'invoiced'), revGroups);
 
-            periods.forEach((p) => {
-                let rSum = 0;
-                Object.values(revGroups).forEach((g) => { rSum += (g[p] || 0); });
-                let cSum = 0;
-                Object.values(costGroups).forEach((g) => { cSum += (g[p] || 0); });
-                revTotals[p] = rSum;
-                costTotals[p] = cSum;
-                grandRev += rSum;
-                grandCost += cSum;
-            });
+        // 2. Revenue Collected
+        addRows(runQ(`SELECT 'Collected' AS cost_group, TO_CHAR(pmt.trandate, 'YYYY-MM') AS period, SUM(-pmt.foreigntotal) AS amount FROM transaction pmt WHERE pmt.type = 'CustPymt' AND EXISTS (SELECT 1 FROM transactionline pmtl JOIN transactionline invl ON invl.transaction = pmtl.createdfrom WHERE pmtl.transaction = pmt.id AND pmtl.mainline = 'F' AND invl.cseg_bc_project = ? AND invl.mainline = 'F') GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')`, [projectId], 'collected'), revGroups);
 
-            return {
-                revActualGroups: revGroups,
-                costActualGroups: costGroups,
-                revActualTotals: revTotals,
-                costActualTotals: costTotals,
-                grandRevActual: grandRev,
-                grandCostActual: grandCost,
-                actualPeriods: periods
-            };
-        } catch (e) {
-            log.error({ title: MODULE + '.fetchActuals', details: e.message + '\n' + (e.stack || '') });
-            return empty;
-        }
+        // 3. Cost Billed
+        addRows(runQ(`SELECT 'Billed' AS cost_group, TO_CHAR(t.trandate, 'YYYY-MM') AS period, SUM(tl.foreignamount) AS amount FROM transaction t JOIN transactionline tl ON tl.transaction = t.id WHERE t.type = 'VendBill' AND tl.cseg_bc_project = ? AND tl.mainline = 'F' AND tl.taxline = 'F' GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')`, [projectId], 'billed'), costGroups);
+
+        // 4. Cost Paid
+        addRows(runQ(`SELECT 'Paid' AS cost_group, TO_CHAR(pmt.trandate, 'YYYY-MM') AS period, SUM(pmt.foreigntotal) AS amount FROM transaction pmt WHERE pmt.type = 'VendPmt' AND pmt.createdfrom IN (SELECT DISTINCT bill.id FROM transaction bill JOIN transactionline billl ON billl.transaction = bill.id WHERE bill.type = 'VendBill' AND billl.cseg_bc_project = ? AND billl.mainline = 'F') GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')`, [projectId], 'paid'), costGroups);
+
+        // Compute totals
+        const periods = Array.from(periodsSet).sort();
+        const revTotals = {};
+        const costTotals = {};
+        let grandRev = 0;
+        let grandCost = 0;
+
+        periods.forEach((p) => {
+            let rSum = 0;
+            Object.values(revGroups).forEach((g) => { rSum += (g[p] || 0); });
+            let cSum = 0;
+            Object.values(costGroups).forEach((g) => { cSum += (g[p] || 0); });
+            revTotals[p] = rSum;
+            costTotals[p] = cSum;
+            grandRev += rSum;
+            grandCost += cSum;
+        });
+
+        return {
+            revActualGroups: revGroups,
+            costActualGroups: costGroups,
+            revActualTotals: revTotals,
+            costActualTotals: costTotals,
+            grandRevActual: grandRev,
+            grandCostActual: grandCost,
+            actualPeriods: periods
+        };
     };
 
     /**

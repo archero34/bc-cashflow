@@ -5,27 +5,31 @@
 **Date**: 2026-03-26
 **Demo**: Data Airflow follow-up — TODAY
 **Account**: TD2984799 - BlueCollar Demo Trailing
+**Repo**: https://github.com/archero34/bc-cashflow
 
 ---
 
 ## What's Working
 
 ### Schedule Subtabs (PO, SO, Change Request)
-- **Purchase Order**: Schedule subtab with Cash Flow + Accrual timing grids. Template apply, manual edit, save. Full currency formatting, cumulative calculations, 100% validation.
-- **Sales Order (Contract)**: Same UX. Automatically excludes CO-added lines from the schedule amount (Original Contract = Current Total - CO Billing Impacts).
-- **Change Request**: Contract/Estimate toggle. Contract side schedules CO revenue timing (saves against parent SO). Estimate side schedules CO cost timing (no parent transaction). Both have Cash Flow + Accrual views.
+- **Purchase Order**: Schedule subtab with Cash Flow + Accrual timing grids. Template apply (7 built-in patterns), manual edit, save. Currency formatting with commas, cumulative calculations, 100% validation badge.
+- **Sales Order (Contract)**: Same UX. Automatically calculates original contract value by subtracting CO billing impacts — prevents double-counting CO revenue.
+- **Change Request**: Contract/Estimate toggle (not stacked). Contract side schedules CO revenue timing (saves against parent SO). Estimate side schedules CO cost timing (keyed by changeOrderId, no parent transaction). Both have Cash Flow + Accrual views.
 
 ### Project-Level Reports (Cash Flow tab)
-- **Combined Cash Flow Forecast**: Revenue In vs Cost Out = Net Cash Position by month. KPI cards, inline SVG bar chart, Cash Flow/Accrual toggle, Export CSV/PDF.
-- **Cost Cash Flow Report**: Cost outflows by vendor/CO, time-phased by month.
-- **Revenue Cash Flow Report**: Revenue inflows by Base Bid/CO, time-phased by month.
+- **Combined Cash Flow Forecast**: Revenue In vs Cost Out = Net Cash Position by month. Stacked gold-up/navy-down bar chart with hover tooltips, KPI cards (Total Revenue, Total Cost, Net, Status), Cash Flow/Accrual button toggle, drillable links to source transactions, current month highlight, Export CSV/PDF.
+- **Cost Cash Flow Report**: Cost outflows by vendor/CO with navy bar chart, hover tooltips, drillable links.
+- **Revenue Cash Flow Report**: Revenue inflows by Base Bid/CO with gold bar chart, hover tooltips, drillable links.
+- All three reports have consistent UX: button toggle, sparkline chart, drillable links, current month gold highlight.
 
 ### Infrastructure
-- 4 custom records deployed (cost timing line, revenue timing line, template, template line)
-- 6 custom lists deployed
-- 12 SuiteScript files (4 modules, 4 Suitelets, 4 UE scripts)
+- 4 custom records deployed via SDF (cost timing line, revenue timing line, template, template line)
+- 6 custom lists deployed via SDF
+- 12 SuiteScript 2.1 files (4 modules, 4 Suitelets, 4 UE scripts)
+- 2 transaction body fields deployed via SDF (PO + SO inline HTML)
+- 7 SDF script object XMLs with deployments
 - 34 Jest unit tests passing
-- Full SDF project with CI-ready structure
+- Full SDF ACP project structure per sdf.md best practices
 
 ---
 
@@ -33,73 +37,130 @@
 
 ```
 Purchase Order → Schedule subtab → custbody_bc_cost_timing_html
+                  └── UE: bc_cost_timing_ue.js → populates existing INLINEHTML field
+                  └── Cash Flow + Accrual grids
+
 Sales Order    → Schedule subtab → custbody_bc_rev_timing_html
+                  └── UE: bc_rev_timing_ue.js → BC Contract gate + original contract calc
+                  └── Cash Flow + Accrual grids
+
 Change Request → Schedule subtab → custrecord_bc_co_timing_html
-                  ├── Contract toggle → Revenue timing (→ parent SO)
-                  └── Estimate toggle → Cost timing (no txn, keyed by CO)
+                  └── UE: bc_co_timing_ue.js → Contract/Estimate toggle
+                  ├── Contract → Revenue timing (transactionId = parent SO)
+                  └── Estimate → Cost timing (transactionId = null, keyed by CO)
 
 Project Record → Cash Flow tab
-                  ├── Combined → custrecord_bc_cf_combined_html (iframe)
-                  ├── Cost     → custrecord_bc_cf_cost_html (iframe)
-                  └── Revenue  → custrecord_bc_cf_revenue_html (iframe)
+                  ├── Combined → custrecord_bc_cf_combined_html (iframe → Suitelet)
+                  ├── Cost     → custrecord_bc_cf_cost_html (iframe → Suitelet)
+                  └── Revenue  → custrecord_bc_cf_revenue_html (iframe → Suitelet)
 ```
 
-All timing UIs use shared modules: `bc_timing_ui.js` (1,860 lines), `bc_timing_engine.js`, `bc_timing_dao.js`, `bc_timing_constants.js`.
+### Shared Modules
+- `bc_timing_ui.js` (1,860 lines) — Inline HTML/CSS/JS renderer, BlueCollar branded
+- `bc_timing_engine.js` — Template application, validation, recalculation
+- `bc_timing_dao.js` — SuiteQL reads + N/record writes, camelCase mapping, PERCENT conversion
+- `bc_timing_constants.js` — Field IDs, list values, brand config, built-in templates
+- `bc_timing_data_sl.js` — Single AJAX Suitelet endpoint for all timing CRUD
 
 ---
 
-## Key Bugs Fixed During Build
+## Bugs Fixed During Build (17 total)
 
 | Bug | Root Cause | Fix |
 |-----|-----------|-----|
-| Save fails on dates | HTML date inputs send ISO (YYYY-MM-DD), NS expects MM/DD/YYYY | Parse ISO in Suitelet |
-| Percentages show 0.5 not 50 | SuiteQL PERCENT returns decimals | Multiply by 100 on load |
-| Cumulatives disappear | Stored values unreliable | Recalculate on load |
+| Save fails on dates | HTML sends ISO YYYY-MM-DD, NS expects MM/DD/YYYY | Parse ISO in Suitelet |
+| Percentages show 0.5 not 50% | SuiteQL PERCENT returns decimals | Multiply by 100 on load |
+| Cumulatives disappear on reload | Stored values unreliable | Recalculate on load |
 | SO Schedule blank | Wrong BC Contract checkbox field ID | `custbody_bc_is_bluecollar_contract` |
 | CO Estimate crashes page | `<button>` defaults to submit inside NS form | Added `type="button"` |
-| CO save fails | Transaction field rejects CR ID (not a transaction) | Revenue → parent SO; Cost → keyed by changeOrderId |
-| CO Estimate save rejected | Suitelet validation requires transactionId | Allow changeOrderId as alternative key |
+| CO revenue save fails | Transaction field rejects CR ID | Revenue → parent SO via `custrecord_bc_related_transactions` |
+| CO cost save rejected | Suitelet requires transactionId | Allow changeOrderId as alternative key |
+| CO cost save "missing fields" | Validation rejects transactionId=0 | Accept either txnId OR changeOrderId |
 | Report entity name error | `entity.companyname` not in SuiteQL | Use `entity.entitytitle` |
 | Report account name error | `account.acctname` NOT_EXPOSED | Use `account.accountsearchdisplayname` |
-| SO double-counts CO | Total includes CO lines | Subtract CO billing impacts from current total |
-| SDF overwrites UI field fixes | Deploy.xml includes records/ | Commented out records path |
+| CO name shows ID not number | Query used `cr.name` (internal ID) | Use `cr.custrecord_bc_change_order_number` |
+| SO double-counts CO revenue | Total includes CO-added lines | Subtract CO billing impacts from current total |
+| CO data load fails | Wrong status field + project field on CR | Discovered via `SELECT *` — correct IDs |
+| SDF overwrites UI field fixes | deploy.xml includes records/ | Commented out records path |
+| Amount column shows raw numbers | `<input type="number">` can't format | Switched to `type="text"` with blur formatting |
+| SVG tooltips corrupt chart | Inline HTML breaks SVG attributes | Array-based index lookup via JSON.stringify |
+| Subtab/field approach wrong | BC uses pre-existing INLINEHTML fields | Changed to `getField()` pattern |
 
 ---
 
-## Manual Setup (not SDF-deployable)
+## SDF Deployment Notes
 
-| Item | Why Manual | Done |
-|------|-----------|------|
-| `custrecord_bc_cashflow_html` on Project | Can't add fields to records we don't own via SDF | Yes |
-| `custrecord_bc_cf_cost_html` on Project | Same | Yes |
-| `custrecord_bc_cf_revenue_html` on Project | Same | Yes |
-| `custrecord_bc_cf_combined_html` on Project | Same | Yes |
-| `custrecord_bc_co_timing_html` on Change Request | Same | Yes |
-| UE deploy: `bc_cf_project_ue.js` on Project | Script deploy on custom record | Yes |
-| UE deploy: `bc_co_timing_ue.js` on Change Request | Script deploy on custom record | Yes |
-| List/Record field type fixes on timing records | SDF deploys as INTEGER, converted in UI | Yes |
+### Deployed via SDF (automated)
+- Custom lists (6): timing type, source, source group, status, spread type, period interval
+- Custom records (4): cost timing line, revenue timing line, template, template line
+- Transaction body fields (2): `custbody_bc_cost_timing_html`, `custbody_bc_rev_timing_html`
+- Script files (12): 4 modules + 4 Suitelets + 4 UE entry points
+- Script objects (7): with deployments on PO, SO, and 3 Suitelet deploys
+
+### NOT deployed via SDF (manual in NS UI)
+| Item | Reason |
+|------|--------|
+| `custrecord_bc_cashflow_html` + 3 report fields on Project | Can't add fields to records we don't own |
+| `custrecord_bc_co_timing_html` on Change Request | Same |
+| UE deploy: `bc_cf_project_ue.js` on Project record | Script deploy on custom record |
+| UE deploy: `bc_co_timing_ue.js` on Change Request | Same |
+| List/Record field type fixes on timing records | SDF deploys as INTEGER, converted manually |
+
+### Deploy commands
+```bash
+# File-only updates (preferred during iteration):
+npx suitecloud file:upload --paths "/SuiteScripts/BlueCollar/CashFlow/entry_points/FILE.js"
+
+# Full project deploy (creates new objects, updates existing):
+npx suitecloud project:deploy
+
+# NOTE: Objects/records/ excluded from deploy.xml to protect manual field type fixes
+```
 
 ---
 
-## Not in POC
+## Not in POC — Future Phases
 
-| Feature | Status | Phase |
-|---------|--------|-------|
-| Labor timing | Diagram/narrative for demo | 2 |
-| Task/schedule integration | Not built | 2 |
-| Portfolio view (all projects) | Not built | 2 |
-| Scheduled script status updater | Not built | 2 |
-| Subcontract CO handling | Excluded | 2 |
-| Alerts / email digests | Not built | 2 |
-| Dashboard portlets | Not built | 2 |
+| Feature | Phase | Notes |
+|---------|-------|-------|
+| Labor timing Suitelet | 2 | Same template engine, new UE on project |
+| Task/schedule integration | 2 | Cost Code as join key (Addendum Tier 1) |
+| Portfolio view (all projects) | 2 | Standalone Suitelet, multi-project grid |
+| Scheduled script status updater | 2 | Forecasted → Actualized/Received/Overdue |
+| Alerts / weekly email digest | 2 | Addendum section 2 |
+| Dashboard portlets (saved searches) | 2 | Addendum section 4 |
+| Subcontract CO handling | 2 | Data Airflow doesn't use subs |
+| S-curve visualization | 2 | Cumulative chart overlay |
+| Multi-currency | Future | BC hasn't crossed this bridge yet |
+| SOV line-level timing | Future | Currently contract-level |
 
 ---
 
-## Demo Scenario
+## Demo Scenario — NEXT SESSION
 
-Project: Phoenix Datacenter
-- Contract (SO0629): $1,500,000 original + $120,000 CO = $1,620,000 current
-- PO (PO1376): $50,000 — Phoenix Mechanical Supply
-- Change Request (CO-001): $120,000 billing / $60,000 estimate
-- Cash Flow + Accrual schedules on all three
-- Combined report shows full picture on Project record
+**Source**: Customer-provided spreadsheet (Cashflow-demo-email.md)
+**Project**: To be created fresh for the demo
+
+| Source | Type | Amount | Timing |
+|--------|------|--------|--------|
+| Customer Contract (Base Bid) | Revenue | $30,000 | 25% Apr, 15% May, 25% Jun, 15% Jul, 10% Sep, 10% Nov |
+| PO — Vendor A | Cost | $15,000 | 20% May, 30% Jun, 15% Jul, 15% Oct, 20% Dec |
+| PO — Vendor B | Cost | $8,000 | 50% Apr, 50% Nov |
+| Change Order A (Revenue) | Revenue | $12,000 | 20% Jul, 30% Sep, 50% Dec |
+| Change Order A (Cost) | Cost | $10,000 | 20% Jul, 30% Sep, 50% Dec |
+
+**Expected Combined Output**: Revenue $42,000 | Cost $33,000 | Net $9,000
+
+---
+
+## Session Log
+
+**2026-03-25 → 2026-03-26 overnight build session**
+- Research: Read all planning docs, demo transcript, user guide. 13 issues identified and reviewed.
+- Plan: 9-task build plan approved. 4-hour target.
+- Build: 8 parallel agents produced 12 SuiteScript files + SDF scaffolding.
+- Code Review: Lint Eastwood found 6 critical/high bugs, all fixed before first deploy.
+- Deploy: 4 deployment iterations resolving SDF validation (features.xml, bundle refs, record schema).
+- Testing: 17 bugs found and fixed during live testing in NetSuite.
+- Polish: Drillable links, CO name fix, sparkline charts, hover tooltips, consistent toggle, current month highlight.
+- Total commits: 20+ on main branch.

@@ -346,10 +346,10 @@ define([
 </style>
 <div class="bc-co-wrap">
     <div class="bc-co-bar">
-        <button class="bc-co-btn active" onclick="bcCoToggle('contract')" id="bcCoBtn_contract">
+        <button type="button" class="bc-co-btn active" onclick="bcCoToggle('contract')" id="bcCoBtn_contract">
             Contract <span class="bc-co-amt">$${fmtCurrency(billingTotal)}</span>
         </button>
-        <button class="bc-co-btn" onclick="bcCoToggle('estimate')" id="bcCoBtn_estimate">
+        <button type="button" class="bc-co-btn" onclick="bcCoToggle('estimate')" id="bcCoBtn_estimate">
             Estimate <span class="bc-co-amt">$${fmtCurrency(costTotal)}</span>
         </button>
     </div>

@@ -923,7 +923,7 @@ ${addRowHtml}`;
             row += `<td><input type="date" value="${esc(dateVal)}" data-section="${sid}" data-index="${idx}" data-field="periodDate"></td>`;
             row += `<td><input type="text" value="${esc(label)}" data-section="${sid}" data-index="${idx}" data-field="label" placeholder="Period label"></td>`;
             row += `<td class="right"><input type="number" value="${pct}" step="0.01" min="0" max="100" data-section="${sid}" data-index="${idx}" data-field="percentage" onchange="bcTiming.recalculate('${sid}')"></td>`;
-            row += `<td class="right"><input type="number" value="${amt.toFixed(2)}" step="0.01" min="0" data-section="${sid}" data-index="${idx}" data-field="amount" onchange="bcTiming.recalculate('${sid}')"></td>`;
+            row += `<td class="right"><input type="text" value="${fmtCurrency(amt)}" data-section="${sid}" data-index="${idx}" data-field="amount" onfocus="this.value=this.value.replace(/[^0-9.\\-]/g,'')" onblur="bcTiming.recalculate('${sid}');this.value=bcTiming.formatCurrency(parseFloat(this.value)||0)" onchange="bcTiming.recalculate('${sid}')" style="text-align:right;"></td>`;
         } else {
             row += `<td>${esc(dateDisplay)}</td>`;
             row += `<td>${esc(label)}</td>`;
@@ -1317,7 +1317,7 @@ if (document.readyState !== 'loading') {
                 var field = inputs[j].getAttribute('data-field');
                 var val = inputs[j].value;
                 if (field === 'percentage' || field === 'amount') {
-                    line[field] = Number(val) || 0;
+                    line[field] = parseFloat(val.replace(/[^0-9.\-]/g, '')) || 0;
                 } else {
                     line[field] = val;
                 }
@@ -1515,7 +1515,7 @@ if (document.readyState !== 'loading') {
         row += '<td><input type="date" value="' + esc(dateVal) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="periodDate"></td>';
         row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label"></td>';
         row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
-        row += '<td class="right"><input type="number" value="' + amt.toFixed(2) + '" step="0.01" min="0" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.value=this.value.replace(/[^0-9.\\\\-]/g,\\'\\')" onblur="bcTiming.recalculate(\\'' + esc(sectionId) + '\\');this.value=bcTiming.formatCurrency(parseFloat(this.value)||0)" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')" style="text-align:right;"></td>';
         row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatPercent(cumPct) + '</td>';
         row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatCurrency(cumAmt) + '</td>';
         row += '<td class="center"><button type="button" class="bc-cf-btn-danger" title="Remove line" onclick="bcTiming.removeRow(\\'' + esc(sectionId) + '\\', ' + idx + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
@@ -1699,7 +1699,7 @@ if (document.readyState !== 'loading') {
             // Update the amount input in the DOM
             var amtInput = tbody.querySelector('tr[data-index="' + k + '"] input[data-field="amount"]');
             if (amtInput) {
-                amtInput.value = newAmt.toFixed(2);
+                amtInput.value = bcTiming.formatCurrency(newAmt);
             }
         }
 

@@ -548,32 +548,13 @@ function switchView(val) {
             // Month label below
             svg += '<text x="' + cx + '" y="' + (vbH - 6) + '" text-anchor="middle" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
 
-            // Tooltip HTML — collected into array, referenced by index
-            const revGroupNames = Object.keys(revenueGroups);
-            const costGroupNames = Object.keys(costGroups);
-            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + monthFull(p) + '</div>';
-            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
-            if (revTotal > 0) {
-                tip += '<div style="color:#FFB703;font-weight:600;">Revenue&nbsp;&nbsp;&nbsp;' + fmtCompact(revTotal) + '</div>';
-                revGroupNames.forEach((g) => {
-                    const amt = revenueGroups[g][p] || 0;
-                    if (amt > 0) {
-                        tip += '<div style="padding-left:10px;opacity:0.85;">' + esc(g) + '&nbsp;&nbsp;' + fmtCompact(amt) + '</div>';
-                    }
-                });
-            }
-            if (costTotal > 0) {
-                tip += '<div style="color:#93C5FD;font-weight:600;margin-top:4px;">Cost&nbsp;&nbsp;&nbsp;' + fmtCompact(costTotal) + '</div>';
-                costGroupNames.forEach((g) => {
-                    const amt = costGroups[g][p] || 0;
-                    if (amt > 0) {
-                        tip += '<div style="padding-left:10px;opacity:0.85;">' + esc(g) + '&nbsp;&nbsp;' + fmtCompact(amt) + '</div>';
-                    }
-                });
-            }
-            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
+            // Tooltip — simple summary only (detail is in the table)
             const netTipColor = net >= 0 ? '#34D399' : '#F87171';
-            tip += '<div style="font-weight:700;color:' + netTipColor + ';">Net&nbsp;&nbsp;&nbsp;' + fmtCompact(net) + '</div>';
+            let tip = '<div style="font-weight:700;margin-bottom:6px;">' + monthFull(p) + '</div>';
+            tip += '<div style="display:flex;justify-content:space-between;gap:24px;"><span style="color:#FFB703;">Revenue</span><span style="font-weight:600;">' + fmtCompact(revTotal) + '</span></div>';
+            tip += '<div style="display:flex;justify-content:space-between;gap:24px;"><span style="color:#93C5FD;">Cost</span><span style="font-weight:600;">' + fmtCompact(costTotal) + '</span></div>';
+            tip += '<div style="border-top:1px solid #4B6A88;margin:6px 0 4px;"></div>';
+            tip += '<div style="display:flex;justify-content:space-between;gap:24px;font-weight:700;color:' + netTipColor + ';"><span>Net</span><span>' + fmtCompact(net) + '</span></div>';
             tooltipArray.push(tip);
 
             // Transparent overlay rect for hover — pass index, not HTML

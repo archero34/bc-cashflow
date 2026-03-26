@@ -218,17 +218,9 @@ define([
             // Month label
             svg += '<text x="' + cx + '" y="' + (vbH - 6) + '" text-anchor="middle" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
 
-            // Tooltip HTML — collected into array, referenced by index
-            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + monthFull(p) + '</div>';
-            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
-            groupNames.forEach((g) => {
-                const amt = groups[g][p] || 0;
-                if (amt > 0) {
-                    tip += '<div style="display:flex;justify-content:space-between;gap:16px;"><span>' + esc(g) + '</span><span>' + fmtCompact(amt) + '</span></div>';
-                }
-            });
-            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
-            tip += '<div style="font-weight:700;display:flex;justify-content:space-between;gap:16px;"><span>Total</span><span>' + fmtCompact(total) + '</span></div>';
+            // Tooltip — simple summary
+            let tip = '<div style="font-weight:700;margin-bottom:6px;">' + monthFull(p) + '</div>';
+            tip += '<div style="display:flex;justify-content:space-between;gap:24px;font-weight:600;"><span>Total Revenue</span><span>' + fmtCompact(total) + '</span></div>';
             tooltipArray.push(tip);
 
             // Transparent overlay rect for hover — pass index, not HTML

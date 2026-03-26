@@ -93,6 +93,46 @@ define([
         return { rows: results, periods };
     };
 
+    // ─── Actuals Data Fetch ──────────────────────────────────────────────────────
+
+    /**
+     * Fetch actual cost transaction data (vendor bills by vendor) for a project.
+     * Wrapped in try/catch — returns empty on failure so forecast-only still works.
+     */
+    const fetchCostActuals = (projectId) => {
+        const empty = { rows: [], periods: [] };
+        try {
+            const sql = `
+                SELECT
+                    NVL(NVL(e.entitytitle, e.entityid), 'Vendor') AS cost_group,
+                    TO_CHAR(t.trandate, 'YYYY-MM') AS period,
+                    SUM(ABS(tl.foreignamount)) AS amount,
+                    'actual' AS row_type
+                FROM transaction t
+                JOIN transactionline tl ON tl.transaction = t.id
+                LEFT JOIN entity e ON e.id = t.entity
+                WHERE t.type = 'VendBill'
+                  AND tl.cseg_bc_project = ?
+                  AND tl.mainline = 'F'
+                  AND tl.taxline = 'F'
+                GROUP BY NVL(NVL(e.entitytitle, e.entityid), 'Vendor'), TO_CHAR(t.trandate, 'YYYY-MM')
+            `;
+            const results = query.runSuiteQL({
+                query: sql,
+                params: [projectId]
+            }).asMappedResults();
+
+            if (!results || !results.length) return empty;
+
+            const periodSet = new Set();
+            results.forEach((r) => periodSet.add(r.period));
+            return { rows: results, periods: Array.from(periodSet).sort() };
+        } catch (e) {
+            log.error({ title: MODULE + '.fetchCostActuals', details: e.message + '\n' + (e.stack || '') });
+            return empty;
+        }
+    };
+
     // ─── Pivot & Aggregate ──────────────────────────────────────────────────────
 
     /**
@@ -254,9 +294,28 @@ define([
 
     // ─── HTML Render ────────────────────────────────────────────────────────────
 
-    const renderPage = (projectId, timingTypeId, data, periods) => {
+    const renderPage = (projectId, timingTypeId, data, periods, actualsData) => {
         const { groups, totals, grandTotal, groupTotals, groupSourceMap } = pivot(data.rows, periods);
         const groupNames = Object.keys(groups).sort();
+
+        // Process actuals
+        const actualResult = actualsData && actualsData.rows && actualsData.rows.length
+            ? pivot(actualsData.rows, periods) : null;
+        const actualGroups = actualResult ? actualResult.groups : {};
+        const actualTotals = actualResult ? actualResult.totals : {};
+        const actualGrandTotal = actualResult ? actualResult.grandTotal : 0;
+        const actualGroupTotals = actualResult ? actualResult.groupTotals : {};
+        const actualGroupNames = Object.keys(actualGroups).sort();
+        const hasActuals = actualGroupNames.length > 0;
+
+        // Merge actual periods into the display periods
+        if (actualsData && actualsData.periods) {
+            actualsData.periods.forEach((p) => {
+                if (!periods.includes(p)) periods.push(p);
+            });
+            periods.sort();
+        }
+
         const curMonth = currentYYYYMM();
         const isCashFlow = timingTypeId === TIMING_TYPE.CASH_FLOW.id;
         const toggleLabel = isCashFlow ? 'Accrual' : 'Cash Flow';
@@ -308,6 +367,38 @@ define([
             totalRow += `<td${cls}>${fmt(totals[p])}</td>`;
         });
         totalRow += `<td class="row-total num">${fmt(grandTotal)}</td></tr>`;
+
+        // ── Actual section rows
+        let actualSectionHtml = '';
+        if (hasActuals) {
+            // Section header
+            actualSectionHtml += '<tr class="actual-sec-hdr"><td class="row-label">COST ACTUAL <span class="actual-badge">ACTUAL</span></td>';
+            periods.forEach(() => { actualSectionHtml += '<td></td>'; });
+            actualSectionHtml += '<td></td></tr>';
+
+            // Detail rows
+            actualGroupNames.forEach((g) => {
+                actualSectionHtml += '<tr class="actual-detail">';
+                actualSectionHtml += `<td class="row-label">${esc(g)}</td>`;
+                periods.forEach((p) => {
+                    const val = actualGroups[g] ? actualGroups[g][p] : null;
+                    const forecastVal = totals[p] || 0;
+                    let cls = p === curMonth ? 'cur-month num' : 'num';
+                    if (val && forecastVal > 0 && val > forecastVal) cls += ' actual-over-forecast';
+                    actualSectionHtml += `<td class="${cls}">${val ? fmt(val) : '\u2014'}</td>`;
+                });
+                actualSectionHtml += `<td class="row-total num">${fmt(actualGroupTotals[g])}</td>`;
+                actualSectionHtml += '</tr>';
+            });
+
+            // Actual total row
+            actualSectionHtml += '<tr class="actual-total-row"><td class="row-label">Actual Total</td>';
+            periods.forEach((p) => {
+                const cls = p === curMonth ? ' class="cur-month num"' : ' class="num"';
+                actualSectionHtml += `<td${cls}>${fmt(actualTotals[p])}</td>`;
+            });
+            actualSectionHtml += `<td class="row-total num">${fmt(actualGrandTotal)}</td></tr>`;
+        }
 
         // ── CSV data (for export)
         let csvHeader = 'Cost Group,' + periods.join(',') + ',Total';
@@ -477,6 +568,46 @@ define([
         font-size: 13px;
     }
 
+    /* ── Actual rows ─────────────────────────────────── */
+    .actual-sec-hdr td {
+        font-weight: 700;
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: ${BRAND.NAVY};
+        background: #EEF2F7;
+        border-bottom: 2px solid #CBD5E1;
+    }
+    .actual-sec-hdr td .actual-badge {
+        display: inline-block;
+        background: #64748B;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 3px;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
+    .actual-detail td {
+        color: #64748B;
+        font-style: italic;
+    }
+    .actual-detail td.row-label {
+        padding-left: 24px;
+        font-weight: 600;
+        color: #64748B;
+    }
+    .actual-total-row td {
+        font-weight: 700;
+        border-top: 2px solid #CBD5E1;
+        background: #F1F5F9;
+        font-style: italic;
+        color: #64748B;
+        font-size: 13px;
+    }
+    td.actual-over-forecast { background: rgba(16,185,129,0.10) !important; }
+
     /* ── Empty state ──────────────────────────────────── */
     .empty-state {
         text-align: center;
@@ -535,6 +666,10 @@ define([
         <div class="kpi-label">Overdue</div>
         <div class="kpi-value">${fmt(overdue)}</div>
     </div>
+    ${hasActuals ? `<div class="kpi-card" style="border-left:4px solid #EF4444;">
+        <div class="kpi-label">Actual Billed</div>
+        <div class="kpi-value" style="color:#EF4444;">${fmt(actualGrandTotal)}</div>
+    </div>` : ''}
 </div>
 
 ${!isEmpty ? buildCostChart(groups, periods, totals) : ''}
@@ -553,6 +688,7 @@ ${isEmpty ? `
     <tbody>
         ${bodyRows}
         ${totalRow}
+        ${actualSectionHtml}
     </tbody>
 </table>
 </div>
@@ -596,7 +732,12 @@ function exportCsv() {
             log.debug({ title: MODULE, details: `Rendering cost report: project=${projectId}, timingType=${timingTypeId}` });
 
             const data = fetchCostData(Number(projectId), timingTypeId);
-            const html = renderPage(Number(projectId), timingTypeId, data, data.periods);
+            const actualsData = fetchCostActuals(Number(projectId));
+
+            // Merge actual periods into forecast periods for consistent columns
+            const allPeriods = Array.from(new Set([...data.periods, ...actualsData.periods])).sort();
+
+            const html = renderPage(Number(projectId), timingTypeId, data, allPeriods, actualsData);
 
             response.write(html);
 

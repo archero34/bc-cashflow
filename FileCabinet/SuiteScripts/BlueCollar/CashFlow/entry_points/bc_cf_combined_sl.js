@@ -163,6 +163,66 @@ define([
         WHERE id = ?
     `;
 
+    const ACTUALS_SQL = `
+        SELECT
+            'Revenue Actual' AS flow_direction,
+            'Invoiced' AS cost_group,
+            TO_CHAR(t.trandate, 'YYYY-MM') AS period,
+            SUM(ABS(tl.foreignamount)) AS amount
+        FROM transaction t
+        JOIN transactionline tl ON tl.transaction = t.id
+        WHERE t.type = 'CustInvc'
+          AND tl.cseg_bc_project = ?
+          AND tl.mainline = 'F'
+          AND tl.taxline = 'F'
+        GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')
+
+        UNION ALL
+
+        SELECT
+            'Revenue Actual' AS flow_direction,
+            'Collected' AS cost_group,
+            TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
+            SUM(ABS(pmtline.foreignamount)) AS amount
+        FROM transaction pmt
+        JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
+        JOIN transaction inv ON inv.id = pmtline.createdfrom AND inv.type = 'CustInvc'
+        JOIN transactionline invline ON invline.transaction = inv.id AND invline.mainline = 'F' AND invline.taxline = 'F'
+        WHERE pmt.type = 'CustPymt'
+          AND invline.cseg_bc_project = ?
+        GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
+
+        UNION ALL
+
+        SELECT
+            'Cost Actual' AS flow_direction,
+            'Billed' AS cost_group,
+            TO_CHAR(t.trandate, 'YYYY-MM') AS period,
+            SUM(ABS(tl.foreignamount)) AS amount
+        FROM transaction t
+        JOIN transactionline tl ON tl.transaction = t.id
+        WHERE t.type = 'VendBill'
+          AND tl.cseg_bc_project = ?
+          AND tl.mainline = 'F'
+          AND tl.taxline = 'F'
+        GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')
+
+        UNION ALL
+
+        SELECT
+            'Cost Actual' AS flow_direction,
+            'Paid' AS cost_group,
+            TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
+            SUM(ABS(pmtline.foreignamount)) AS amount
+        FROM transaction pmt
+        JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
+        JOIN transaction bill ON bill.id = pmtline.createdfrom AND bill.type = 'VendBill'
+        JOIN transactionline billline ON billline.transaction = bill.id AND billline.mainline = 'F' AND billline.taxline = 'F'
+        WHERE pmt.type = 'VendPmt'
+          AND billline.cseg_bc_project = ?
+        GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
+    `;
+
     // ────────────────────────────────────────────────────────────────────────────
     // Data fetching & transformation
     // ────────────────────────────────────────────────────────────────────────────
@@ -186,6 +246,77 @@ define([
             params: [projectId, timingType, projectId, timingType]
         }).asMappedResults();
         return rs;
+    };
+
+    /**
+     * Fetch actual transaction data (invoices, payments, bills) for a project.
+     * Returns { revActualGroups, costActualGroups, revActualTotals, costActualTotals,
+     *           grandRevActual, grandCostActual, periods }
+     * Wrapped in try/catch — returns empty on failure so forecast-only still works.
+     */
+    const fetchActuals = (projectId) => {
+        const empty = {
+            revActualGroups: {}, costActualGroups: {},
+            revActualTotals: {}, costActualTotals: {},
+            grandRevActual: 0, grandCostActual: 0,
+            actualPeriods: []
+        };
+        try {
+            const rs = query.runSuiteQL({
+                query: ACTUALS_SQL,
+                params: [projectId, projectId, projectId, projectId]
+            }).asMappedResults();
+
+            if (!rs || !rs.length) return empty;
+
+            const periodsSet = new Set();
+            const revGroups = {};
+            const costGroups = {};
+
+            rs.forEach((r) => {
+                const dir = r.flow_direction;
+                const grp = r.cost_group;
+                const per = r.period;
+                const amt = Number(r.amount) || 0;
+                periodsSet.add(per);
+
+                const bucket = dir === 'Revenue Actual' ? revGroups : costGroups;
+                if (!bucket[grp]) bucket[grp] = {};
+                bucket[grp][per] = (bucket[grp][per] || 0) + amt;
+            });
+
+            const periods = Array.from(periodsSet).sort();
+
+            // Compute totals
+            const revTotals = {};
+            const costTotals = {};
+            let grandRev = 0;
+            let grandCost = 0;
+
+            periods.forEach((p) => {
+                let rSum = 0;
+                Object.values(revGroups).forEach((g) => { rSum += (g[p] || 0); });
+                let cSum = 0;
+                Object.values(costGroups).forEach((g) => { cSum += (g[p] || 0); });
+                revTotals[p] = rSum;
+                costTotals[p] = cSum;
+                grandRev += rSum;
+                grandCost += cSum;
+            });
+
+            return {
+                revActualGroups: revGroups,
+                costActualGroups: costGroups,
+                revActualTotals: revTotals,
+                costActualTotals: costTotals,
+                grandRevActual: grandRev,
+                grandCostActual: grandCost,
+                actualPeriods: periods
+            };
+        } catch (e) {
+            log.error({ title: MODULE + '.fetchActuals', details: e.message + '\n' + (e.stack || '') });
+            return empty;
+        }
     };
 
     /**
@@ -412,6 +543,19 @@ define([
     th.cur-month-hdr { background: ${BRAND.GOLD}; color: ${BRAND.NAVY}; font-weight: 700; }
     td.cur-month-cell { border-left: 2px solid rgba(255,183,3,0.45); background: #FFF8E1; }
 
+    /* Actual section rows */
+    tr.actual-sec-hdr td { font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; color: ${BRAND.NAVY}; background: #EEF2F7; border-bottom: 2px solid #CBD5E1; }
+    tr.actual-sec-hdr td .actual-badge { display: inline-block; background: #64748B; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; letter-spacing: 0.3px; }
+    tr.actual-detail td { color: #64748B; font-style: italic; }
+    tr.actual-detail td:first-child { padding-left: 24px; }
+    tr.actual-detail:nth-child(even) td { background: #F8FAFC; }
+    tr.rev-actual-total td { font-weight: 700; background: rgba(255,183,3,0.06); color: #64748B; border-top: 2px solid #CBD5E1; font-style: italic; }
+    tr.cost-actual-total td { font-weight: 700; background: #F1F5F9; color: #64748B; border-top: 2px solid #CBD5E1; font-style: italic; }
+    tr.net-actual-row td { font-weight: 700; background: #334155; color: ${BRAND.WHITE}; font-size: 13px; border-top: none; font-style: italic; }
+    tr.net-actual-row td.positive { color: ${BRAND.GOLD}; }
+    tr.net-actual-row td.negative { color: ${BRAND.RED}; }
+    td.actual-over-forecast { background: rgba(16,185,129,0.10) !important; }
+
     /* Action bar */
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .btn {
@@ -582,8 +726,9 @@ function switchView(val) {
     // KPI Cards
     // ────────────────────────────────────────────────────────────────────────────
 
-    const buildKPICards = (data) => {
+    const buildKPICards = (data, actuals) => {
         const { grandRevenue, grandCost, grandNet } = data;
+        const { grandRevActual, grandCostActual } = actuals || { grandRevActual: 0, grandCostActual: 0 };
         const isPositive = grandNet >= 0;
         const statusLabel = isPositive ? 'Cash Positive' : 'Cash Negative';
         const statusColor = isPositive ? BRAND.GREEN : BRAND.RED;
@@ -608,6 +753,14 @@ function switchView(val) {
                     <span class="status-text" style="color:${statusColor}">${statusLabel}</span>
                 </div>
             </div>
+            ${grandRevActual ? `<div class="kpi-card" style="border-left:4px solid #10B981;">
+                <div class="kpi-label">Actual Revenue</div>
+                <div class="kpi-value" style="color:#10B981;">${fmtDollar(grandRevActual)}</div>
+            </div>` : ''}
+            ${grandCostActual ? `<div class="kpi-card" style="border-left:4px solid #EF4444;">
+                <div class="kpi-label">Actual Cost</div>
+                <div class="kpi-value" style="color:#EF4444;">${fmtDollar(grandCostActual)}</div>
+            </div>` : ''}
         </div>`;
     };
 
@@ -615,9 +768,19 @@ function switchView(val) {
     // Detail Grid Table
     // ────────────────────────────────────────────────────────────────────────────
 
-    const buildTable = (data) => {
-        const { periods, revenueGroups, costGroups, revTotals, costTotals, netTotals,
+    const buildTable = (data, actuals) => {
+        const { periods: forecastPeriods, revenueGroups, costGroups, revTotals, costTotals, netTotals,
                 grandRevenue, grandCost, grandNet, groupSourceMap } = data;
+        const { revActualGroups, costActualGroups, revActualTotals, costActualTotals,
+                grandRevActual, grandCostActual, actualPeriods } = actuals || {
+            revActualGroups: {}, costActualGroups: {}, revActualTotals: {}, costActualTotals: {},
+            grandRevActual: 0, grandCostActual: 0, actualPeriods: []
+        };
+
+        // Merge forecast + actual periods into one sorted set
+        const allPeriodsSet = new Set(forecastPeriods);
+        (actualPeriods || []).forEach((p) => allPeriodsSet.add(p));
+        const periods = Array.from(allPeriodsSet).sort();
 
         // Current month for column highlighting
         const curMonth = (() => {
@@ -710,8 +873,74 @@ function switchView(val) {
         });
         costTotalRow += '<td>' + cell(grandCost) + '</td></tr>';
 
-        // Net Cash Flow row
-        let netRow = '<tr class="net-row"><td>NET CASH FLOW</td>';
+        // ── Revenue Actual section
+        const hasRevActuals = revActualGroups && Object.keys(revActualGroups).length > 0;
+        let revActualHeader = '';
+        let revActualRows = '';
+        let revActualTotalRow = '';
+
+        if (hasRevActuals) {
+            revActualHeader = '<tr class="actual-sec-hdr"><td>REVENUE ACTUAL <span class="actual-badge">ACTUAL</span></td>';
+            periods.forEach(() => { revActualHeader += '<td></td>'; });
+            revActualHeader += '<td></td></tr>';
+
+            const revActGroupNames = Object.keys(revActualGroups).sort();
+            revActGroupNames.forEach((name) => {
+                const grp = revActualGroups[name];
+                revActualRows += '<tr class="actual-detail"><td>' + esc(name) + '</td>';
+                periods.forEach((p) => {
+                    const val = grp[p] || 0;
+                    const forecastVal = revTotals[p] || 0;
+                    let cls = p === curMonth ? 'cur-month-cell' : '';
+                    if (val > 0 && forecastVal > 0 && val > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
+                    revActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + cell(val) + '</td>';
+                });
+                revActualRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
+            });
+
+            revActualTotalRow = '<tr class="rev-actual-total"><td>Actual Total</td>';
+            periods.forEach((p) => {
+                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
+                revActualTotalRow += '<td' + cls + '>' + cell(revActualTotals[p]) + '</td>';
+            });
+            revActualTotalRow += '<td>' + cell(grandRevActual) + '</td></tr>';
+        }
+
+        // ── Cost Actual section
+        const hasCostActuals = costActualGroups && Object.keys(costActualGroups).length > 0;
+        let costActualHeader = '';
+        let costActualRows = '';
+        let costActualTotalRow = '';
+
+        if (hasCostActuals) {
+            costActualHeader = '<tr class="actual-sec-hdr"><td>COST ACTUAL <span class="actual-badge">ACTUAL</span></td>';
+            periods.forEach(() => { costActualHeader += '<td></td>'; });
+            costActualHeader += '<td></td></tr>';
+
+            const costActGroupNames = Object.keys(costActualGroups).sort();
+            costActGroupNames.forEach((name) => {
+                const grp = costActualGroups[name];
+                costActualRows += '<tr class="actual-detail"><td>' + esc(name) + '</td>';
+                periods.forEach((p) => {
+                    const val = grp[p] || 0;
+                    const forecastVal = costTotals[p] || 0;
+                    let cls = p === curMonth ? 'cur-month-cell' : '';
+                    if (val > 0 && forecastVal > 0 && val > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
+                    costActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + cell(val) + '</td>';
+                });
+                costActualRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
+            });
+
+            costActualTotalRow = '<tr class="cost-actual-total"><td>Actual Total</td>';
+            periods.forEach((p) => {
+                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
+                costActualTotalRow += '<td' + cls + '>' + cell(costActualTotals[p]) + '</td>';
+            });
+            costActualTotalRow += '<td>' + cell(grandCostActual) + '</td></tr>';
+        }
+
+        // Net Forecast row
+        let netRow = '<tr class="net-row"><td>NET FORECAST</td>';
         periods.forEach((p) => {
             const v = netTotals[p] || 0;
             const cls = v >= 0 ? 'positive' : 'negative';
@@ -720,6 +949,21 @@ function switchView(val) {
         const netCls = grandNet >= 0 ? 'positive' : 'negative';
         netRow += '<td class="' + netCls + '">' + fmtDollar(grandNet) + '</td></tr>';
 
+        // Net Actual row
+        const hasAnyActuals = hasRevActuals || hasCostActuals;
+        let netActualRow = '';
+        if (hasAnyActuals) {
+            const grandNetActual = grandRevActual - grandCostActual;
+            netActualRow = '<tr class="net-actual-row"><td>NET ACTUAL</td>';
+            periods.forEach((p) => {
+                const v = (revActualTotals[p] || 0) - (costActualTotals[p] || 0);
+                const cls = v >= 0 ? 'positive' : 'negative';
+                netActualRow += '<td class="' + cls + '">' + fmtDollar(v) + '</td>';
+            });
+            const netActCls = grandNetActual >= 0 ? 'positive' : 'negative';
+            netActualRow += '<td class="' + netActCls + '">' + fmtDollar(grandNetActual) + '</td></tr>';
+        }
+
         return `<div class="tbl-wrap">
             <table>
                 <thead><tr>${headerCells}</tr></thead>
@@ -727,12 +971,21 @@ function switchView(val) {
                     ${revHeader}
                     ${revRows}
                     ${revTotalRow}
+                    ${hasRevActuals ? sep : ''}
+                    ${revActualHeader}
+                    ${revActualRows}
+                    ${revActualTotalRow}
                     ${sep}
                     ${costHeader}
                     ${costRows}
                     ${costTotalRow}
+                    ${hasCostActuals ? sep : ''}
+                    ${costActualHeader}
+                    ${costActualRows}
+                    ${costActualTotalRow}
                     ${sep}
                     ${netRow}
+                    ${netActualRow}
                 </tbody>
             </table>
         </div>`;
@@ -888,11 +1141,14 @@ function switchView(val) {
             // Transform
             const data = transformData(rows);
 
+            // Fetch actuals (wrapped in try/catch inside fetchActuals)
+            const actuals = fetchActuals(projectId);
+
             // Build full report
             const bodyContent = [
-                buildKPICards(data),
+                buildKPICards(data, actuals),
                 buildBarChart(data.periods, data.netTotals, data),
-                buildTable(data),
+                buildTable(data, actuals),
                 buildExportButtons(data, projectName)
             ].join('\n');
 

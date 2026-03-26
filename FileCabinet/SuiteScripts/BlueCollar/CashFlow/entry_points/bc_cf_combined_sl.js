@@ -168,7 +168,7 @@ define([
             'Revenue Actual' AS flow_direction,
             'Invoiced' AS cost_group,
             TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-            SUM(tl.foreignamount) AS amount
+            SUM(-tl.foreignamount) AS amount
         FROM transaction t
         JOIN transactionline tl ON tl.transaction = t.id
         WHERE t.type = 'CustInvc'
@@ -183,13 +183,17 @@ define([
             'Revenue Actual' AS flow_direction,
             'Collected' AS cost_group,
             TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-            SUM(pmtline.foreignamount) AS amount
+            SUM(-pmt.foreigntotal) AS amount
         FROM transaction pmt
-        JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
-        JOIN transaction inv ON inv.id = pmtline.createdfrom AND inv.type = 'CustInvc'
-        JOIN transactionline invline ON invline.transaction = inv.id AND invline.mainline = 'F' AND invline.taxline = 'F'
         WHERE pmt.type = 'CustPymt'
-          AND invline.cseg_bc_project = ?
+          AND EXISTS (
+            SELECT 1 FROM transactionline pmtl
+            JOIN transactionline invl ON invl.transaction = pmtl.createdfrom
+            WHERE pmtl.transaction = pmt.id
+              AND pmtl.mainline = 'F'
+              AND invl.cseg_bc_project = ?
+              AND invl.mainline = 'F'
+          )
         GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
 
         UNION ALL
@@ -213,13 +217,17 @@ define([
             'Cost Actual' AS flow_direction,
             'Paid' AS cost_group,
             TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-            SUM(pmtline.foreignamount) AS amount
+            SUM(pmt.foreigntotal) AS amount
         FROM transaction pmt
-        JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
-        JOIN transaction bill ON bill.id = pmtline.createdfrom AND bill.type = 'VendBill'
-        JOIN transactionline billline ON billline.transaction = bill.id AND billline.mainline = 'F' AND billline.taxline = 'F'
         WHERE pmt.type = 'VendPmt'
-          AND billline.cseg_bc_project = ?
+          AND EXISTS (
+            SELECT 1 FROM transactionline pmtl
+            JOIN transactionline billl ON billl.transaction = pmtl.createdfrom
+            WHERE pmtl.transaction = pmt.id
+              AND pmtl.mainline = 'F'
+              AND billl.cseg_bc_project = ?
+              AND billl.mainline = 'F'
+          )
         GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
     `;
 
@@ -546,7 +554,7 @@ define([
     /* Actual section rows */
     tr.actual-sec-hdr td { font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; color: ${BRAND.NAVY}; background: #EEF2F7; border-bottom: 2px solid #CBD5E1; }
     tr.actual-sec-hdr td .actual-badge { display: inline-block; background: #64748B; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; letter-spacing: 0.3px; }
-    tr.actual-detail td { color: #64748B; font-style: italic; }
+    tr.actual-detail td { color: #64748B; font-style: italic; background: #FAFBFC; }
     tr.actual-detail td:first-child { padding-left: 24px; }
     tr.actual-detail:nth-child(even) td { background: #F8FAFC; }
     tr.rev-actual-total td { font-weight: 700; background: rgba(255,183,3,0.06); color: #64748B; border-top: 2px solid #CBD5E1; font-style: italic; }
@@ -745,7 +753,20 @@ function switchView(val) {
 
     const buildKPICards = (data, actuals) => {
         const { grandRevenue, grandCost, grandNet } = data;
-        const { grandRevActual, grandCostActual } = actuals || { grandRevActual: 0, grandCostActual: 0 };
+        const { revActualGroups, costActualGroups } = actuals || { revActualGroups: {}, costActualGroups: {} };
+
+        // "Received to Date" = sum of Collected actuals (customer payments)
+        let receivedToDate = 0;
+        if (revActualGroups && revActualGroups['Collected']) {
+            receivedToDate = Object.values(revActualGroups['Collected']).reduce((s, v) => s + Math.abs(v), 0);
+        }
+
+        // "Paid to Date" = sum of Paid actuals (vendor payments)
+        let paidToDate = 0;
+        if (costActualGroups && costActualGroups['Paid']) {
+            paidToDate = Object.values(costActualGroups['Paid']).reduce((s, v) => s + Math.abs(v), 0);
+        }
+
         const isPositive = grandNet >= 0;
         const statusLabel = isPositive ? 'Cash Positive' : 'Cash Negative';
         const statusColor = isPositive ? BRAND.GREEN : BRAND.RED;
@@ -770,13 +791,13 @@ function switchView(val) {
                     <span class="status-text" style="color:${statusColor}">${statusLabel}</span>
                 </div>
             </div>
-            ${grandRevActual ? `<div class="kpi-card" style="border-left:4px solid #10B981;">
-                <div class="kpi-label">Actual Revenue</div>
-                <div class="kpi-value" style="color:#10B981;">${fmtDollar(grandRevActual)}</div>
+            ${receivedToDate ? `<div class="kpi-card" style="border-left:4px solid #10B981;">
+                <div class="kpi-label">Received to Date</div>
+                <div class="kpi-value" style="color:#10B981;">${fmtDollar(receivedToDate)}</div>
             </div>` : ''}
-            ${grandCostActual ? `<div class="kpi-card" style="border-left:4px solid #EF4444;">
-                <div class="kpi-label">Actual Cost</div>
-                <div class="kpi-value" style="color:#EF4444;">${fmtDollar(grandCostActual)}</div>
+            ${paidToDate ? `<div class="kpi-card" style="border-left:4px solid #EF4444;">
+                <div class="kpi-label">Paid to Date</div>
+                <div class="kpi-value" style="color:#EF4444;">${fmtDollar(paidToDate)}</div>
             </div>` : ''}
         </div>`;
     };
@@ -808,6 +829,9 @@ function switchView(val) {
 
         // Helper: build a dollar cell value
         const cell = (val) => fmtDollar(val || 0);
+
+        // Helper: build a dollar cell for actual rows (always positive display)
+        const actualCell = (val) => fmtDollar(Math.abs(val || 0));
 
         // Helper: sum a group's values across all periods
         const groupTotal = (grpMap) => {
@@ -909,18 +933,18 @@ function switchView(val) {
                     const val = grp[p] || 0;
                     const forecastVal = revTotals[p] || 0;
                     let cls = p === curMonth ? 'cur-month-cell' : '';
-                    if (val > 0 && forecastVal > 0 && val > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
-                    revActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + cell(val) + '</td>';
+                    if (Math.abs(val) > 0 && forecastVal > 0 && Math.abs(val) > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
+                    revActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + actualCell(val) + '</td>';
                 });
-                revActualRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
+                revActualRows += '<td>' + actualCell(groupTotal(grp)) + '</td></tr>';
             });
 
             revActualTotalRow = '<tr class="rev-actual-total"><td>Actual Total</td>';
             periods.forEach((p) => {
                 const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-                revActualTotalRow += '<td' + cls + '>' + cell(revActualTotals[p]) + '</td>';
+                revActualTotalRow += '<td' + cls + '>' + actualCell(revActualTotals[p]) + '</td>';
             });
-            revActualTotalRow += '<td>' + cell(grandRevActual) + '</td></tr>';
+            revActualTotalRow += '<td>' + actualCell(grandRevActual) + '</td></tr>';
         }
 
         // ── Cost Actual section
@@ -942,18 +966,18 @@ function switchView(val) {
                     const val = grp[p] || 0;
                     const forecastVal = costTotals[p] || 0;
                     let cls = p === curMonth ? 'cur-month-cell' : '';
-                    if (val > 0 && forecastVal > 0 && val > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
-                    costActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + cell(val) + '</td>';
+                    if (Math.abs(val) > 0 && forecastVal > 0 && Math.abs(val) > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
+                    costActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + actualCell(val) + '</td>';
                 });
-                costActualRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
+                costActualRows += '<td>' + actualCell(groupTotal(grp)) + '</td></tr>';
             });
 
             costActualTotalRow = '<tr class="cost-actual-total"><td>Actual Total</td>';
             periods.forEach((p) => {
                 const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-                costActualTotalRow += '<td' + cls + '>' + cell(costActualTotals[p]) + '</td>';
+                costActualTotalRow += '<td' + cls + '>' + actualCell(costActualTotals[p]) + '</td>';
             });
-            costActualTotalRow += '<td>' + cell(grandCostActual) + '</td></tr>';
+            costActualTotalRow += '<td>' + actualCell(grandCostActual) + '</td></tr>';
         }
 
         // Net Forecast row

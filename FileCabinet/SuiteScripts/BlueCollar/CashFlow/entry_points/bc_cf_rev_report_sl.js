@@ -32,6 +32,14 @@ define([
         return sign + '$' + abs.toLocaleString('en-US');
     };
 
+    /** Format for actual rows — always positive display */
+    const fmtActual = (n) => {
+        if (n == null || isNaN(n)) return '\u2014';
+        const abs = Math.abs(Math.round(n));
+        if (abs === 0) return '\u2014';
+        return '$' + abs.toLocaleString('en-US');
+    };
+
     /**
      * Escape HTML entities.
      */
@@ -102,7 +110,7 @@ define([
                 SELECT
                     'Invoiced' AS cost_group,
                     TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-                    SUM(tl.foreignamount) AS amount
+                    SUM(-tl.foreignamount) AS amount
                 FROM transaction t
                 JOIN transactionline tl ON tl.transaction = t.id
                 WHERE t.type = 'CustInvc'
@@ -116,13 +124,17 @@ define([
                 SELECT
                     'Collected' AS cost_group,
                     TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-                    SUM(pmtline.foreignamount) AS amount
+                    SUM(-pmt.foreigntotal) AS amount
                 FROM transaction pmt
-                JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
-                JOIN transaction inv ON inv.id = pmtline.createdfrom AND inv.type = 'CustInvc'
-                JOIN transactionline invline ON invline.transaction = inv.id AND invline.mainline = 'F' AND invline.taxline = 'F'
                 WHERE pmt.type = 'CustPymt'
-                  AND invline.cseg_bc_project = ?
+                  AND EXISTS (
+                    SELECT 1 FROM transactionline pmtl
+                    JOIN transactionline invl ON invl.transaction = pmtl.createdfrom
+                    WHERE pmtl.transaction = pmt.id
+                      AND pmtl.mainline = 'F'
+                      AND invl.cseg_bc_project = ?
+                      AND invl.mainline = 'F'
+                  )
                 GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
             `;
             const results = query.runSuiteQL({
@@ -349,7 +361,11 @@ define([
 
         // KPI calculations
         const totalForecast = grandTotal;
-        const receivedToDate = hasActuals ? actualGrandTotal : 0;
+        // "Received to Date" = sum of Collected actuals (customer payments), not all actuals
+        let receivedToDate = 0;
+        if (actualGroups['Collected']) {
+            receivedToDate = Object.values(actualGroups['Collected']).reduce((s, v) => s + Math.abs(v), 0);
+        }
         const expectedThisMonth = totals[curMonth] || 0;
         const overdue = 0;           // Placeholder for POC
 
@@ -409,10 +425,10 @@ define([
                     const val = actualGroups[g] ? actualGroups[g][p] : null;
                     const forecastVal = totals[p] || 0;
                     let cls = p === curMonth ? 'cur-month num' : 'num';
-                    if (val && forecastVal > 0 && val > forecastVal) cls += ' actual-over-forecast';
-                    actualSectionHtml += `<td class="${cls}">${val ? fmt(val) : '\u2014'}</td>`;
+                    if (val && Math.abs(val) > 0 && forecastVal > 0 && Math.abs(val) > forecastVal) cls += ' actual-over-forecast';
+                    actualSectionHtml += `<td class="${cls}">${val ? fmtActual(val) : '\u2014'}</td>`;
                 });
-                actualSectionHtml += `<td class="row-total num">${fmt(actualGroupTotals[g])}</td>`;
+                actualSectionHtml += `<td class="row-total num">${fmtActual(actualGroupTotals[g])}</td>`;
                 actualSectionHtml += '</tr>';
             });
 
@@ -420,9 +436,9 @@ define([
             actualSectionHtml += '<tr class="actual-total-row"><td class="row-label">Actual Total</td>';
             periods.forEach((p) => {
                 const cls = p === curMonth ? ' class="cur-month num"' : ' class="num"';
-                actualSectionHtml += `<td${cls}>${fmt(actualTotals[p])}</td>`;
+                actualSectionHtml += `<td${cls}>${fmtActual(actualTotals[p])}</td>`;
             });
-            actualSectionHtml += `<td class="row-total num">${fmt(actualGrandTotal)}</td></tr>`;
+            actualSectionHtml += `<td class="row-total num">${fmtActual(actualGrandTotal)}</td></tr>`;
         }
 
         // ── CSV data (for export)
@@ -617,6 +633,7 @@ define([
     .actual-detail td {
         color: #64748B;
         font-style: italic;
+        background: #FAFBFC;
     }
     .actual-detail td.row-label {
         padding-left: 24px;

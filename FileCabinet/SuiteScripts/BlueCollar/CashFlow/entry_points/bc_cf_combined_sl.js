@@ -92,11 +92,19 @@ define([
             'Revenue' AS flow_direction,
             CASE
                 WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
-                    THEN 'CO: ' || NVL(cr.name, 'Change Order')
+                    THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
                 ELSE 'Base Bid'
             END AS cost_group,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') AS period,
-            SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount
+            SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount,
+            CASE
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN MIN(rtl.custrecord_bc_rtl_change_order)
+                ELSE MIN(rtl.custrecord_bc_rtl_transaction)
+            END AS source_id,
+            CASE
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN 'cr'
+                ELSE 'so'
+            END AS source_type
         FROM customrecord_bc_revenue_timing_line rtl
         LEFT JOIN customrecord_bc_change_req cr
             ON cr.id = rtl.custrecord_bc_rtl_change_order
@@ -104,7 +112,7 @@ define([
           AND rtl.custrecord_bc_rtl_timing_type = ?
         GROUP BY
             CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
-                 THEN 'CO: ' || NVL(cr.name, 'Change Order')
+                 THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
                  ELSE 'Base Bid' END,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
 
@@ -114,13 +122,21 @@ define([
             'Cost' AS flow_direction,
             CASE
                 WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
-                    THEN 'CO: ' || NVL(cr2.name, 'Change Order')
+                    THEN 'CO: ' || NVL(cr2.custrecord_bc_change_order_number, 'Change Order')
                 WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
                     THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
                 ELSE 'Other Cost'
             END AS cost_group,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') AS period,
-            SUM(NVL(ctl.custrecord_bc_ctl_amount, 0)) AS amount
+            SUM(NVL(ctl.custrecord_bc_ctl_amount, 0)) AS amount,
+            CASE
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN MIN(ctl.custrecord_bc_ctl_change_order)
+                ELSE MIN(ctl.custrecord_bc_ctl_transaction)
+            END AS source_id,
+            CASE
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN 'cr'
+                ELSE 'po'
+            END AS source_type
         FROM customrecord_bc_cost_timing_line ctl
         LEFT JOIN transaction t
             ON t.id = ctl.custrecord_bc_ctl_transaction
@@ -132,7 +148,7 @@ define([
           AND ctl.custrecord_bc_ctl_timing_type = ?
         GROUP BY
             CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
-                 THEN 'CO: ' || NVL(cr2.name, 'Change Order')
+                 THEN 'CO: ' || NVL(cr2.custrecord_bc_change_order_number, 'Change Order')
                  WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
                  THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
                  ELSE 'Other Cost' END,
@@ -191,6 +207,7 @@ define([
         const periodsSet = new Set();
         const revenueGroups = {};
         const costGroups = {};
+        const groupSourceMap = {};  // groupName → { source_id, source_type }
 
         rows.forEach((r) => {
             const dir = r.flow_direction;
@@ -203,6 +220,11 @@ define([
             const bucket = dir === 'Revenue' ? revenueGroups : costGroups;
             if (!bucket[grp]) bucket[grp] = {};
             bucket[grp][per] = (bucket[grp][per] || 0) + amt;
+
+            // Capture source link info (first occurrence wins)
+            if (!groupSourceMap[grp] && r.source_id) {
+                groupSourceMap[grp] = { source_id: r.source_id, source_type: r.source_type };
+            }
         });
 
         const periods = Array.from(periodsSet).sort();
@@ -251,7 +273,8 @@ define([
             netTotals,
             grandRevenue,
             grandCost,
-            grandNet: grandRevenue - grandCost
+            grandNet: grandRevenue - grandCost,
+            groupSourceMap
         };
     };
 
@@ -404,6 +427,10 @@ define([
     /* Separator */
     tr.sep td { padding: 0; height: 4px; border: none; background: ${BRAND.WHITE}; }
 
+    /* Current month highlight */
+    th.cur-month-hdr { background: ${BRAND.GOLD}; color: ${BRAND.NAVY}; font-weight: 700; }
+    td.cur-month-cell { border-left: 2px solid rgba(255,183,3,0.45); background: #FFF8E1; }
+
     /* Action bar */
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .btn {
@@ -466,51 +493,56 @@ function switchView(val) {
         const vals = periods.map((p) => netTotals[p] || 0);
         const maxAbs = Math.max(...vals.map(Math.abs), 1);
 
-        const barWidth = 40;
-        const gap = 12;
-        const chartWidth = periods.length * (barWidth + gap) + gap;
-        const halfHeight = 100;
-        const chartHeight = halfHeight * 2 + 60; // room for labels above + below
-        const baseline = halfHeight + 20; // y-coordinate of $0 line
+        // Use a viewBox-based approach so the SVG fills 100% width
+        const n = periods.length;
+        const vbWidth = 1000;            // viewBox width — bars scale to fill
+        const padding = 30;              // left/right padding inside viewBox
+        const usable = vbWidth - padding * 2;
+        const slotWidth = usable / n;
+        const barWidth = Math.min(slotWidth * 0.6, 60);  // wider bars, capped at 60
+        const halfHeight = 110;
+        const chartHeight = halfHeight * 2 + 70;
+        const baseline = halfHeight + 24;
 
         let bars = '';
 
         periods.forEach((p, i) => {
             const val = netTotals[p] || 0;
-            const barH = Math.max(Math.round((Math.abs(val) / maxAbs) * halfHeight), 2);
-            const x = gap + i * (barWidth + gap);
+            const barH = Math.max(Math.round((Math.abs(val) / maxAbs) * halfHeight), 3);
+            const cx = padding + slotWidth * i + slotWidth / 2;  // center of slot
+            const x = cx - barWidth / 2;
             const isPos = val >= 0;
             const color = isPos ? BRAND.GOLD : BRAND.RED;
 
             // Bar rect
             const barY = isPos ? baseline - barH : baseline;
-            bars += `<rect x="${x}" y="${barY}" width="${barWidth}" height="${barH}" rx="3" fill="${color}" opacity="0.9"/>`;
+            bars += `<rect x="${x}" y="${barY}" width="${barWidth}" height="${barH}" rx="4" fill="${color}" opacity="0.92"/>`;
 
             // Value label
-            const labelY = isPos ? barY - 6 : barY + barH + 14;
+            const labelY = isPos ? barY - 7 : barY + barH + 15;
             const labelColor = isPos ? BRAND.NAVY : BRAND.RED;
-            bars += `<text x="${x + barWidth / 2}" y="${labelY}" text-anchor="middle" `
-                  + `fill="${labelColor}" font-size="10" font-weight="600" font-family="${BRAND.FONT_FAMILY}">`
+            bars += `<text x="${cx}" y="${labelY}" text-anchor="middle" `
+                  + `fill="${labelColor}" font-size="11" font-weight="600" font-family="${BRAND.FONT_FAMILY}">`
                   + `${fmtCompact(val)}</text>`;
 
-            // Month label
-            bars += `<text x="${x + barWidth / 2}" y="${baseline + halfHeight + 16}" text-anchor="middle" `
-                  + `fill="${BRAND.GREY_DARK}" font-size="10" font-family="${BRAND.FONT_FAMILY}">`
+            // Month label — centered under each bar
+            bars += `<text x="${cx}" y="${baseline + halfHeight + 18}" text-anchor="middle" `
+                  + `fill="${BRAND.GREY_DARK}" font-size="11" font-family="${BRAND.FONT_FAMILY}">`
                   + `${monthAbbrev(p)}</text>`;
         });
 
-        // Zero line
-        const zeroline = `<line x1="0" y1="${baseline}" x2="${chartWidth}" y2="${baseline}" `
-                        + `stroke="${BRAND.GREY_MID}" stroke-width="1" stroke-dasharray="4,3"/>`;
+        // $0 baseline — thin dashed line spanning full width
+        const zeroline = `<line x1="0" y1="${baseline}" x2="${vbWidth}" y2="${baseline}" `
+                        + `stroke="${BRAND.GREY_MID}" stroke-width="1" stroke-dasharray="5,4"/>`;
 
-        // Zero label
-        const zeroLabel = `<text x="${chartWidth + 6}" y="${baseline + 4}" fill="${BRAND.GREY_DARK}" `
+        // $0 label at right edge
+        const zeroLabel = `<text x="${vbWidth - 4}" y="${baseline - 5}" text-anchor="end" fill="${BRAND.GREY_DARK}" `
                         + `font-size="10" font-family="${BRAND.FONT_FAMILY}">$0</text>`;
 
         return `<div class="chart-wrap">
             <h3>Net Cash Flow by Month</h3>
-            <div style="overflow-x:auto;">
-                <svg width="${chartWidth + 30}" height="${chartHeight}" viewBox="0 0 ${chartWidth + 30} ${chartHeight}" xmlns="http://www.w3.org/2000/svg">
+            <div>
+                <svg width="100%" height="${chartHeight}" viewBox="0 0 ${vbWidth} ${chartHeight}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
                     ${zeroline}
                     ${zeroLabel}
                     ${bars}
@@ -558,7 +590,14 @@ function switchView(val) {
 
     const buildTable = (data) => {
         const { periods, revenueGroups, costGroups, revTotals, costTotals, netTotals,
-                grandRevenue, grandCost, grandNet } = data;
+                grandRevenue, grandCost, grandNet, groupSourceMap } = data;
+
+        // Current month for column highlighting
+        const curMonth = (() => {
+            const d = new Date();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            return `${d.getFullYear()}-${mm}`;
+        })();
 
         // Helper: build a dollar cell value
         const cell = (val) => fmtDollar(val || 0);
@@ -570,9 +609,23 @@ function switchView(val) {
             return total;
         };
 
-        // Header row
+        // Helper: build drillable link for a group name
+        const drillLink = (name) => {
+            const src = groupSourceMap[name];
+            if (!src || !src.source_id) return esc(name);
+            const linkUrl = src.source_type === 'cr'
+                ? '/app/common/custom/custrecordentry.nl?rectype=495&id=' + src.source_id
+                : '/app/accounting/transactions/transaction.nl?id=' + src.source_id;
+            return '<a href="' + linkUrl + '" target="_top" style="color:' + BRAND.NAVY + ';text-decoration:none;border-bottom:1px dashed #D1D5DB;">' + esc(name) + '</a>';
+        };
+
+        // Header row — highlight current month
         let headerCells = '<th>Category</th>';
-        periods.forEach((p) => { headerCells += `<th>${periodLabel(p)}</th>`; });
+        periods.forEach((p) => {
+            const isCur = p === curMonth;
+            const cls = isCur ? ' class="cur-month-hdr"' : '';
+            headerCells += `<th${cls}>${periodLabel(p)}</th>`;
+        });
         headerCells += '<th>Total</th>';
 
         // Revenue section header
@@ -585,14 +638,20 @@ function switchView(val) {
         const revGroupNames = Object.keys(revenueGroups);
         revGroupNames.forEach((name) => {
             const grp = revenueGroups[name];
-            revRows += '<tr class="detail"><td>' + esc(name) + '</td>';
-            periods.forEach((p) => { revRows += '<td>' + cell(grp[p]) + '</td>'; });
+            revRows += '<tr class="detail"><td>' + drillLink(name) + '</td>';
+            periods.forEach((p) => {
+                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
+                revRows += '<td' + cls + '>' + cell(grp[p]) + '</td>';
+            });
             revRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
         });
 
         // Revenue total row
         let revTotalRow = '<tr class="rev-total"><td>Revenue Total</td>';
-        periods.forEach((p) => { revTotalRow += '<td>' + cell(revTotals[p]) + '</td>'; });
+        periods.forEach((p) => {
+            const cls = p === curMonth ? ' class="cur-month-cell"' : '';
+            revTotalRow += '<td' + cls + '>' + cell(revTotals[p]) + '</td>';
+        });
         revTotalRow += '<td>' + cell(grandRevenue) + '</td></tr>';
 
         // Separator
@@ -608,14 +667,20 @@ function switchView(val) {
         const costGroupNames = Object.keys(costGroups);
         costGroupNames.forEach((name) => {
             const grp = costGroups[name];
-            costRows += '<tr class="detail"><td>' + esc(name) + '</td>';
-            periods.forEach((p) => { costRows += '<td>' + cell(grp[p]) + '</td>'; });
+            costRows += '<tr class="detail"><td>' + drillLink(name) + '</td>';
+            periods.forEach((p) => {
+                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
+                costRows += '<td' + cls + '>' + cell(grp[p]) + '</td>';
+            });
             costRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
         });
 
         // Cost total row
         let costTotalRow = '<tr class="cost-total"><td>Cost Total</td>';
-        periods.forEach((p) => { costTotalRow += '<td>' + cell(costTotals[p]) + '</td>'; });
+        periods.forEach((p) => {
+            const cls = p === curMonth ? ' class="cur-month-cell"' : '';
+            costTotalRow += '<td' + cls + '>' + cell(costTotals[p]) + '</td>';
+        });
         costTotalRow += '<td>' + cell(grandCost) + '</td></tr>';
 
         // Net Cash Flow row

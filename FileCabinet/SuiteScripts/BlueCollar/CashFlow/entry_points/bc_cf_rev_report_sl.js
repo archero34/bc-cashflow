@@ -53,17 +53,25 @@ define([
             SELECT
                 CASE
                     WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
-                        THEN 'CO: ' || NVL(cr.name, 'Change Order')
+                        THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
                     ELSE 'Base Bid'
                 END AS cost_group,
                 TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') AS period,
-                SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount
+                SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount,
+                CASE
+                    WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN MIN(rtl.custrecord_bc_rtl_change_order)
+                    ELSE MIN(rtl.custrecord_bc_rtl_transaction)
+                END AS source_id,
+                CASE
+                    WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN 'cr'
+                    ELSE 'so'
+                END AS source_type
             FROM customrecord_bc_revenue_timing_line rtl
             LEFT JOIN customrecord_bc_change_req cr ON cr.id = rtl.custrecord_bc_rtl_change_order
             WHERE rtl.custrecord_bc_rtl_project = ?
               AND rtl.custrecord_bc_rtl_timing_type = ?
             GROUP BY
-                CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO: ' || NVL(cr.name, 'Change Order') ELSE 'Base Bid' END,
+                CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order') ELSE 'Base Bid' END,
                 TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
             ORDER BY cost_group, period
         `;
@@ -90,6 +98,7 @@ define([
     const pivot = (rows, periods) => {
         const groups = {};      // groupName → { period → amount }
         const totals = {};      // period → total
+        const groupSourceMap = {};  // groupName → { source_id, source_type }
         let grandTotal = 0;
 
         periods.forEach((p) => { totals[p] = 0; });
@@ -100,6 +109,11 @@ define([
             groups[g][r.period] = (groups[g][r.period] || 0) + Number(r.amount);
             totals[r.period] = (totals[r.period] || 0) + Number(r.amount);
             grandTotal += Number(r.amount);
+
+            // Capture source link info (first occurrence wins)
+            if (!groupSourceMap[g] && r.source_id) {
+                groupSourceMap[g] = { source_id: r.source_id, source_type: r.source_type };
+            }
         });
 
         // Group row totals
@@ -108,7 +122,7 @@ define([
             groupTotals[g] = Object.values(groups[g]).reduce((s, v) => s + v, 0);
         });
 
-        return { groups, totals, grandTotal, groupTotals };
+        return { groups, totals, grandTotal, groupTotals, groupSourceMap };
     };
 
     // ─── Current Month Helper ───────────────────────────────────────────────────
@@ -122,7 +136,7 @@ define([
     // ─── HTML Render ────────────────────────────────────────────────────────────
 
     const renderPage = (projectId, timingTypeId, data, periods) => {
-        const { groups, totals, grandTotal, groupTotals } = pivot(data.rows, periods);
+        const { groups, totals, grandTotal, groupTotals, groupSourceMap } = pivot(data.rows, periods);
         const groupNames = Object.keys(groups).sort((a, b) => {
             // "Base Bid" always first
             if (a === 'Base Bid') return -1;
@@ -149,11 +163,21 @@ define([
         });
         thCells += '<th class="row-total">Total</th>';
 
+        // ── Helper: build drillable link for a group name
+        const drillLink = (name) => {
+            const src = groupSourceMap[name];
+            if (!src || !src.source_id) return esc(name);
+            const linkUrl = src.source_type === 'cr'
+                ? '/app/common/custom/custrecordentry.nl?rectype=495&id=' + src.source_id
+                : '/app/accounting/transactions/transaction.nl?id=' + src.source_id;
+            return `<a href="${linkUrl}" target="_top" style="color:${BRAND.NAVY};text-decoration:none;border-bottom:1px dashed #D1D5DB;">${esc(name)}</a>`;
+        };
+
         // ── Build data rows
         let bodyRows = '';
         groupNames.forEach((g) => {
             bodyRows += '<tr>';
-            bodyRows += `<td class="row-label">${esc(g)}</td>`;
+            bodyRows += `<td class="row-label">${drillLink(g)}</td>`;
             periods.forEach((p) => {
                 const val = groups[g][p];
                 const cls = p === curMonth ? ' class="cur-month num"' : ' class="num"';

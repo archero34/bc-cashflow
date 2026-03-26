@@ -1707,7 +1707,8 @@ if (document.readyState !== 'loading') {
             var pctVal = lines[k].percentage || 0;
             var newAmt;
 
-            if (isLast && totalPctInput > 0) {
+            if (isLast && totalPctInput >= 99.5 && totalPctInput <= 100.5) {
+                // Only absorb rounding when percentages are ~100% (normal case)
                 newAmt = round2(sourceAmount - allocated);
             } else {
                 newAmt = round2((pctVal / 100) * sourceAmount);

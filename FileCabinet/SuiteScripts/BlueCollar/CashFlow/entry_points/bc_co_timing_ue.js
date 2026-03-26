@@ -131,13 +131,13 @@ define([
 
             // ── Get project from the Change Request record ─────────────────
             // BlueCollar Change Requests use the custom segment cseg_bc_project
-            let projectId   = context.newRecord.getValue('cseg_bc_project');
-            let projectName = context.newRecord.getText('cseg_bc_project');
+            let projectId   = context.newRecord.getValue('custrecord_bc_blue_collar_proj');
+            let projectName = context.newRecord.getText('custrecord_bc_blue_collar_proj');
 
-            // Fallback: try custrecord_bc_cr_project if segment not present
+            // Fallback: try custom segment if direct field not present
             if (!projectId) {
-                projectId   = context.newRecord.getValue('custrecord_bc_cr_project');
-                projectName = context.newRecord.getText('custrecord_bc_cr_project');
+                projectId   = context.newRecord.getValue('cseg_bc_project');
+                projectName = context.newRecord.getText('cseg_bc_project');
             }
 
             if (!projectId) {

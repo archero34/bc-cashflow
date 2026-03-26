@@ -369,7 +369,7 @@ define([
         try {
             // ── Header ──
             const headerSql = `
-                SELECT id, name, custrecord_bc_chg_request_status AS status
+                SELECT id, custrecord_bc_change_order_number AS name, custrecord_bc_request_status AS status
                 FROM ${RECORDS.CHANGE_REQ}
                 WHERE id = ?
             `;

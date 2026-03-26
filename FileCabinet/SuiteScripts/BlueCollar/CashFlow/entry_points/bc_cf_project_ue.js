@@ -1,163 +1,82 @@
 /**
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
- * @description Populates the pre-existing INLINEHTML field on the BlueCollar Project record
- *              with nested child tabs (Cost | Revenue | Combined).
- *              Each child tab loads a report Suitelet in an iframe.
+ * @description Populates three pre-existing INLINEHTML fields on the BlueCollar Project record,
+ *              each on its own subtab under the "Cash Flow" parent tab:
+ *                - custrecord_bc_cf_combined_html → Combined Cash Flow report iframe
+ *                - custrecord_bc_cf_cost_html     → Cost Cash Flow report iframe
+ *                - custrecord_bc_cf_revenue_html  → Revenue Cash Flow report iframe
+ *
+ *              Follows the BC pattern: fields and subtabs are pre-defined on the record;
+ *              this UE only injects the iframe HTML at load time.
  */
 define([
     'N/log',
-    'N/runtime',
     'N/url',
     '../modules/bc_timing_constants'
-], (log, runtime, url, Constants) => {
+], (log, url, Constants) => {
 
     const MODULE = 'bc_cf_project_ue';
     const { BRAND } = Constants;
 
     /**
      * Resolve a Suitelet URL for an iframe source.
-     * @param {string} scriptId
-     * @param {string} deploymentId
-     * @param {Object} params
-     * @returns {string}
      */
     const resolveSuiteletUrl = (scriptId, deploymentId, params = {}) => {
-        return url.resolveScript({
-            scriptId,
-            deploymentId,
-            returnExternalUrl: false,
-            params
-        });
+        return url.resolveScript({ scriptId, deploymentId, returnExternalUrl: false, params });
     };
 
     /**
-     * Build the HTML for the Cash Flow Forecast subtab.
-     * Contains tabbed interface: Cost | Revenue | Combined — each loading an iframe.
+     * Build iframe HTML for a single report Suitelet.
+     * Minimal wrapper — the Suitelet renders its own full HTML page.
      */
-    const buildCashFlowHtml = (projectId) => {
-        const costUrl = resolveSuiteletUrl(
-            'customscript_bc_cf_cost_report_sl',
-            'customdeploy_bc_cf_cost_report_sl',
-            { projectId, timingType: 1 }
-        );
-        const revenueUrl = resolveSuiteletUrl(
-            'customscript_bc_cf_rev_report_sl',
-            'customdeploy_bc_cf_rev_report_sl',
-            { projectId, timingType: 1 }
-        );
-        const combinedUrl = resolveSuiteletUrl(
-            'customscript_bc_cf_combined_sl',
-            'customdeploy_bc_cf_combined_sl',
-            { projectId, timingType: 1 }
-        );
-
+    const buildReportIframe = (suiteletUrl, title) => {
         return `
         <style>
-            .bc-cf-project-container {
-                font-family: ${BRAND.FONT_FAMILY};
+            .bc-cf-iframe-wrap {
+                width: 100%;
                 padding: 0;
                 margin: 0;
                 background: ${BRAND.WHITE};
             }
-            .bc-cf-tab-bar {
-                display: flex;
-                border-bottom: 2px solid ${BRAND.NAVY};
-                background: ${BRAND.GREY_LIGHT};
-                padding: 0 16px;
-            }
-            .bc-cf-tab-btn {
-                padding: 12px 24px;
-                font-size: 13px;
-                font-weight: 600;
-                color: ${BRAND.GREY_DARK};
-                background: transparent;
-                border: none;
-                border-bottom: 3px solid transparent;
-                cursor: pointer;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                transition: all 0.2s;
-                margin-bottom: -2px;
-            }
-            .bc-cf-tab-btn:hover {
-                color: ${BRAND.NAVY};
-                background: rgba(4, 35, 61, 0.05);
-            }
-            .bc-cf-tab-btn.active {
-                color: ${BRAND.NAVY};
-                border-bottom-color: ${BRAND.GOLD};
-                background: ${BRAND.WHITE};
-            }
-            .bc-cf-tab-content {
-                display: none;
+            .bc-cf-iframe-wrap iframe {
                 width: 100%;
-                min-height: 600px;
-            }
-            .bc-cf-tab-content.active {
-                display: block;
-            }
-            .bc-cf-tab-content iframe {
-                width: 100%;
-                min-height: 600px;
+                min-height: 700px;
                 border: none;
                 display: block;
             }
         </style>
-
-        <div class="bc-cf-project-container">
-            <div class="bc-cf-tab-bar">
-                <button class="bc-cf-tab-btn active" onclick="bcCfSwitchTab('combined')" id="bcCfTab_combined">Combined</button>
-                <button class="bc-cf-tab-btn" onclick="bcCfSwitchTab('cost')" id="bcCfTab_cost">Cost</button>
-                <button class="bc-cf-tab-btn" onclick="bcCfSwitchTab('revenue')" id="bcCfTab_revenue">Revenue</button>
-            </div>
-
-            <div class="bc-cf-tab-content active" id="bcCfPane_combined">
-                <iframe src="${combinedUrl}" id="bcCfFrame_combined" onload="bcCfResizeFrame(this)"></iframe>
-            </div>
-            <div class="bc-cf-tab-content" id="bcCfPane_cost">
-                <iframe data-src="${costUrl}" id="bcCfFrame_cost" onload="bcCfResizeFrame(this)"></iframe>
-            </div>
-            <div class="bc-cf-tab-content" id="bcCfPane_revenue">
-                <iframe data-src="${revenueUrl}" id="bcCfFrame_revenue" onload="bcCfResizeFrame(this)"></iframe>
-            </div>
+        <div class="bc-cf-iframe-wrap">
+            <iframe src="${suiteletUrl}"
+                    title="${title}"
+                    onload="(function(f){try{var d=f.contentDocument||f.contentWindow.document;f.style.height=Math.max(d.body.scrollHeight,d.documentElement.scrollHeight,700)+20+'px'}catch(e){f.style.height='800px'}})(this)">
+            </iframe>
         </div>
-
-        <script>
-            // Lazy-load iframes on tab click
-            function bcCfSwitchTab(tabId) {
-                // Deactivate all
-                document.querySelectorAll('.bc-cf-tab-btn').forEach(btn => btn.classList.remove('active'));
-                document.querySelectorAll('.bc-cf-tab-content').forEach(pane => pane.classList.remove('active'));
-
-                // Activate selected
-                document.getElementById('bcCfTab_' + tabId).classList.add('active');
-                document.getElementById('bcCfPane_' + tabId).classList.add('active');
-
-                // Lazy load iframe if not yet loaded
-                const frame = document.getElementById('bcCfFrame_' + tabId);
-                if (frame && frame.dataset.src && !frame.getAttribute('src')) {
-                    frame.src = frame.dataset.src;
-                }
-            }
-
-            // Auto-resize iframe to fit content
-            function bcCfResizeFrame(frame) {
-                try {
-                    const doc = frame.contentDocument || frame.contentWindow.document;
-                    const height = Math.max(
-                        doc.body.scrollHeight,
-                        doc.documentElement.scrollHeight,
-                        600
-                    );
-                    frame.style.height = height + 20 + 'px';
-                } catch (e) {
-                    frame.style.height = '800px';
-                }
-            }
-        </script>
         `;
     };
+
+    // ─── Field ID → Suitelet mapping ──────────────────────────────────────────
+
+    const REPORT_FIELDS = [
+        {
+            fieldId: 'custrecord_bc_cf_combined_html',
+            scriptId: 'customscript_bc_cf_combined_sl',
+            deploymentId: 'customdeploy_bc_cf_combined_sl',
+            title: 'Combined Cash Flow Forecast'
+        },
+        {
+            fieldId: 'custrecord_bc_cf_cost_html',
+            scriptId: 'customscript_bc_cf_cost_report_sl',
+            deploymentId: 'customdeploy_bc_cf_cost_report_sl',
+            title: 'Cost Cash Flow Timeline'
+        },
+        {
+            fieldId: 'custrecord_bc_cf_revenue_html',
+            scriptId: 'customscript_bc_cf_rev_report_sl',
+            deploymentId: 'customdeploy_bc_cf_rev_report_sl',
+            title: 'Revenue Cash Flow Timeline'
+        }
+    ];
 
     // ─── Entry Point ──────────────────────────────────────────────────────────
 
@@ -165,24 +84,28 @@ define([
         try {
             if (context.type === context.UserEventType.CREATE) return;
 
-            const rec = context.newRecord;
-            const projectId = rec.id;
-
+            const projectId = context.newRecord.id;
             if (!projectId) return;
 
-            // Populate the pre-existing INLINEHTML field
-            const htmlField = context.form.getField({ id: 'custrecord_bc_cashflow_html' });
-            if (!htmlField) {
-                log.debug({ title: MODULE, details: 'INLINEHTML field custrecord_bc_cashflow_html not found on form.' });
-                return;
+            for (const report of REPORT_FIELDS) {
+                const field = context.form.getField({ id: report.fieldId });
+                if (!field) {
+                    log.debug({ title: MODULE, details: `Field ${report.fieldId} not found on form — skipping.` });
+                    continue;
+                }
+
+                const suiteletUrl = resolveSuiteletUrl(
+                    report.scriptId,
+                    report.deploymentId,
+                    { projectId, timingType: 1 }
+                );
+
+                field.defaultValue = buildReportIframe(suiteletUrl, report.title);
             }
 
-            htmlField.defaultValue = buildCashFlowHtml(projectId);
-
-            log.debug({ title: MODULE, details: `Cash Flow subtab injected for project ${projectId}` });
+            log.debug({ title: MODULE, details: `Cash Flow report iframes injected for project ${projectId}` });
 
         } catch (e) {
-            // Never block the project record from loading
             log.error({ title: `${MODULE}.beforeLoad`, details: `${e.name}: ${e.message}\n${e.stack}` });
         }
     };

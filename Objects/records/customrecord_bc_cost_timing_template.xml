@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customrecordtype scriptid="customrecord_bc_cost_timing_template">
+  <recordname>BC Cost Timing Template</recordname>
+  <description>Reusable spread pattern templates for timing.</description>
+  <accesstype>CUSTRECORDENTRYPERM</accesstype>
+  <allowattachments>F</allowattachments>
+  <allowinlinedeleting>F</allowinlinedeleting>
+  <allowinlineediting>T</allowinlineediting>
+  <allowquicksearch>F</allowquicksearch>
+  <includeinsearchmenu>F</includeinsearchmenu>
+  <includename>T</includename>
+  <isinactive>F</isinactive>
+  <isordered>F</isordered>
+  <permissions>
+    <permission>
+      <permittedrole>ADMINISTRATOR</permittedrole>
+      <permittedlevel>FULL</permittedlevel>
+    </permission>
+  </permissions>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_bc_ctt_spread_type">
+      <label>Spread Type</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctt_spread_type]</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctt_period_interval">
+      <label>Period Interval</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctt_period_interval]</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctt_num_periods">
+      <label>Number of Periods</label>
+      <fieldtype>INTEGER</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>

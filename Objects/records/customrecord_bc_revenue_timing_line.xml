@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customrecordtype scriptid="customrecord_bc_revenue_timing_line">
+  <recordname>BC Revenue Timing Line</recordname>
+  <description>Time-phased revenue forecast per contract. No GL impact.</description>
+  <accesstype>CUSTRECORDENTRYPERM</accesstype>
+  <allowattachments>F</allowattachments>
+  <allowinlinedeleting>F</allowinlinedeleting>
+  <allowinlineediting>T</allowinlineediting>
+  <allowquicksearch>F</allowquicksearch>
+  <includeinsearchmenu>F</includeinsearchmenu>
+  <includename>F</includename>
+  <isinactive>F</isinactive>
+  <isordered>F</isordered>
+  <permissions>
+    <permission>
+      <permittedrole>ADMINISTRATOR</permittedrole>
+      <permittedlevel>FULL</permittedlevel>
+    </permission>
+  </permissions>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_transaction">
+      <label>Contract (Sales Order)</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>-30</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_project">
+      <label>Project</label>
+      <fieldtype>INTEGER</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_period_date">
+      <label>Period Date</label>
+      <fieldtype>DATE</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_percentage">
+      <label>Percentage</label>
+      <fieldtype>PERCENT</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_amount">
+      <label>Amount</label>
+      <fieldtype>CURRENCY</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_cumulative_pct">
+      <label>Cumulative %</label>
+      <fieldtype>PERCENT</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_cumulative_amt">
+      <label>Cumulative Amount</label>
+      <fieldtype>CURRENCY</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_status">
+      <label>Status</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_status]</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_label">
+      <label>Label / Note</label>
+      <fieldtype>TEXT</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_source">
+      <label>Source</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_source]</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_source_group">
+      <label>Source Group</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_source_group]</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_timing_type">
+      <label>Timing Type</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_timing_type]</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_source_template">
+      <label>Source Template</label>
+      <fieldtype>INTEGER</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_change_order">
+      <label>Related Change Order</label>
+      <fieldtype>INTEGER</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_rtl_needs_recalc">
+      <label>Needs Recalculation</label>
+      <fieldtype>CHECKBOX</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>F</ismandatory>
+      <defaultvalue>F</defaultvalue>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>

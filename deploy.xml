@@ -4,7 +4,7 @@
   </files>
   <objects>
     <path>~/Objects/lists/*</path>
-    <!-- Custom records created manually (reference BC bundle records) -->
+    <path>~/Objects/records/*</path>
     <path>~/Objects/fields/*</path>
     <path>~/Objects/scripts/*</path>
   </objects>

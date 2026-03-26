@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customrecordtype scriptid="customrecord_bc_ctt_line">
+  <recordname>BC Cost Timing Template Line</recordname>
+  <description>Individual period within a timing template.</description>
+  <accesstype>CUSTRECORDENTRYPERM</accesstype>
+  <allowattachments>F</allowattachments>
+  <allowinlinedeleting>F</allowinlinedeleting>
+  <allowinlineediting>T</allowinlineediting>
+  <allowquicksearch>F</allowquicksearch>
+  <includeinsearchmenu>F</includeinsearchmenu>
+  <includename>F</includename>
+  <isinactive>F</isinactive>
+  <isordered>T</isordered>
+  <permissions>
+    <permission>
+      <permittedrole>ADMINISTRATOR</permittedrole>
+      <permittedlevel>FULL</permittedlevel>
+    </permission>
+  </permissions>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_bc_cttl_parent">
+      <label>Template</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customrecord_bc_cost_timing_template]</selectrecordtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_cttl_period_number">
+      <label>Period Number</label>
+      <fieldtype>INTEGER</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_cttl_percentage">
+      <label>Percentage</label>
+      <fieldtype>PERCENT</fieldtype>
+      <displaytype>NORMAL</displaytype>
+      <ismandatory>T</ismandatory>
+      <storevalue>T</storevalue>
+      <accesslevel>2</accesslevel>
+      <searchlevel>2</searchlevel>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>

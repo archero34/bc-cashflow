@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customlist scriptid="customlist_bc_ctt_spread_type">
+  <name>BC Spread Type</name>
+  <description>Distribution pattern for timing templates</description>
+  <isordered>T</isordered>
+  <customvalues>
+    <customvalue scriptid="customlist_bc_ctt_spread_type_1">
+      <value>Even</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctt_spread_type_2">
+      <value>Front-Loaded</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctt_spread_type_3">
+      <value>Back-Loaded</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctt_spread_type_4">
+      <value>Milestone</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctt_spread_type_5">
+      <value>Custom</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+  </customvalues>
+</customlist>

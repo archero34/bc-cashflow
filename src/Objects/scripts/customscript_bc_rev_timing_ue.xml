@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<usereventscript scriptid="customscript_bc_rev_timing_ue">
+  <name>BC Revenue Timing - SO Schedule</name>
+  <scriptfile>[/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_rev_timing_ue.js]</scriptfile>
+  <description>Injects Schedule subtab with timing grids on Sales Orders (BC Contracts)</description>
+  <isinactive>F</isinactive>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>F</notifyowner>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_bc_rev_timing_ue">
+      <title>BC Revenue Timing - SO Deploy</title>
+      <isdeployed>T</isdeployed>
+      <recordtype>SALESORDER</recordtype>
+      <status>RELEASED</status>
+      <loglevel>DEBUG</loglevel>
+    </scriptdeployment>
+  </scriptdeployments>
+</usereventscript>

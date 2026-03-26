@@ -1,0 +1,9 @@
+node_modules/
+.suitecloud-sdk/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log
+*.pem
+*.key

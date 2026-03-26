@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customlist scriptid="customlist_bc_ctl_source_group">
+  <name>BC Timing Source Group</name>
+  <description>Origin of timing line - Base Contract, Change Order, or Base PO</description>
+  <isordered>T</isordered>
+  <customvalues>
+    <customvalue scriptid="customlist_bc_ctl_source_group_1">
+      <value>Base Contract</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctl_source_group_2">
+      <value>Change Order</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctl_source_group_3">
+      <value>Base PO</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+  </customvalues>
+</customlist>

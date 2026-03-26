@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customlist scriptid="customlist_bc_ctt_period_interval">
+  <name>BC Period Interval</name>
+  <description>Time interval between timing periods</description>
+  <isordered>T</isordered>
+  <customvalues>
+    <customvalue scriptid="customlist_bc_ctt_period_interval_1">
+      <value>Weekly</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctt_period_interval_2">
+      <value>Bi-Weekly</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctt_period_interval_3">
+      <value>Monthly</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+  </customvalues>
+</customlist>

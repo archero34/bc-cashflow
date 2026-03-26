@@ -1,0 +1,21 @@
+<manifest projecttype="ACCOUNTCUSTOMIZATION">
+  <projectname>BCCashFlow</projectname>
+  <frameworkversion>1.0</frameworkversion>
+  <dependencies>
+    <features>
+      <feature required="true">CUSTOMRECORDS</feature>
+      <feature required="true">SERVERSIDESCRIPTING</feature>
+      <feature required="true">CUSTOMSEGMENTS</feature>
+    </features>
+    <objects>
+      <!-- BC SuiteApp records we depend on but do NOT own -->
+      <object>customrecord_bc_budget_item</object>
+      <object>customrecord_bc_change_req</object>
+      <object>customrecord_bc_change_req_billing_item</object>
+      <object>customrecord_bc_change_req_budget_item</object>
+      <object>customrecord_cseg_bc_project</object>
+      <object>customrecord_cseg_bc_cost_code</object>
+    </objects>
+    <files></files>
+  </dependencies>
+</manifest>

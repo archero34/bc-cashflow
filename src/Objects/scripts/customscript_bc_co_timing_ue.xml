@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<usereventscript scriptid="customscript_bc_co_timing_ue">
+  <name>BC CO Timing - Change Request Schedule</name>
+  <scriptfile>[/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_co_timing_ue.js]</scriptfile>
+  <description>Injects dual-pane Schedule subtab (Revenue + Cost) on Change Requests</description>
+  <isinactive>F</isinactive>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>F</notifyowner>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_bc_co_timing_ue">
+      <title>BC CO Timing - CR Deploy</title>
+      <isdeployed>T</isdeployed>
+      <recordtype>[scriptid=customrecord_bc_change_req]</recordtype>
+      <status>RELEASED</status>
+      <loglevel>DEBUG</loglevel>
+    </scriptdeployment>
+  </scriptdeployments>
+</usereventscript>

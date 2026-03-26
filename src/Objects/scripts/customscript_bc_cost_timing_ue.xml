@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<usereventscript scriptid="customscript_bc_cost_timing_ue">
+  <name>BC Cost Timing - PO Schedule</name>
+  <scriptfile>[/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_cost_timing_ue.js]</scriptfile>
+  <description>Injects Schedule subtab with timing grids on Purchase Orders</description>
+  <isinactive>F</isinactive>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>F</notifyowner>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_bc_cost_timing_ue">
+      <title>BC Cost Timing - PO Deploy</title>
+      <isdeployed>T</isdeployed>
+      <recordtype>PURCHASEORDER</recordtype>
+      <status>RELEASED</status>
+      <loglevel>DEBUG</loglevel>
+    </scriptdeployment>
+  </scriptdeployments>
+</usereventscript>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customrecordtype scriptid="customrecord_bc_ctt_line">
+  <name>BC Cost Timing Template Line</name>
+  <description>Individual spread period within a timing template. Defines percentage allocation per period number.</description>
+  <includename>F</includename>
+  <isinactive>F</isinactive>
+  <isordered>T</isordered>
+  <showcreateddate>F</showcreateddate>
+  <showlastmodified>F</showlastmodified>
+  <showlastmodifiedby>F</showlastmodifiedby>
+  <shownotes>F</shownotes>
+  <allowattachments>F</allowattachments>
+  <allowinlineediting>T</allowinlineediting>
+  <allowinlinedeleting>T</allowinlinedeleting>
+  <allowquicksearch>F</allowquicksearch>
+  <enablemailmerge>F</enablemailmerge>
+  <nopermissionrequired>F</nopermissionrequired>
+  <usepermissions>T</usepermissions>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_bc_cttl_parent">
+      <label>Template</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customrecord_bc_cost_timing_template]</selectrecordtype>
+      <description>Parent timing template</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_cttl_period_number">
+      <label>Period Number</label>
+      <fieldtype>INTEGER</fieldtype>
+      <description>Sequence number (1, 2, 3...)</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_cttl_percentage">
+      <label>Percentage</label>
+      <fieldtype>PERCENT</fieldtype>
+      <description>Percentage of total allocated to this period</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>

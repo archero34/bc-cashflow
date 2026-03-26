@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customlist scriptid="customlist_bc_ctl_status">
+  <name>BC Timing Line Status</name>
+  <description>Lifecycle status of a timing line</description>
+  <isordered>T</isordered>
+  <customvalues>
+    <customvalue scriptid="customlist_bc_ctl_status_1">
+      <value>Forecasted</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctl_status_2">
+      <value>Actualized</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctl_status_3">
+      <value>Received</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctl_status_4">
+      <value>Overdue</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+  </customvalues>
+</customlist>

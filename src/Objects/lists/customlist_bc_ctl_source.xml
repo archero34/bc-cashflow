@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customlist scriptid="customlist_bc_ctl_source">
+  <name>BC Timing Line Source</name>
+  <description>How the timing line was created</description>
+  <isordered>T</isordered>
+  <customvalues>
+    <customvalue scriptid="customlist_bc_ctl_source_1">
+      <value>Template</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctl_source_2">
+      <value>Manual</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+  </customvalues>
+</customlist>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<usereventscript scriptid="customscript_bc_cf_project_ue">
+  <name>BC Cash Flow - Project Subtab</name>
+  <scriptfile>[/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_cf_project_ue.js]</scriptfile>
+  <description>Injects Cash Flow parent tab with Cost/Revenue/Combined child tabs on Project record</description>
+  <isinactive>F</isinactive>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>F</notifyowner>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_bc_cf_project_ue">
+      <title>BC Cash Flow - Project Deploy</title>
+      <isdeployed>T</isdeployed>
+      <recordtype>[scriptid=customrecord_cseg_bc_project]</recordtype>
+      <status>RELEASED</status>
+      <loglevel>DEBUG</loglevel>
+    </scriptdeployment>
+  </scriptdeployments>
+</usereventscript>

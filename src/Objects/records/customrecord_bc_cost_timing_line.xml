@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customrecordtype scriptid="customrecord_bc_cost_timing_line">
+  <name>BC Cost Timing Line</name>
+  <description>Time-phased cost (material/subcontract) forecast per PO or Change Order. No GL impact.</description>
+  <includename>F</includename>
+  <isinactive>F</isinactive>
+  <isordered>F</isordered>
+  <showcreateddate>T</showcreateddate>
+  <showlastmodified>T</showlastmodified>
+  <showlastmodifiedby>T</showlastmodifiedby>
+  <shownotes>F</shownotes>
+  <allowattachments>F</allowattachments>
+  <allowinlineediting>T</allowinlineediting>
+  <allowinlinedeleting>T</allowinlinedeleting>
+  <allowquicksearch>F</allowquicksearch>
+  <enablemailmerge>F</enablemailmerge>
+  <nopermissionrequired>F</nopermissionrequired>
+  <usepermissions>T</usepermissions>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_transaction">
+      <label>Transaction</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>-30</selectrecordtype>
+      <description>Source PO or Vendor Bill. NULL for CO-sourced cost lines.</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_project">
+      <label>Project</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customrecord_cseg_bc_project]</selectrecordtype>
+      <description>BlueCollar Project (denormalized for query performance)</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_period_date">
+      <label>Period Date</label>
+      <fieldtype>DATE</fieldtype>
+      <description>When this cost payment is expected (Cash Flow) or recognized (Accrual)</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_percentage">
+      <label>Percentage</label>
+      <fieldtype>PERCENT</fieldtype>
+      <description>Percentage of source amount attributed to this period</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_amount">
+      <label>Amount</label>
+      <fieldtype>CURRENCY</fieldtype>
+      <description>Dollar amount for this period</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_cumulative_pct">
+      <label>Cumulative %</label>
+      <fieldtype>PERCENT</fieldtype>
+      <description>Running total percentage</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_cumulative_amt">
+      <label>Cumulative Amount</label>
+      <fieldtype>CURRENCY</fieldtype>
+      <description>Running total dollar amount</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_status">
+      <label>Status</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_status]</selectrecordtype>
+      <description>Forecasted, Actualized, or Overdue</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_label">
+      <label>Label / Note</label>
+      <fieldtype>TEXT</fieldtype>
+      <description>Optional description (e.g., Progress Payment #1)</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_source">
+      <label>Source</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_source]</selectrecordtype>
+      <description>Template or Manual</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_source_group">
+      <label>Source Group</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_source_group]</selectrecordtype>
+      <description>Base PO or Change Order</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_timing_type">
+      <label>Timing Type</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customlist_bc_ctl_timing_type]</selectrecordtype>
+      <description>Cash Flow or Accrual</description>
+      <ismandatory>T</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_source_template">
+      <label>Source Template</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customrecord_bc_cost_timing_template]</selectrecordtype>
+      <description>Template used to generate this line (if any)</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_change_order">
+      <label>Related Change Order</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customrecord_bc_change_req]</selectrecordtype>
+      <description>Set when line originates from a Change Order</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_cost_code">
+      <label>Cost Code</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>[scriptid=customrecord_cseg_bc_cost_code]</selectrecordtype>
+      <description>Cost Code from PO line or CO estimate detail</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_cost_type">
+      <label>Cost Type (GL Account)</label>
+      <fieldtype>SELECT</fieldtype>
+      <selectrecordtype>-112</selectrecordtype>
+      <description>GL Account (Cost Type) from PO line or CO estimate detail</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_bc_ctl_needs_recalc">
+      <label>Needs Recalculation</label>
+      <fieldtype>CHECKBOX</fieldtype>
+      <description>Flagged when source amount changes or CO is approved</description>
+      <ismandatory>F</ismandatory>
+      <displaytype>NORMAL</displaytype>
+      <defaultvalue>F</defaultvalue>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>

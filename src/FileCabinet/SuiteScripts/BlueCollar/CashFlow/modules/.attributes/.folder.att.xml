@@ -1,0 +1,5 @@
+<folder>
+  <description>Cash Flow shared modules (constants, engine, DAO, UI)</description>
+  <isprivate>F</isprivate>
+  <bundleable>F</bundleable>
+</folder>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suitelet scriptid="customscript_bc_cf_rev_report_sl">
+  <name>BC Cash Flow - Revenue Report</name>
+  <scriptfile>[/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_cf_rev_report_sl.js]</scriptfile>
+  <description>Revenue Cash Flow Timeline - Contract/CO revenue inflows by month</description>
+  <isinactive>F</isinactive>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>F</notifyowner>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_bc_cf_rev_report_sl">
+      <title>BC Revenue Report - Deploy</title>
+      <isdeployed>T</isdeployed>
+      <isonline>F</isonline>
+      <status>RELEASED</status>
+      <loglevel>DEBUG</loglevel>
+    </scriptdeployment>
+  </scriptdeployments>
+</suitelet>

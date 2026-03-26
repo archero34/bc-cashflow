@@ -1,0 +1,14 @@
+<deploy>
+  <configuration>
+    <path>~/AccountConfiguration/*</path>
+  </configuration>
+  <files>
+    <path>~/FileCabinet/SuiteScripts/BlueCollar/*</path>
+  </files>
+  <objects>
+    <path>~/Objects/lists/*</path>
+    <path>~/Objects/records/*</path>
+    <path>~/Objects/fields/*</path>
+    <path>~/Objects/scripts/*</path>
+  </objects>
+</deploy>

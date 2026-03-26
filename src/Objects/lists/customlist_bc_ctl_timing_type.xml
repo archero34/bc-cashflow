@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customlist scriptid="customlist_bc_ctl_timing_type">
+  <name>BC Timing Type</name>
+  <description>Cash Flow vs Accrual timing perspective</description>
+  <isordered>T</isordered>
+  <customvalues>
+    <customvalue scriptid="customlist_bc_ctl_timing_type_1">
+      <value>Cash Flow</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+    <customvalue scriptid="customlist_bc_ctl_timing_type_2">
+      <value>Accrual</value>
+      <isinactive>F</isinactive>
+    </customvalue>
+  </customvalues>
+</customlist>

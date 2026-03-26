@@ -397,7 +397,7 @@ define([
                     b.${CR_BUDGET_FIELDS.COST_CODE} AS costcode,
                     cc.name AS costcodename,
                     b.${CR_BUDGET_FIELDS.COST_TYPE} AS costtype,
-                    ct.name AS costtypename,
+                    ct.acctname AS costtypename,
                     NVL(SUM(b.${CR_BUDGET_FIELDS.PROPOSED_CHANGE}), 0) AS amount
                 FROM ${RECORDS.CHANGE_REQ_BUDGET} b
                 LEFT JOIN ${RECORDS.COST_CODE} cc ON cc.id = b.${CR_BUDGET_FIELDS.COST_CODE}
@@ -407,7 +407,7 @@ define([
                     b.${CR_BUDGET_FIELDS.COST_CODE},
                     cc.name,
                     b.${CR_BUDGET_FIELDS.COST_TYPE},
-                    ct.name
+                    ct.acctname
             `;
             const budgetRows = runSQL(budgetSql, [changeRequestId]);
 

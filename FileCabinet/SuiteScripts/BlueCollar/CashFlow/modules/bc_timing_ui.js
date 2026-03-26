@@ -1788,8 +1788,45 @@ if (document.readyState !== 'loading') {
         // Format the amount display
         amtInput.value = bcTiming.formatCurrency(rawAmt);
 
-        // Recalculate totals and cumulatives (uses updated percentage)
-        bcTiming.recalculate(sectionId);
+        // Update cumulatives and totals WITHOUT recomputing amounts from percentages.
+        // We call collectLines to get the current state, then update cumulative cells directly.
+        var lines = collectLines(sectionId);
+        var runPct = 0, runAmt = 0, totalPct = 0, totalAmt = 0;
+        var rows = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        for (var k = 0; k < lines.length; k++) {
+            runPct = Math.round((runPct + (lines[k].percentage || 0)) * 100) / 100;
+            runAmt = Math.round((runAmt + (lines[k].amount || 0)) * 100) / 100;
+            totalPct += (lines[k].percentage || 0);
+            totalAmt += (lines[k].amount || 0);
+            if (rows[k]) {
+                var cells = rows[k].querySelectorAll('td');
+                var cumPctCell = cells[cells.length - 3];
+                var cumAmtCell = cells[cells.length - 2];
+                if (cumPctCell && !cumPctCell.querySelector('input')) cumPctCell.textContent = runPct.toFixed(1) + '%';
+                if (cumAmtCell && !cumAmtCell.querySelector('input')) cumAmtCell.textContent = bcTiming.formatCurrency(runAmt);
+            }
+        }
+
+        // Update total row
+        var totalRow = tbody.parentElement.querySelector('.bc-cf-total-row, tr:last-child');
+        if (totalRow) {
+            var totalCells = totalRow.querySelectorAll('td');
+            totalCells.forEach(function(td) {
+                if (td.textContent.indexOf('%') > -1 && td.classList.contains('right')) {
+                    td.textContent = totalPct.toFixed(1) + '%';
+                }
+            });
+        }
+
+        // Update KPI cards
+        var section = document.getElementById(sectionId + '_section');
+        if (section) {
+            var kpiValues = section.querySelectorAll('.bc-cf-kpi-value');
+            if (kpiValues.length >= 3) {
+                kpiValues[1].textContent = bcTiming.formatCurrency(totalAmt);
+                kpiValues[2].textContent = bcTiming.formatCurrency(Math.max(0, sourceAmount - totalAmt));
+            }
+        }
     };
 
     // ─── Save ───────────────────────────────────────────────────────────

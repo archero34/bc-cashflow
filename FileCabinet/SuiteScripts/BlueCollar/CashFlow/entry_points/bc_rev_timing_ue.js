@@ -13,10 +13,11 @@ define([
     'N/log',
     'N/runtime',
     'N/url',
+    'N/query',
     '../modules/bc_timing_constants',
     '../modules/bc_timing_dao',
     '../modules/bc_timing_ui'
-], (log, runtime, url, Constants, DAO, UI) => {
+], (log, runtime, url, query, Constants, DAO, UI) => {
 
     const MODULE = 'bc_rev_timing_ue';
 
@@ -51,46 +52,28 @@ define([
             }
 
             // ── Gather SO header fields ──────────────────────────────────
-            // Use Original Contract value (excludes CO-added amounts).
-            // CO revenue timing lives on the Change Request's own Schedule tab,
-            // so the SO Schedule should only cover the base/original contract lines.
-            // Priority: custbody_bc_original_contract → custbody_bc_current_contract → native total
-            let totalAmount = context.newRecord.getValue('custbody_bc_original_contract');
-            if (!totalAmount) {
-                // Fallback: sum only original SO line items (lines where Original Line Value > 0)
-                const lineCount = context.newRecord.getLineCount({ sublistId: 'item' });
-                let originalTotal = 0;
-                let hasOrigValueField = false;
-                for (let i = 0; i < lineCount; i++) {
-                    const origVal = context.newRecord.getSublistValue({
-                        sublistId: 'item',
-                        fieldId: 'custcol_bc_original_line_value',
-                        line: i
-                    });
-                    if (origVal !== null && origVal !== undefined && origVal !== '') {
-                        hasOrigValueField = true;
-                        if (Number(origVal) > 0) {
-                            const lineAmt = Number(context.newRecord.getSublistValue({
-                                sublistId: 'item',
-                                fieldId: 'amount',
-                                line: i
-                            })) || 0;
-                            originalTotal += lineAmt;
-                        }
-                    }
-                }
-                if (hasOrigValueField && originalTotal > 0) {
-                    totalAmount = originalTotal;
-                } else {
-                    // Last resort: use current contract or native total
-                    // NOTE: This may include CO-added amounts. CO revenue timing
-                    // on Change Request records should carry the delta separately.
-                    totalAmount = context.newRecord.getValue('custbody_bc_current_contract');
-                    if (!totalAmount) {
-                        totalAmount = context.newRecord.getValue('total');
-                    }
-                }
+            // Original Contract = Current Total minus CO billing impacts.
+            // CO revenue timing lives on the Change Request Schedule tab,
+            // so the SO Schedule should only cover base/original contract lines.
+            const currentTotal = Number(context.newRecord.getValue('total')) || 0;
+
+            // Sum all CO billing impacts that modified this SO
+            let coBillingTotal = 0;
+            try {
+                const coSql = `
+                    SELECT NVL(SUM(bi.${Constants.CR_BILLING_FIELDS.AMOUNT}), 0) AS total
+                    FROM ${Constants.RECORDS.CHANGE_REQ_BILLING} bi
+                    WHERE bi.${Constants.CR_BILLING_FIELDS.RELATED_TRANSACTION} = ?
+                `;
+                const coResult = query.runSuiteQL({ query: coSql, params: [soId] });
+                const coRows = coResult.asMappedResults() || [];
+                coBillingTotal = coRows.length ? Number(coRows[0].total) : 0;
+            } catch (coErr) {
+                log.debug({ title: funcName, details: `Could not query CO billing: ${coErr.message}` });
             }
+
+            const totalAmount = currentTotal - coBillingTotal;
+            log.debug({ title: funcName, details: `SO ${soId}: current=$${currentTotal}, CO delta=$${coBillingTotal}, original=$${totalAmount}` });
 
             const customerName = context.newRecord.getText('entity');
             const soNumber     = context.newRecord.getValue('tranid');

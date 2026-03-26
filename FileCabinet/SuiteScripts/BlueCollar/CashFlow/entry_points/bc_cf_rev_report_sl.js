@@ -125,6 +125,116 @@ define([
         return { groups, totals, grandTotal, groupTotals, groupSourceMap };
     };
 
+    // ─── Chart Builder ────────────────────────────────────────────────────────
+
+    /**
+     * Compact dollar formatting for chart labels — e.g. $3.5K, $1.2M
+     */
+    const fmtCompact = (val) => {
+        if (val == null || val === 0) return '$0';
+        const abs = Math.abs(val);
+        let label;
+        if (abs >= 1000000) {
+            label = '$' + (abs / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+        } else if (abs >= 1000) {
+            label = '$' + (abs / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+        } else {
+            label = '$' + abs.toFixed(0);
+        }
+        return val < 0 ? '-' + label : label;
+    };
+
+    /**
+     * Short month abbreviation — 'Apr', 'May', etc.
+     */
+    const monthAbbrev = (yyyymm) => {
+        const m = Number(yyyymm.split('-')[1]);
+        return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
+    };
+
+    /**
+     * Build a stacked bar chart SVG for revenue data.
+     * Bars extend upward (revenue is inflows).
+     */
+    const buildRevenueChart = (groups, periods, totals) => {
+        if (!periods.length) return '';
+
+        const groupNames = Object.keys(groups).sort((a, b) => {
+            if (a === 'Base Bid') return -1;
+            if (b === 'Base Bid') return 1;
+            return a.localeCompare(b);
+        });
+        const revColors = ['#FFB703', '#FCD86D', '#F0A500', '#FFD166'];
+        const maxTotal = Math.max(...periods.map((p) => totals[p] || 0), 1);
+
+        const n = periods.length;
+        const vbWidth = 1000;
+        const padding = 40;
+        const usable = vbWidth - padding * 2;
+        const slotWidth = usable / n;
+        const barWidth = Math.min(slotWidth * 0.55, 56);
+        const barAreaHeight = 160;
+        const topMargin = 36;
+        const bottomMargin = 32;
+        const chartHeight = topMargin + barAreaHeight + bottomMargin;
+        const bottomBaseline = topMargin + barAreaHeight;
+
+        let svg = '';
+
+        // Grid lines at 25%, 50%, 75%
+        [0.25, 0.5, 0.75].forEach((pct) => {
+            const y = bottomBaseline - Math.round(barAreaHeight * pct);
+            svg += '<line x1="' + padding + '" y1="' + y + '" x2="' + (vbWidth - padding) + '" y2="' + y + '" stroke="#E5E7EB" stroke-width="0.5"/>';
+        });
+
+        // Bottom baseline
+        svg += '<line x1="' + (padding - 10) + '" y1="' + bottomBaseline + '" x2="' + (vbWidth - padding + 10) + '" y2="' + bottomBaseline + '" stroke="#6B7280" stroke-width="1" stroke-dasharray="6,4"/>';
+        svg += '<text x="' + (padding - 14) + '" y="' + (bottomBaseline + 4) + '" text-anchor="end" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">$0</text>';
+
+        periods.forEach((p, i) => {
+            const cx = padding + slotWidth * i + slotWidth / 2;
+            const x = cx - barWidth / 2;
+            const total = totals[p] || 0;
+
+            // Stacked bars upward
+            let barY = bottomBaseline;
+            groupNames.forEach((g, gi) => {
+                const amt = (groups[g][p] || 0);
+                if (amt <= 0) return;
+                const h = Math.max(Math.round((amt / maxTotal) * barAreaHeight), 2);
+                barY -= h;
+                svg += '<rect x="' + x + '" y="' + barY + '" width="' + barWidth + '" height="' + h + '" rx="3" fill="' + revColors[gi % revColors.length] + '" opacity="0.92"/>';
+            });
+
+            // Total label above bars
+            if (total > 0) {
+                svg += '<text x="' + cx + '" y="' + (barY - 8) + '" text-anchor="middle" fill="#04233D" font-size="10" font-weight="600" font-family="Inter,sans-serif">' + fmtCompact(total) + '</text>';
+            }
+
+            // Month label
+            svg += '<text x="' + cx + '" y="' + (chartHeight - 6) + '" text-anchor="middle" fill="#6B7280" font-size="11" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
+        });
+
+        // Legend
+        const legendY = 14;
+        let legendX = padding;
+        groupNames.forEach((g, gi) => {
+            if (gi >= revColors.length) return;
+            svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="' + revColors[gi % revColors.length] + '"/>';
+            legendX += 14;
+            const labelText = g.length > 18 ? g.substring(0, 16) + '..' : g;
+            svg += '<text x="' + legendX + '" y="' + legendY + '" fill="#04233D" font-size="9" font-weight="500" font-family="Inter,sans-serif">' + esc(labelText) + '</text>';
+            legendX += labelText.length * 5.5 + 16;
+        });
+
+        return '<div style="border:1px solid #D1D5DB;border-radius:8px;padding:20px;margin:16px 0;">'
+            + '<div style="font-size:13px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Revenue by Month</div>'
+            + '<svg width="100%" viewBox="0 0 ' + vbWidth + ' ' + chartHeight + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
+            + svg
+            + '</svg>'
+            + '</div>';
+    };
+
     // ─── Current Month Helper ───────────────────────────────────────────────────
 
     const currentYYYYMM = () => {
@@ -386,7 +496,19 @@ define([
         <span class="badge">${esc(viewLabel)}</span>
     </div>
     <div class="header-actions">
-        <button class="btn btn-toggle" onclick="toggleView()">Switch to ${esc(toggleLabel)}</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:13px;color:#6B7280;font-weight:500;">View:</span>
+            <button type="button" disabled
+                style="padding:8px 16px;font-size:13px;font-weight:600;background:#04233D;color:#FFFFFF;
+                border:none;border-radius:6px;cursor:default;">
+                ${esc(viewLabel)}
+            </button>
+            <button type="button" onclick="toggleView()"
+                style="padding:8px 16px;font-size:13px;font-weight:600;background:#FFB703;color:#04233D;
+                border:none;border-radius:6px;cursor:pointer;">
+                Switch to ${esc(toggleLabel)}
+            </button>
+        </div>
         ${isEmpty ? '' : '<button class="btn btn-export" onclick="exportCsv()">Export CSV</button>'}
     </div>
 </div>
@@ -410,6 +532,8 @@ define([
         <div class="kpi-value">${fmt(overdue)}</div>
     </div>
 </div>
+
+${!isEmpty ? buildRevenueChart(groups, periods, totals) : ''}
 
 ${isEmpty ? `
 <div class="empty-state">

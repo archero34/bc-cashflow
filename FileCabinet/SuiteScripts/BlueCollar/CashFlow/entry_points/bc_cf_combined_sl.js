@@ -339,25 +339,7 @@ define([
     .hdr-left .sub { font-size: 13px; color: ${BRAND.GREY_DARK}; }
     .hdr-right { display: flex; align-items: center; gap: 8px; }
 
-    /* Toggle select */
-    .view-toggle {
-        padding: 7px 12px;
-        border: 1px solid ${BRAND.GREY_MID};
-        border-radius: ${BRAND.BORDER_RADIUS};
-        font-family: inherit;
-        font-size: 13px;
-        color: ${BRAND.NAVY};
-        background: ${BRAND.WHITE};
-        cursor: pointer;
-        outline: none;
-        appearance: none;
-        -webkit-appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2304233D'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 10px center;
-        padding-right: 28px;
-    }
-    .view-toggle:focus { border-color: ${BRAND.GOLD}; box-shadow: 0 0 0 2px rgba(255,183,3,0.25); }
+    /* Toggle buttons are inline-styled — no class needed */
 
     /* KPI Cards */
     .kpi-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
@@ -460,11 +442,19 @@ define([
             <div class="sub">Project: ${esc(projectName)}</div>
         </div>
         <div class="hdr-right">
-            <label style="font-size:12px;font-weight:500;color:${BRAND.GREY_DARK};">View:</label>
-            <select class="view-toggle" id="timingToggle" onchange="switchView(this.value)">
-                <option value="${TIMING_TYPE.CASH_FLOW.id}" ${timingType === TIMING_TYPE.CASH_FLOW.id ? 'selected' : ''}>Cash Flow</option>
-                <option value="${TIMING_TYPE.ACCRUAL.id}" ${timingType === TIMING_TYPE.ACCRUAL.id ? 'selected' : ''}>Accrual</option>
-            </select>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:13px;color:#6B7280;font-weight:500;">View:</span>
+                <button type="button" disabled
+                    style="padding:8px 16px;font-size:13px;font-weight:600;background:#04233D;color:#FFFFFF;
+                    border:none;border-radius:6px;cursor:default;">
+                    ${esc(typeName)}
+                </button>
+                <button type="button" onclick="switchView('${otherType}')"
+                    style="padding:8px 16px;font-size:13px;font-weight:600;background:#FFB703;color:#04233D;
+                    border:none;border-radius:6px;cursor:pointer;">
+                    Switch to ${esc(typeName === 'Cash Flow' ? 'Accrual' : 'Cash Flow')}
+                </button>
+            </div>
         </div>
     </div>
 
@@ -487,68 +477,125 @@ function switchView(val) {
     // SVG Bar Chart
     // ────────────────────────────────────────────────────────────────────────────
 
-    const buildBarChart = (periods, netTotals) => {
+    const buildBarChart = (periods, netTotals, data) => {
         if (!periods.length) return '';
 
-        const vals = periods.map((p) => netTotals[p] || 0);
-        const maxAbs = Math.max(...vals.map(Math.abs), 1);
+        const { revenueGroups, costGroups, revTotals, costTotals } = data;
+        const revGroupNames = Object.keys(revenueGroups);
+        const costGroupNames = Object.keys(costGroups);
 
-        // Use a viewBox-based approach so the SVG fills 100% width
+        // Color palettes for stacked segments
+        const revColors = ['#FFB703', '#FCD86D', '#F0A500', '#FFD166'];
+        const costColors = ['#04233D', '#0A3A66', '#1A5276', '#2E86C1'];
+
+        // Find max of revenue totals and cost totals across all periods
+        const maxRev = Math.max(...periods.map((p) => revTotals[p] || 0), 1);
+        const maxCost = Math.max(...periods.map((p) => costTotals[p] || 0), 1);
+        const maxVal = Math.max(maxRev, maxCost, 1);
+
+        // SVG layout
         const n = periods.length;
-        const vbWidth = 1000;            // viewBox width — bars scale to fill
-        const padding = 30;              // left/right padding inside viewBox
+        const vbWidth = 1000;
+        const padding = 40;
         const usable = vbWidth - padding * 2;
         const slotWidth = usable / n;
-        const barWidth = Math.min(slotWidth * 0.6, 60);  // wider bars, capped at 60
-        const halfHeight = 110;
-        const chartHeight = halfHeight * 2 + 70;
-        const baseline = halfHeight + 24;
+        const barWidth = Math.min(slotWidth * 0.55, 56);
+        const halfHeight = 130;
+        const topMargin = 36;
+        const bottomMargin = 40;
+        const chartHeight = topMargin + halfHeight * 2 + bottomMargin;
+        const baseline = topMargin + halfHeight;
 
-        let bars = '';
+        let svg = '';
 
-        periods.forEach((p, i) => {
-            const val = netTotals[p] || 0;
-            const barH = Math.max(Math.round((Math.abs(val) / maxAbs) * halfHeight), 3);
-            const cx = padding + slotWidth * i + slotWidth / 2;  // center of slot
-            const x = cx - barWidth / 2;
-            const isPos = val >= 0;
-            const color = isPos ? BRAND.GOLD : BRAND.RED;
-
-            // Bar rect
-            const barY = isPos ? baseline - barH : baseline;
-            bars += `<rect x="${x}" y="${barY}" width="${barWidth}" height="${barH}" rx="4" fill="${color}" opacity="0.92"/>`;
-
-            // Value label
-            const labelY = isPos ? barY - 7 : barY + barH + 15;
-            const labelColor = isPos ? BRAND.NAVY : BRAND.RED;
-            bars += `<text x="${cx}" y="${labelY}" text-anchor="middle" `
-                  + `fill="${labelColor}" font-size="11" font-weight="600" font-family="${BRAND.FONT_FAMILY}">`
-                  + `${fmtCompact(val)}</text>`;
-
-            // Month label — centered under each bar
-            bars += `<text x="${cx}" y="${baseline + halfHeight + 18}" text-anchor="middle" `
-                  + `fill="${BRAND.GREY_DARK}" font-size="11" font-family="${BRAND.FONT_FAMILY}">`
-                  + `${monthAbbrev(p)}</text>`;
+        // Light grid lines at 25%, 50%, 75% of max height (both above and below baseline)
+        [0.25, 0.5, 0.75].forEach((pct) => {
+            const offset = Math.round(halfHeight * pct);
+            // Above baseline (revenue side)
+            svg += '<line x1="' + padding + '" y1="' + (baseline - offset) + '" x2="' + (vbWidth - padding) + '" y2="' + (baseline - offset) + '" stroke="#E5E7EB" stroke-width="0.5"/>';
+            // Below baseline (cost side)
+            svg += '<line x1="' + padding + '" y1="' + (baseline + offset) + '" x2="' + (vbWidth - padding) + '" y2="' + (baseline + offset) + '" stroke="#E5E7EB" stroke-width="0.5"/>';
         });
 
-        // $0 baseline — thin dashed line spanning full width
-        const zeroline = `<line x1="0" y1="${baseline}" x2="${vbWidth}" y2="${baseline}" `
-                        + `stroke="${BRAND.GREY_MID}" stroke-width="1" stroke-dasharray="5,4"/>`;
+        // $0 baseline — thin dashed line
+        svg += '<line x1="' + (padding - 10) + '" y1="' + baseline + '" x2="' + (vbWidth - padding + 10) + '" y2="' + baseline + '" stroke="' + BRAND.GREY_DARK + '" stroke-width="1" stroke-dasharray="6,4"/>';
+        svg += '<text x="' + (padding - 14) + '" y="' + (baseline + 4) + '" text-anchor="end" fill="' + BRAND.GREY_DARK + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">$0</text>';
 
-        // $0 label at right edge
-        const zeroLabel = `<text x="${vbWidth - 4}" y="${baseline - 5}" text-anchor="end" fill="${BRAND.GREY_DARK}" `
-                        + `font-size="10" font-family="${BRAND.FONT_FAMILY}">$0</text>`;
+        periods.forEach((p, i) => {
+            const cx = padding + slotWidth * i + slotWidth / 2;
+            const x = cx - barWidth / 2;
+            const revTotal = revTotals[p] || 0;
+            const costTotal = costTotals[p] || 0;
+            const net = netTotals[p] || 0;
 
-        return `<div class="chart-wrap">
-            <h3>Net Cash Flow by Month</h3>
-            <div>
-                <svg width="100%" height="${chartHeight}" viewBox="0 0 ${vbWidth} ${chartHeight}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-                    ${zeroline}
-                    ${zeroLabel}
-                    ${bars}
-                </svg>
-            </div>
-        </div>`;
+            // ── Revenue bars (stacked upward from baseline) ──
+            let revY = baseline;
+            revGroupNames.forEach((g, gi) => {
+                const amt = (revenueGroups[g][p] || 0);
+                if (amt <= 0) return;
+                const h = Math.max(Math.round((amt / maxVal) * halfHeight), 2);
+                revY -= h;
+                svg += '<rect x="' + x + '" y="' + revY + '" width="' + barWidth + '" height="' + h + '" rx="3" fill="' + revColors[gi % revColors.length] + '" opacity="0.92"/>';
+            });
+
+            // Revenue total label above bars
+            if (revTotal > 0) {
+                const labelY = revY - 8;
+                svg += '<text x="' + cx + '" y="' + labelY + '" text-anchor="middle" fill="' + BRAND.NAVY + '" font-size="10" font-weight="600" font-family="' + BRAND.FONT_FAMILY + '">' + fmtCompact(revTotal) + '</text>';
+            }
+
+            // ── Cost bars (stacked downward from baseline) ──
+            let costY = baseline;
+            costGroupNames.forEach((g, gi) => {
+                const amt = (costGroups[g][p] || 0);
+                if (amt <= 0) return;
+                const h = Math.max(Math.round((amt / maxVal) * halfHeight), 2);
+                svg += '<rect x="' + x + '" y="' + costY + '" width="' + barWidth + '" height="' + h + '" rx="3" fill="' + costColors[gi % costColors.length] + '" opacity="0.92"/>';
+                costY += h;
+            });
+
+            // Cost total label below bars
+            if (costTotal > 0) {
+                const labelY = costY + 14;
+                svg += '<text x="' + cx + '" y="' + labelY + '" text-anchor="middle" fill="' + BRAND.NAVY + '" font-size="10" font-weight="600" font-family="' + BRAND.FONT_FAMILY + '">' + fmtCompact(costTotal) + '</text>';
+            }
+
+            // Net value label on top of column
+            const netColor = net >= 0 ? '#10B981' : '#EF4444';
+            const netLabelY = (revTotal > 0 ? revY - 22 : baseline - 22);
+            svg += '<text x="' + cx + '" y="' + netLabelY + '" text-anchor="middle" fill="' + netColor + '" font-size="9" font-weight="700" font-family="' + BRAND.FONT_FAMILY + '">Net: ' + fmtCompact(net) + '</text>';
+
+            // Month label below
+            svg += '<text x="' + cx + '" y="' + (chartHeight - 8) + '" text-anchor="middle" fill="' + BRAND.GREY_DARK + '" font-size="11" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">' + monthAbbrev(p) + '</text>';
+        });
+
+        // Legend
+        const legendY = 14;
+        let legendX = padding;
+        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#FFB703"/>';
+        legendX += 14;
+        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">Revenue</text>';
+        legendX += 58;
+        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#04233D"/>';
+        legendX += 14;
+        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">Cost</text>';
+        legendX += 40;
+        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#10B981"/>';
+        legendX += 14;
+        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">+ Net</text>';
+        legendX += 42;
+        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#EF4444"/>';
+        legendX += 14;
+        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">- Net</text>';
+
+        return '<div class="chart-wrap">'
+            + '<h3>Revenue vs Cost by Month</h3>'
+            + '<div>'
+            + '<svg width="100%" viewBox="0 0 ' + vbWidth + ' ' + chartHeight + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
+            + svg
+            + '</svg>'
+            + '</div>'
+            + '</div>';
     };
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -864,7 +911,7 @@ function switchView(val) {
             // Build full report
             const bodyContent = [
                 buildKPICards(data),
-                buildBarChart(data.periods, data.netTotals),
+                buildBarChart(data.periods, data.netTotals, data),
                 buildTable(data),
                 buildExportButtons(data, projectName)
             ].join('\n');

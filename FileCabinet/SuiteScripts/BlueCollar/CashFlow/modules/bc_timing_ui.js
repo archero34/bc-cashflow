@@ -923,7 +923,7 @@ ${addRowHtml}`;
             row += `<td><input type="date" value="${esc(dateVal)}" data-section="${sid}" data-index="${idx}" data-field="periodDate"></td>`;
             row += `<td><input type="text" value="${esc(label)}" data-section="${sid}" data-index="${idx}" data-field="label" placeholder="Period label"></td>`;
             row += `<td class="right"><input type="number" value="${pct}" step="0.01" min="0" max="100" data-section="${sid}" data-index="${idx}" data-field="percentage" onchange="bcTiming.recalculate('${sid}')"></td>`;
-            row += `<td class="right"><input type="text" value="${fmtCurrency(amt)}" data-section="${sid}" data-index="${idx}" data-field="amount" onfocus="this.value=this.value.replace(/[^0-9.\\-]/g,'')" onblur="bcTiming.recalculate('${sid}');this.value=bcTiming.formatCurrency(parseFloat(this.value)||0)" onchange="bcTiming.recalculate('${sid}')" style="text-align:right;"></td>`;
+            row += `<td class="right"><input type="text" value="${fmtCurrency(amt)}" data-section="${sid}" data-index="${idx}" data-field="amount" onfocus="this.value=this.value.replace(/[^0-9.\\-]/g,'')" onblur="bcTiming.onAmountChange('${sid}',${idx});this.value=bcTiming.formatCurrency(parseFloat(this.value)||0)" onchange="bcTiming.onAmountChange('${sid}',${idx})" style="text-align:right;"></td>`;
         } else {
             row += `<td>${esc(dateDisplay)}</td>`;
             row += `<td>${esc(label)}</td>`;
@@ -1534,7 +1534,7 @@ if (document.readyState !== 'loading') {
         row += '<td><input type="date" value="' + esc(dateVal) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="periodDate"></td>';
         row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label"></td>';
         row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
-        row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.value=this.value.replace(/[^0-9.\\\\-]/g,\\'\\')" onblur="bcTiming.recalculate(\\'' + esc(sectionId) + '\\');this.value=bcTiming.formatCurrency(parseFloat(this.value)||0)" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')" style="text-align:right;"></td>';
+        row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.value=this.value.replace(/[^0-9.\\\\-]/g,\\'\\')" onblur="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ');this.value=bcTiming.formatCurrency(parseFloat(this.value)||0)" onchange="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" style="text-align:right;"></td>';
         row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatPercent(cumPct) + '</td>';
         row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatCurrency(cumAmt) + '</td>';
         row += '<td class="center"><button type="button" class="bc-cf-btn-danger" title="Remove line" onclick="bcTiming.removeRow(\\'' + esc(sectionId) + '\\', ' + idx + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
@@ -1755,6 +1755,41 @@ if (document.readyState !== 'loading') {
         // Update totals and KPIs
         updateTotals(sectionId, lines, sourceAmount);
         updateKpi(sectionId, lines, sourceAmount);
+    };
+
+    // ─── Amount-driven entry ──────────────────────────────────────────
+
+    /**
+     * Handle user typing a dollar amount directly.
+     * Back-calculates the percentage, sets it, then calls recalculate
+     * so totals / cumulatives stay in sync.
+     */
+    bcTiming.onAmountChange = function(sectionId, index) {
+        var sourceAmount = getSourceAmount(sectionId);
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return;
+
+        var row = tbody.querySelector('tr[data-index="' + index + '"]');
+        if (!row) return;
+
+        var amtInput = row.querySelector('input[data-field="amount"]');
+        var pctInput = row.querySelector('input[data-field="percentage"]');
+        if (!amtInput || !pctInput) return;
+
+        // Parse the amount (strip currency formatting)
+        var rawAmt = parseFloat(amtInput.value.replace(/[^0-9.\-]/g, '')) || 0;
+
+        // Back-calculate percentage (avoid division by zero)
+        if (sourceAmount > 0) {
+            var newPct = Math.round((rawAmt / sourceAmount) * 100 * 100) / 100;
+            pctInput.value = newPct;
+        }
+
+        // Format the amount display
+        amtInput.value = bcTiming.formatCurrency(rawAmt);
+
+        // Recalculate totals and cumulatives (uses updated percentage)
+        bcTiming.recalculate(sectionId);
     };
 
     // ─── Save ───────────────────────────────────────────────────────────

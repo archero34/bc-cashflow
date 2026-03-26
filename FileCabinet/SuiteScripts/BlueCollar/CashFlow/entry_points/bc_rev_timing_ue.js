@@ -51,10 +51,45 @@ define([
             }
 
             // ── Gather SO header fields ──────────────────────────────────
-            // Prefer Current Contract amount; fall back to native total
-            let totalAmount = context.newRecord.getValue('custbody_bc_current_contract');
+            // Use Original Contract value (excludes CO-added amounts).
+            // CO revenue timing lives on the Change Request's own Schedule tab,
+            // so the SO Schedule should only cover the base/original contract lines.
+            // Priority: custbody_bc_original_contract → custbody_bc_current_contract → native total
+            let totalAmount = context.newRecord.getValue('custbody_bc_original_contract');
             if (!totalAmount) {
-                totalAmount = context.newRecord.getValue('total');
+                // Fallback: sum only original SO line items (lines where Original Line Value > 0)
+                const lineCount = context.newRecord.getLineCount({ sublistId: 'item' });
+                let originalTotal = 0;
+                let hasOrigValueField = false;
+                for (let i = 0; i < lineCount; i++) {
+                    const origVal = context.newRecord.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_bc_original_line_value',
+                        line: i
+                    });
+                    if (origVal !== null && origVal !== undefined && origVal !== '') {
+                        hasOrigValueField = true;
+                        if (Number(origVal) > 0) {
+                            const lineAmt = Number(context.newRecord.getSublistValue({
+                                sublistId: 'item',
+                                fieldId: 'amount',
+                                line: i
+                            })) || 0;
+                            originalTotal += lineAmt;
+                        }
+                    }
+                }
+                if (hasOrigValueField && originalTotal > 0) {
+                    totalAmount = originalTotal;
+                } else {
+                    // Last resort: use current contract or native total
+                    // NOTE: This may include CO-added amounts. CO revenue timing
+                    // on Change Request records should carry the delta separately.
+                    totalAmount = context.newRecord.getValue('custbody_bc_current_contract');
+                    if (!totalAmount) {
+                        totalAmount = context.newRecord.getValue('total');
+                    }
+                }
             }
 
             const customerName = context.newRecord.getText('entity');

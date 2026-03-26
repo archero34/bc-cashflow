@@ -48,22 +48,27 @@ define([
                 fields  = Constants.RTL_FIELDS;
             }
 
+            // Alias columns to camelCase names expected by the UI module
+            // (matches DAO.loadTimingLines behavior)
             const selectCols = [
                 'id',
-                fields.PERIOD_DATE,
-                fields.PERCENTAGE,
-                fields.AMOUNT,
-                fields.CUMULATIVE_PCT,
-                fields.CUMULATIVE_AMT,
-                fields.LABEL,
-                fields.SOURCE,
-                fields.SOURCE_GROUP,
-                fields.TIMING_TYPE,
-                fields.CHANGE_ORDER
+                `${fields.PERIOD_DATE} AS perioddate`,
+                `${fields.PERCENTAGE} AS percentage`,
+                `${fields.AMOUNT} AS amount`,
+                `${fields.CUMULATIVE_PCT} AS cumulativepct`,
+                `${fields.CUMULATIVE_AMT} AS cumulativeamt`,
+                `${fields.LABEL} AS label`,
+                `${fields.SOURCE} AS source`,
+                `${fields.SOURCE_GROUP} AS sourcegroup`,
+                `${fields.TIMING_TYPE} AS timingtype`,
+                `${fields.CHANGE_ORDER} AS changeorder`
             ];
 
             if (recordType === 'cost') {
-                selectCols.push(fields.COST_CODE, fields.COST_TYPE);
+                selectCols.push(
+                    `${fields.COST_CODE} AS costcode`,
+                    `${fields.COST_TYPE} AS costtype`
+                );
             }
 
             const sql = `
@@ -76,7 +81,33 @@ define([
 
             // Use the N/query module from the define() dependency array
             const resultSet = query.runSuiteQL({ query: sql, params: [changeOrderId, timingType] });
-            return resultSet.asMappedResults() || [];
+            const rows = resultSet.asMappedResults() || [];
+
+            // PERCENT fields return decimals via SuiteQL (0.5 = 50%) — multiply by 100.
+            // Recalculate cumulatives on load rather than trusting stored values.
+            let runPct = 0;
+            let runAmt = 0;
+            return rows.map((r) => {
+                const pct = Math.round((r.percentage || 0) * 100 * 100) / 100;
+                const amt = r.amount || 0;
+                runPct = Math.round((runPct + pct) * 100) / 100;
+                runAmt = Math.round((runAmt + amt) * 100) / 100;
+                return {
+                    id: r.id,
+                    periodDate: r.perioddate,
+                    percentage: pct,
+                    amount: amt,
+                    cumulativePct: runPct,
+                    cumulativeAmt: runAmt,
+                    label: r.label,
+                    source: r.source,
+                    sourceGroup: r.sourcegroup,
+                    timingType: r.timingtype,
+                    costCode: r.costcode || null,
+                    costType: r.costtype || null,
+                    changeOrder: r.changeorder || null
+                };
+            });
 
         } catch (e) {
             log.error({ title: funcName, details: e.message || JSON.stringify(e) });
@@ -228,7 +259,8 @@ define([
                     suiteletUrl: suiteletUrl,
                     recordType: 'revenue',
                     sourceGroup: Constants.SOURCE_GROUP.CHANGE_ORDER.id,
-                    changeOrderId: crId
+                    changeOrderId: crId,
+                    sectionPrefix: 'co_rev'
                 });
             }
 
@@ -258,7 +290,8 @@ define([
                     suiteletUrl: suiteletUrl,
                     recordType: 'cost',
                     sourceGroup: Constants.SOURCE_GROUP.CHANGE_ORDER.id,
-                    changeOrderId: crId
+                    changeOrderId: crId,
+                    sectionPrefix: 'co_cost'
                 });
             }
 

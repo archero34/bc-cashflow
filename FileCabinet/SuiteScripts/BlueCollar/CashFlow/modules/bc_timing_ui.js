@@ -1033,13 +1033,25 @@ ${addRowHtml}`;
     const renderScheduleSubtab = ({
         transactionType, transactionId, transactionName, entityName, totalAmount,
         projectId, projectName, cashFlowLines, accrualLines, editable,
-        showCostCode, templates, suiteletUrl, recordType, sourceGroup, changeOrderId
+        showCostCode, templates, suiteletUrl, recordType, sourceGroup, changeOrderId,
+        sectionPrefix
     }) => {
         const safeTemplates = templates || BUILT_IN_TEMPLATES;
         const amt = Number(totalAmount) || 0;
 
+        // sectionPrefix allows multiple renderScheduleSubtab calls on the same page
+        // (e.g., CO revenue pane + CO cost pane) without element ID collisions.
+        // When provided, section IDs become e.g. 'co_rev_cashflow' instead of 'cashflow'.
+        const pfx = sectionPrefix ? `${sectionPrefix}_` : '';
+        const cfSectionId = `${pfx}cashflow`;
+        const acSectionId = `${pfx}accrual`;
+        const rootId      = `bc_cf_root${pfx ? '_' + sectionPrefix : ''}`;
+        const tabNavId    = `bc_cf_tab_nav${pfx ? '_' + sectionPrefix : ''}`;
+        const saveBtnId   = `bc_save_btn${pfx ? '_' + sectionPrefix : ''}`;
+        const saveStatusId = `bc_save_status${pfx ? '_' + sectionPrefix : ''}`;
+
         const cashFlowSection = renderTimingSection({
-            sectionId: 'cashflow',
+            sectionId: cfSectionId,
             title: 'Cash Flow Schedule',
             sourceAmount: amt,
             lines: cashFlowLines || [],
@@ -1050,7 +1062,7 @@ ${addRowHtml}`;
         });
 
         const accrualSection = renderTimingSection({
-            sectionId: 'accrual',
+            sectionId: acSectionId,
             title: 'Accrual Schedule',
             sourceAmount: amt,
             lines: accrualLines || [],
@@ -1062,18 +1074,18 @@ ${addRowHtml}`;
 
         const saveBarHtml = (editable !== false) ? `
 <div class="bc-cf-save-bar">
-    <div class="bc-cf-save-status" id="bc_save_status">
+    <div class="bc-cf-save-status" id="${saveStatusId}">
         <span style="color:${BRAND.GREY_DARK};">Ready</span>
     </div>
     <div class="bc-cf-save-actions">
-        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('cashflow')">
+        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
             Review Cash Flow
         </button>
-        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('accrual')">
+        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
             Review Accrual
         </button>
-        <button type="button" class="bc-cf-btn" id="bc_save_btn"
-                onclick="bcTiming.save('${esc(String(transactionId || ''))}', '${esc(transactionType || '')}')">
+        <button type="button" class="bc-cf-btn" id="${saveBtnId}"
+                onclick="bcTiming.save('${esc(String(transactionId || ''))}', '${esc(transactionType || '')}', '${esc(rootId)}', '${esc(cfSectionId)}', '${esc(acSectionId)}', '${esc(saveBtnId)}', '${esc(saveStatusId)}')">
             ${ICONS.save} Save Schedules
         </button>
     </div>
@@ -1082,7 +1094,7 @@ ${addRowHtml}`;
         return `
 <style>${getBaseStyles()}</style>
 <div class="bc-cf-container"
-     id="bc_cf_root"
+     id="${rootId}"
      data-transaction-id="${esc(String(transactionId || ''))}"
      data-transaction-type="${esc(transactionType || '')}"
      data-project-id="${esc(String(projectId || ''))}"
@@ -1107,13 +1119,13 @@ ${addRowHtml}`;
     </div>
 
     <!-- Tab Navigation -->
-    <div class="bc-cf-tab-nav" id="bc_cf_tab_nav">
-        <button type="button" class="active" data-tab="cashflow"
-                onclick="bcTiming.switchTab('cashflow')">
+    <div class="bc-cf-tab-nav" id="${tabNavId}">
+        <button type="button" class="active" data-tab="${esc(cfSectionId)}"
+                onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
             ${ICONS.chart} Cash Flow
         </button>
-        <button type="button" data-tab="accrual"
-                onclick="bcTiming.switchTab('accrual')">
+        <button type="button" data-tab="${esc(acSectionId)}"
+                onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
             ${ICONS.chart} Accrual
         </button>
     </div>
@@ -1131,11 +1143,11 @@ ${getClientScript()}
 
 // Initialize: show Cash Flow tab by default
 document.addEventListener('DOMContentLoaded', function() {
-    bcTiming.switchTab('cashflow');
+    bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}');
 });
 // Fallback: if DOM already loaded
 if (document.readyState !== 'loading') {
-    bcTiming.switchTab('cashflow');
+    bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}');
 }
 </script>`;
     };
@@ -1350,10 +1362,12 @@ if (document.readyState !== 'loading') {
 
     /**
      * Switch between Cash Flow and Accrual tabs.
+     * @param {string} tabId      - Section ID to activate (e.g. 'cashflow' or 'co_rev_cashflow')
+     * @param {string} [navId]    - Tab nav container ID (defaults to 'bc_cf_tab_nav' for backward compat)
      */
-    bcTiming.switchTab = function(tabId) {
-        // Update tab buttons
-        var nav = document.getElementById('bc_cf_tab_nav');
+    bcTiming.switchTab = function(tabId, navId) {
+        // Update tab buttons — scope to the specific nav container
+        var nav = document.getElementById(navId || 'bc_cf_tab_nav');
         if (nav) {
             var buttons = nav.querySelectorAll('button');
             for (var i = 0; i < buttons.length; i++) {
@@ -1365,15 +1379,20 @@ if (document.readyState !== 'loading') {
             }
         }
 
-        // Show/hide sections
-        var sections = document.querySelectorAll('.bc-cf-section');
-        for (var j = 0; j < sections.length; j++) {
-            var sectionEl = sections[j];
-            var sId = sectionEl.getAttribute('data-section-id');
-            if (sId === tabId) {
-                sectionEl.classList.add('active');
-            } else {
-                sectionEl.classList.remove('active');
+        // Show/hide sections — only toggle siblings within the same container
+        if (nav) {
+            var container = nav.parentElement;
+            if (container) {
+                var sections = container.querySelectorAll('.bc-cf-section');
+                for (var j = 0; j < sections.length; j++) {
+                    var sectionEl = sections[j];
+                    var sId = sectionEl.getAttribute('data-section-id');
+                    if (sId === tabId) {
+                        sectionEl.classList.add('active');
+                    } else {
+                        sectionEl.classList.remove('active');
+                    }
+                }
             }
         }
     };
@@ -1743,8 +1762,16 @@ if (document.readyState !== 'loading') {
     /**
      * Collect all line data from both sections and POST to the Suitelet endpoint.
      */
-    bcTiming.save = function(transactionId, transactionType) {
-        var root = document.getElementById('bc_cf_root');
+    bcTiming.save = function(transactionId, transactionType, rootId, cfSectionId, acSectionId, saveBtnId, saveStatusId) {
+        // Support scoped IDs for multi-pane layouts (CO pages).
+        // Fall back to legacy hardcoded IDs for backward compatibility.
+        var _rootId = rootId || 'bc_cf_root';
+        var _cfId   = cfSectionId || 'cashflow';
+        var _acId   = acSectionId || 'accrual';
+        var _saveBtnId = saveBtnId || 'bc_save_btn';
+        var _saveStatusId = saveStatusId || 'bc_save_status';
+
+        var root = document.getElementById(_rootId);
         var suiteletUrl = root ? root.getAttribute('data-suitelet-url') : '';
         var projectId = root ? root.getAttribute('data-project-id') : '';
         var recordType = root ? root.getAttribute('data-record-type') : '';
@@ -1756,12 +1783,12 @@ if (document.readyState !== 'loading') {
             return;
         }
 
-        // Collect lines from both sections
-        var cashFlowLines = collectLines('cashflow');
-        var accrualLines = collectLines('accrual');
+        // Collect lines from both sections (using scoped section IDs)
+        var cashFlowLines = collectLines(_cfId);
+        var accrualLines = collectLines(_acId);
 
         // Validate
-        var sourceAmount = getSourceAmount('cashflow');
+        var sourceAmount = getSourceAmount(_cfId);
         var cfPctTotal = 0;
         for (var i = 0; i < cashFlowLines.length; i++) {
             cfPctTotal += (cashFlowLines[i].percentage || 0);
@@ -1816,9 +1843,9 @@ if (document.readyState !== 'loading') {
             return;
         }
 
-        // Update UI
-        var saveBtn = document.getElementById('bc_save_btn');
-        var statusEl = document.getElementById('bc_save_status');
+        // Update UI (using scoped IDs)
+        var saveBtn = document.getElementById(_saveBtnId);
+        var statusEl = document.getElementById(_saveStatusId);
         if (saveBtn) saveBtn.disabled = true;
         if (statusEl) statusEl.innerHTML = '<span class="bc-cf-spinner"></span> Saving...';
 

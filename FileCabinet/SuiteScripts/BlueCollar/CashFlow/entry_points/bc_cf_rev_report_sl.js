@@ -153,8 +153,23 @@ define([
     };
 
     /**
-     * Build a stacked bar chart SVG for revenue data.
-     * Bars extend upward (revenue is inflows).
+     * Escape single quotes for safe embedding inside onmouseover attribute strings.
+     */
+    const escTooltip = (s) => String(s).replace(/'/g, '&#39;').replace(/\\/g, '&#92;');
+
+    /**
+     * Full month name from YYYY-MM.
+     */
+    const monthFull = (yyyymm) => {
+        const m = Number(yyyymm.split('-')[1]);
+        const y = yyyymm.split('-')[0];
+        return ['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1] + ' ' + y;
+    };
+
+    /**
+     * Build a clean single-bar chart SVG for revenue data.
+     * Single gold bars extend upward (revenue is inflows).
+     * Hover tooltips show group breakdown.
      */
     const buildRevenueChart = (groups, periods, totals) => {
         if (!periods.length) return '';
@@ -164,74 +179,71 @@ define([
             if (b === 'Base Bid') return 1;
             return a.localeCompare(b);
         });
-        const revColors = ['#FFB703', '#FCD86D', '#F0A500', '#FFD166'];
         const maxTotal = Math.max(...periods.map((p) => totals[p] || 0), 1);
 
         const n = periods.length;
-        const vbWidth = 1000;
-        const padding = 40;
-        const usable = vbWidth - padding * 2;
-        const slotWidth = usable / n;
-        const barWidth = Math.min(slotWidth * 0.55, 56);
-        const barAreaHeight = 160;
-        const topMargin = 36;
-        const bottomMargin = 32;
-        const chartHeight = topMargin + barAreaHeight + bottomMargin;
-        const bottomBaseline = topMargin + barAreaHeight;
+        const vbW = 1000;
+        const pad = 40;
+        const usable = vbW - pad * 2;
+        const slotW = usable / n;
+        const barW = Math.min(slotW * 0.45, 48);
+        const barAreaH = 120;
+        const topM = 24;
+        const botM = 28;
+        const vbH = topM + barAreaH + botM;
+        const bottomBaseline = topM + barAreaH;
 
         let svg = '';
 
-        // Grid lines at 25%, 50%, 75%
-        [0.25, 0.5, 0.75].forEach((pct) => {
-            const y = bottomBaseline - Math.round(barAreaHeight * pct);
-            svg += '<line x1="' + padding + '" y1="' + y + '" x2="' + (vbWidth - padding) + '" y2="' + y + '" stroke="#E5E7EB" stroke-width="0.5"/>';
-        });
-
-        // Bottom baseline
-        svg += '<line x1="' + (padding - 10) + '" y1="' + bottomBaseline + '" x2="' + (vbWidth - padding + 10) + '" y2="' + bottomBaseline + '" stroke="#6B7280" stroke-width="1" stroke-dasharray="6,4"/>';
-        svg += '<text x="' + (padding - 14) + '" y="' + (bottomBaseline + 4) + '" text-anchor="end" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">$0</text>';
+        // $0 baseline — thin dashed line
+        svg += '<line x1="' + pad + '" y1="' + bottomBaseline + '" x2="' + (vbW - pad) + '" y2="' + bottomBaseline + '" stroke="#9CA3AF" stroke-width="0.75" stroke-dasharray="6,4"/>';
 
         periods.forEach((p, i) => {
-            const cx = padding + slotWidth * i + slotWidth / 2;
-            const x = cx - barWidth / 2;
+            const cx = pad + slotW * i + slotW / 2;
+            const x = cx - barW / 2;
             const total = totals[p] || 0;
 
-            // Stacked bars upward
-            let barY = bottomBaseline;
-            groupNames.forEach((g, gi) => {
-                const amt = (groups[g][p] || 0);
-                if (amt <= 0) return;
-                const h = Math.max(Math.round((amt / maxTotal) * barAreaHeight), 2);
-                barY -= h;
-                svg += '<rect x="' + x + '" y="' + barY + '" width="' + barWidth + '" height="' + h + '" rx="3" fill="' + revColors[gi % revColors.length] + '" opacity="0.92"/>';
-            });
+            // Single solid gold bar upward
+            const h = total > 0 ? Math.max(Math.round((total / maxTotal) * barAreaH), 2) : 0;
+            if (h > 0) {
+                svg += '<rect x="' + x + '" y="' + (bottomBaseline - h) + '" width="' + barW + '" height="' + h + '" rx="2" fill="#FFB703"/>';
+            }
 
-            // Total label above bars
+            // Total label above bar
             if (total > 0) {
-                svg += '<text x="' + cx + '" y="' + (barY - 8) + '" text-anchor="middle" fill="#04233D" font-size="10" font-weight="600" font-family="Inter,sans-serif">' + fmtCompact(total) + '</text>';
+                svg += '<text x="' + cx + '" y="' + (bottomBaseline - h - 6) + '" text-anchor="middle" fill="#04233D" font-size="9" font-weight="600" font-family="Inter,sans-serif">' + fmtCompact(total) + '</text>';
             }
 
             // Month label
-            svg += '<text x="' + cx + '" y="' + (chartHeight - 6) + '" text-anchor="middle" fill="#6B7280" font-size="11" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
+            svg += '<text x="' + cx + '" y="' + (vbH - 6) + '" text-anchor="middle" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
+
+            // Tooltip HTML
+            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + escTooltip(monthFull(p)) + '</div>';
+            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
+            groupNames.forEach((g) => {
+                const amt = groups[g][p] || 0;
+                if (amt > 0) {
+                    tip += '<div style="display:flex;justify-content:space-between;gap:16px;"><span>' + escTooltip(g) + '</span><span>' + escTooltip(fmtCompact(amt)) + '</span></div>';
+                }
+            });
+            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
+            tip += '<div style="font-weight:700;display:flex;justify-content:space-between;gap:16px;"><span>Total</span><span>' + escTooltip(fmtCompact(total)) + '</span></div>';
+
+            // Transparent overlay rect for hover
+            svg += '<rect x="' + (pad + slotW * i) + '" y="0" width="' + slotW + '" height="' + vbH + '" fill="transparent" onmouseover="bcShowTooltip(evt, \'' + tip + '\')" onmouseout="bcHideTooltip()" style="cursor:pointer;"/>';
         });
 
-        // Legend
-        const legendY = 14;
-        let legendX = padding;
-        groupNames.forEach((g, gi) => {
-            if (gi >= revColors.length) return;
-            svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="' + revColors[gi % revColors.length] + '"/>';
-            legendX += 14;
-            const labelText = g.length > 18 ? g.substring(0, 16) + '..' : g;
-            svg += '<text x="' + legendX + '" y="' + legendY + '" fill="#04233D" font-size="9" font-weight="500" font-family="Inter,sans-serif">' + esc(labelText) + '</text>';
-            legendX += labelText.length * 5.5 + 16;
-        });
-
-        return '<div style="border:1px solid #D1D5DB;border-radius:8px;padding:20px;margin:16px 0;">'
-            + '<div style="font-size:13px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Revenue by Month</div>'
-            + '<svg width="100%" viewBox="0 0 ' + vbWidth + ' ' + chartHeight + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
+        return '<div style="border:1px solid #E5E7EB;border-radius:8px;padding:16px 20px 8px;margin:8px 0;">'
+            + '<div style="font-size:13px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Revenue by Month</div>'
+            + '<svg width="100%" viewBox="0 0 ' + vbW + ' ' + vbH + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
             + svg
             + '</svg>'
+            + '<div id="bcChartTooltip" style="display:none;position:fixed;background:#04233D;color:#fff;padding:12px 16px;border-radius:8px;font-size:12px;font-family:Inter,sans-serif;pointer-events:none;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);line-height:1.6;min-width:180px;"></div>'
+            + '<script>'
+            + 'var bcTooltipEl=document.getElementById("bcChartTooltip");'
+            + 'function bcShowTooltip(evt,html){bcTooltipEl.innerHTML=html;bcTooltipEl.style.display="block";bcTooltipEl.style.left=(evt.clientX+12)+"px";bcTooltipEl.style.top=(evt.clientY-10)+"px";}'
+            + 'function bcHideTooltip(){bcTooltipEl.style.display="none";}'
+            + '<\/script>'
             + '</div>';
     };
 
@@ -394,7 +406,7 @@ define([
     .kpi-bar {
         display: flex;
         gap: 12px;
-        margin-bottom: 18px;
+        margin-bottom: 10px;
         flex-wrap: wrap;
     }
     .kpi-card {

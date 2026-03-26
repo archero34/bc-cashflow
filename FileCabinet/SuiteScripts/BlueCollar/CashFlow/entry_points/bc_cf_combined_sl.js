@@ -342,7 +342,7 @@ define([
     /* Toggle buttons are inline-styled — no class needed */
 
     /* KPI Cards */
-    .kpi-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .kpi-row { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
     .kpi-card {
         flex: 1 1 180px;
         background: ${BRAND.WHITE};
@@ -366,13 +366,12 @@ define([
     /* Chart container */
     .chart-wrap {
         background: ${BRAND.WHITE};
-        border: 1px solid ${BRAND.GREY_MID};
+        border: 1px solid #E5E7EB;
         border-radius: ${BRAND.BORDER_RADIUS};
-        padding: 20px 24px 12px;
-        margin-bottom: 24px;
-        box-shadow: ${BRAND.BOX_SHADOW};
+        padding: 16px 20px 8px;
+        margin: 8px 0;
     }
-    .chart-wrap h3 { font-size: 13px; font-weight: 600; color: ${BRAND.GREY_DARK}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .chart-wrap h3 { font-size: 13px; font-weight: 600; color: ${BRAND.GREY_DARK}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
 
     /* Table */
     .tbl-wrap {
@@ -477,124 +476,119 @@ function switchView(val) {
     // SVG Bar Chart
     // ────────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Escape single quotes for safe embedding inside onmouseover attribute strings.
+     */
+    const escTooltip = (s) => String(s).replace(/'/g, '&#39;').replace(/\\/g, '&#92;');
+
+    /**
+     * Full month name from YYYY-MM.
+     */
+    const monthFull = (yyyymm) => {
+        const m = Number(yyyymm.split('-')[1]);
+        const y = yyyymm.split('-')[0];
+        return ['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1] + ' ' + y;
+    };
+
     const buildBarChart = (periods, netTotals, data) => {
         if (!periods.length) return '';
 
         const { revenueGroups, costGroups, revTotals, costTotals } = data;
-        const revGroupNames = Object.keys(revenueGroups);
-        const costGroupNames = Object.keys(costGroups);
-
-        // Color palettes for stacked segments
-        const revColors = ['#FFB703', '#FCD86D', '#F0A500', '#FFD166'];
-        const costColors = ['#04233D', '#0A3A66', '#1A5276', '#2E86C1'];
 
         // Find max of revenue totals and cost totals across all periods
         const maxRev = Math.max(...periods.map((p) => revTotals[p] || 0), 1);
         const maxCost = Math.max(...periods.map((p) => costTotals[p] || 0), 1);
         const maxVal = Math.max(maxRev, maxCost, 1);
 
-        // SVG layout
+        // SVG layout — compact
         const n = periods.length;
-        const vbWidth = 1000;
-        const padding = 40;
-        const usable = vbWidth - padding * 2;
-        const slotWidth = usable / n;
-        const barWidth = Math.min(slotWidth * 0.55, 56);
-        const halfHeight = 130;
-        const topMargin = 36;
-        const bottomMargin = 40;
-        const chartHeight = topMargin + halfHeight * 2 + bottomMargin;
-        const baseline = topMargin + halfHeight;
+        const vbW = 1000;
+        const pad = 40;
+        const usable = vbW - pad * 2;
+        const slotW = usable / n;
+        const barW = Math.min(slotW * 0.28, 32);
+        const gap = Math.min(slotW * 0.06, 6);
+        const halfH = 70;
+        const topM = 24;
+        const botM = 28;
+        const vbH = topM + halfH * 2 + botM;
+        const baseline = topM + halfH;
 
         let svg = '';
 
-        // Light grid lines at 25%, 50%, 75% of max height (both above and below baseline)
-        [0.25, 0.5, 0.75].forEach((pct) => {
-            const offset = Math.round(halfHeight * pct);
-            // Above baseline (revenue side)
-            svg += '<line x1="' + padding + '" y1="' + (baseline - offset) + '" x2="' + (vbWidth - padding) + '" y2="' + (baseline - offset) + '" stroke="#E5E7EB" stroke-width="0.5"/>';
-            // Below baseline (cost side)
-            svg += '<line x1="' + padding + '" y1="' + (baseline + offset) + '" x2="' + (vbWidth - padding) + '" y2="' + (baseline + offset) + '" stroke="#E5E7EB" stroke-width="0.5"/>';
-        });
-
         // $0 baseline — thin dashed line
-        svg += '<line x1="' + (padding - 10) + '" y1="' + baseline + '" x2="' + (vbWidth - padding + 10) + '" y2="' + baseline + '" stroke="' + BRAND.GREY_DARK + '" stroke-width="1" stroke-dasharray="6,4"/>';
-        svg += '<text x="' + (padding - 14) + '" y="' + (baseline + 4) + '" text-anchor="end" fill="' + BRAND.GREY_DARK + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">$0</text>';
+        svg += '<line x1="' + pad + '" y1="' + baseline + '" x2="' + (vbW - pad) + '" y2="' + baseline + '" stroke="#9CA3AF" stroke-width="0.75" stroke-dasharray="6,4"/>';
 
         periods.forEach((p, i) => {
-            const cx = padding + slotWidth * i + slotWidth / 2;
-            const x = cx - barWidth / 2;
+            const cx = pad + slotW * i + slotW / 2;
             const revTotal = revTotals[p] || 0;
             const costTotal = costTotals[p] || 0;
             const net = netTotals[p] || 0;
 
-            // ── Revenue bars (stacked upward from baseline) ──
-            let revY = baseline;
-            revGroupNames.forEach((g, gi) => {
-                const amt = (revenueGroups[g][p] || 0);
-                if (amt <= 0) return;
-                const h = Math.max(Math.round((amt / maxVal) * halfHeight), 2);
-                revY -= h;
-                svg += '<rect x="' + x + '" y="' + revY + '" width="' + barWidth + '" height="' + h + '" rx="3" fill="' + revColors[gi % revColors.length] + '" opacity="0.92"/>';
-            });
-
-            // Revenue total label above bars
-            if (revTotal > 0) {
-                const labelY = revY - 8;
-                svg += '<text x="' + cx + '" y="' + labelY + '" text-anchor="middle" fill="' + BRAND.NAVY + '" font-size="10" font-weight="600" font-family="' + BRAND.FONT_FAMILY + '">' + fmtCompact(revTotal) + '</text>';
+            // Revenue bar (gold, going UP from baseline)
+            const revH = revTotal > 0 ? Math.max(Math.round((revTotal / maxVal) * halfH), 2) : 0;
+            const revX = cx - barW - gap / 2;
+            if (revH > 0) {
+                svg += '<rect x="' + revX + '" y="' + (baseline - revH) + '" width="' + barW + '" height="' + revH + '" rx="2" fill="#FFB703"/>';
             }
 
-            // ── Cost bars (stacked downward from baseline) ──
-            let costY = baseline;
-            costGroupNames.forEach((g, gi) => {
-                const amt = (costGroups[g][p] || 0);
-                if (amt <= 0) return;
-                const h = Math.max(Math.round((amt / maxVal) * halfHeight), 2);
-                svg += '<rect x="' + x + '" y="' + costY + '" width="' + barWidth + '" height="' + h + '" rx="3" fill="' + costColors[gi % costColors.length] + '" opacity="0.92"/>';
-                costY += h;
-            });
-
-            // Cost total label below bars
-            if (costTotal > 0) {
-                const labelY = costY + 14;
-                svg += '<text x="' + cx + '" y="' + labelY + '" text-anchor="middle" fill="' + BRAND.NAVY + '" font-size="10" font-weight="600" font-family="' + BRAND.FONT_FAMILY + '">' + fmtCompact(costTotal) + '</text>';
+            // Cost bar (navy, going DOWN from baseline)
+            const costH = costTotal > 0 ? Math.max(Math.round((costTotal / maxVal) * halfH), 2) : 0;
+            const costX = cx + gap / 2;
+            if (costH > 0) {
+                svg += '<rect x="' + costX + '" y="' + baseline + '" width="' + barW + '" height="' + costH + '" rx="2" fill="#04233D"/>';
             }
 
-            // Net value label on top of column
+            // Net label above the column group
             const netColor = net >= 0 ? '#10B981' : '#EF4444';
-            const netLabelY = (revTotal > 0 ? revY - 22 : baseline - 22);
-            svg += '<text x="' + cx + '" y="' + netLabelY + '" text-anchor="middle" fill="' + netColor + '" font-size="9" font-weight="700" font-family="' + BRAND.FONT_FAMILY + '">Net: ' + fmtCompact(net) + '</text>';
+            const netLabelY = revH > 0 ? (baseline - revH - 6) : (baseline - 6);
+            svg += '<text x="' + cx + '" y="' + netLabelY + '" text-anchor="middle" fill="' + netColor + '" font-size="9" font-weight="700" font-family="Inter,sans-serif">' + fmtCompact(net) + '</text>';
 
             // Month label below
-            svg += '<text x="' + cx + '" y="' + (chartHeight - 8) + '" text-anchor="middle" fill="' + BRAND.GREY_DARK + '" font-size="11" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">' + monthAbbrev(p) + '</text>';
-        });
+            svg += '<text x="' + cx + '" y="' + (vbH - 6) + '" text-anchor="middle" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
 
-        // Legend
-        const legendY = 14;
-        let legendX = padding;
-        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#FFB703"/>';
-        legendX += 14;
-        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">Revenue</text>';
-        legendX += 58;
-        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#04233D"/>';
-        legendX += 14;
-        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">Cost</text>';
-        legendX += 40;
-        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#10B981"/>';
-        legendX += 14;
-        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">+ Net</text>';
-        legendX += 42;
-        svg += '<rect x="' + legendX + '" y="' + (legendY - 8) + '" width="10" height="10" rx="2" fill="#EF4444"/>';
-        legendX += 14;
-        svg += '<text x="' + legendX + '" y="' + legendY + '" fill="' + BRAND.NAVY + '" font-size="10" font-weight="500" font-family="' + BRAND.FONT_FAMILY + '">- Net</text>';
+            // Tooltip HTML — build server-side
+            const revGroupNames = Object.keys(revenueGroups);
+            const costGroupNames = Object.keys(costGroups);
+            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + escTooltip(monthFull(p)) + '</div>';
+            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
+            if (revTotal > 0) {
+                tip += '<div style="color:#FFB703;font-weight:600;">Revenue&nbsp;&nbsp;&nbsp;' + escTooltip(fmtCompact(revTotal)) + '</div>';
+                revGroupNames.forEach((g) => {
+                    const amt = revenueGroups[g][p] || 0;
+                    if (amt > 0) {
+                        tip += '<div style="padding-left:10px;opacity:0.85;">' + escTooltip(g) + '&nbsp;&nbsp;' + escTooltip(fmtCompact(amt)) + '</div>';
+                    }
+                });
+            }
+            if (costTotal > 0) {
+                tip += '<div style="color:#93C5FD;font-weight:600;margin-top:4px;">Cost&nbsp;&nbsp;&nbsp;' + escTooltip(fmtCompact(costTotal)) + '</div>';
+                costGroupNames.forEach((g) => {
+                    const amt = costGroups[g][p] || 0;
+                    if (amt > 0) {
+                        tip += '<div style="padding-left:10px;opacity:0.85;">' + escTooltip(g) + '&nbsp;&nbsp;' + escTooltip(amt > 0 ? fmtCompact(amt) : '') + '</div>';
+                    }
+                });
+            }
+            tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
+            const netTipColor = net >= 0 ? '#34D399' : '#F87171';
+            tip += '<div style="font-weight:700;color:' + netTipColor + ';">Net&nbsp;&nbsp;&nbsp;' + escTooltip(fmtCompact(net)) + '</div>';
+
+            // Transparent overlay rect for hover
+            svg += '<rect x="' + (pad + slotW * i) + '" y="0" width="' + slotW + '" height="' + vbH + '" fill="transparent" onmouseover="bcShowTooltip(evt, \'' + tip + '\')" onmouseout="bcHideTooltip()" style="cursor:pointer;"/>';
+        });
 
         return '<div class="chart-wrap">'
             + '<h3>Revenue vs Cost by Month</h3>'
-            + '<div>'
-            + '<svg width="100%" viewBox="0 0 ' + vbWidth + ' ' + chartHeight + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
+            + '<svg width="100%" viewBox="0 0 ' + vbW + ' ' + vbH + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
             + svg
             + '</svg>'
-            + '</div>'
+            + '<div id="bcChartTooltip" style="display:none;position:fixed;background:#04233D;color:#fff;padding:12px 16px;border-radius:8px;font-size:12px;font-family:Inter,sans-serif;pointer-events:none;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);line-height:1.6;min-width:180px;"></div>'
+            + '<script>'
+            + 'var bcTooltipEl=document.getElementById("bcChartTooltip");'
+            + 'function bcShowTooltip(evt,html){bcTooltipEl.innerHTML=html;bcTooltipEl.style.display="block";bcTooltipEl.style.left=(evt.clientX+12)+"px";bcTooltipEl.style.top=(evt.clientY-10)+"px";}'
+            + 'function bcHideTooltip(){bcTooltipEl.style.display="none";}'
+            + '<\/script>'
             + '</div>';
     };
 

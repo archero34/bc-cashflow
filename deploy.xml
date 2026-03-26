@@ -1,13 +1,10 @@
 <deploy>
-  <configuration>
-    <path>~/AccountConfiguration/*</path>
-  </configuration>
-  <files>
+<files>
     <path>~/FileCabinet/SuiteScripts/BlueCollar/*</path>
   </files>
   <objects>
     <path>~/Objects/lists/*</path>
-    <path>~/Objects/records/*</path>
+    <!-- Custom records created manually (reference BC bundle records) -->
     <path>~/Objects/fields/*</path>
     <path>~/Objects/scripts/*</path>
   </objects>

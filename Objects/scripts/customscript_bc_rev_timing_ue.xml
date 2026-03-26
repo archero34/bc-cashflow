@@ -9,7 +9,6 @@
   <notifyowner>F</notifyowner>
   <scriptdeployments>
     <scriptdeployment scriptid="customdeploy_bc_rev_timing_ue">
-      <title>BC Revenue Timing - SO Deploy</title>
       <isdeployed>T</isdeployed>
       <recordtype>SALESORDER</recordtype>
       <status>RELEASED</status>

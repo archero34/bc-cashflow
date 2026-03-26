@@ -9,7 +9,6 @@
   <notifyowner>F</notifyowner>
   <scriptdeployments>
     <scriptdeployment scriptid="customdeploy_bc_cost_timing_ue">
-      <title>BC Cost Timing - PO Deploy</title>
       <isdeployed>T</isdeployed>
       <recordtype>PURCHASEORDER</recordtype>
       <status>RELEASED</status>

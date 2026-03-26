@@ -7,15 +7,10 @@
       <feature required="true">SERVERSIDESCRIPTING</feature>
       <feature required="true">CUSTOMSEGMENTS</feature>
     </features>
-    <objects>
-      <!-- BC SuiteApp records we depend on but do NOT own -->
-      <object>customrecord_bc_budget_item</object>
-      <object>customrecord_bc_change_req</object>
-      <object>customrecord_bc_change_req_billing_item</object>
-      <object>customrecord_bc_change_req_budget_item</object>
-      <object>customrecord_cseg_bc_project</object>
-      <object>customrecord_cseg_bc_cost_code</object>
-    </objects>
-    <files></files>
+    <!-- BC SuiteApp records are bundle-installed, not SDF-manageable.
+         They exist at runtime but cannot be declared as SDF dependencies.
+         Runtime deps: customrecord_bc_change_req, customrecord_bc_change_req_billing_item,
+         customrecord_bc_change_req_budget_item, customrecord_bc_budget_item,
+         customrecord_cseg_bc_project, customrecord_cseg_bc_cost_code -->
   </dependencies>
 </manifest>

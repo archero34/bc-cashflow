@@ -1789,15 +1789,19 @@ if (document.readyState !== 'loading') {
         // Format the amount
         amtInput.value = bcTiming.formatCurrency(rawAmt);
 
-        // Update cumulatives and totals WITHOUT recalculating other lines.
-        // recalculate() recomputes ALL amounts from %, which would change
-        // lines that were created at a different source amount.
+        // Amount is the source of truth. Recalculate ALL percentages from
+        // current amounts so they reflect the current sourceAmount.
+        // This handles the case where sourceAmount changed since lines were created.
         var allRows = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
         var runPct = 0, runAmt = 0, totalPct = 0, totalAmt = 0;
         for (var k = 0; k < allRows.length; k++) {
-            var rPct = parseFloat(allRows[k].querySelector('input[data-field="percentage"]').value) || 0;
             var rAmtVal = allRows[k].querySelector('input[data-field="amount"]').value;
             var rAmt = parseFloat(rAmtVal.replace(/[^0-9.\-]/g, '')) || 0;
+            // Derive percentage from amount (amount is truth)
+            var rPct = sourceAmount > 0 ? Math.round((rAmt / sourceAmount) * 100 * 100) / 100 : 0;
+            // Update the percentage input to reflect derived value
+            var pctEl = allRows[k].querySelector('input[data-field="percentage"]');
+            if (pctEl) pctEl.value = rPct;
             runPct = Math.round((runPct + rPct) * 100) / 100;
             runAmt = Math.round((runAmt + rAmt) * 100) / 100;
             totalPct += rPct;

@@ -61,14 +61,21 @@ define([
     const loadTimingLines = (options) => {
         const funcName = `${MODULE}.loadTimingLines`;
         try {
-            const { recordType, transactionId, projectId, timingType, sourceGroup } = options;
+            const { recordType, transactionId, projectId, timingType, sourceGroup, changeOrderId } = options;
             const { recType, fields } = resolveRecordMeta(recordType);
 
             const conditions = [];
             const params = [];
 
-            conditions.push(`${fields.TRANSACTION} = ?`);
-            params.push(transactionId);
+            // CO cost lines have no transaction — key by changeOrderId instead
+            if (transactionId) {
+                conditions.push(`${fields.TRANSACTION} = ?`);
+                params.push(transactionId);
+            } else if (changeOrderId) {
+                conditions.push(`${fields.CHANGE_ORDER} = ?`);
+                params.push(changeOrderId);
+                conditions.push(`${fields.TRANSACTION} IS NULL`);
+            }
 
             conditions.push(`${fields.TIMING_TYPE} = ?`);
             params.push(timingType);
@@ -184,7 +191,8 @@ define([
                 recordType,
                 transactionId,
                 timingType,
-                sourceGroup
+                sourceGroup,
+                changeOrderId
             });
 
             // Delete lines that exist in the DB but are not in the incoming payload

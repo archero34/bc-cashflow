@@ -361,10 +361,15 @@ define([
 
         // KPI calculations
         const totalForecast = grandTotal;
-        // "Received to Date" = sum of Collected actuals (customer payments), not all actuals
+        // "Received to Date" = sum of Collected actuals (customer payments only)
         let receivedToDate = 0;
         if (actualGroups['Collected']) {
             receivedToDate = Object.values(actualGroups['Collected']).reduce((s, v) => s + Math.abs(v), 0);
+        }
+        // "Actual Invoiced" = sum of Invoiced actuals only (not collected)
+        let invoicedToDate = 0;
+        if (actualGroups['Invoiced']) {
+            invoicedToDate = Object.values(actualGroups['Invoiced']).reduce((s, v) => s + Math.abs(v), 0);
         }
         const expectedThisMonth = totals[curMonth] || 0;
         const overdue = 0;           // Placeholder for POC
@@ -710,7 +715,7 @@ define([
     </div>
     ${hasActuals ? `<div class="kpi-card" style="border-left:4px solid #10B981;">
         <div class="kpi-label">Actual Invoiced</div>
-        <div class="kpi-value" style="color:#10B981;">${fmtActual(actualGrandTotal)}</div>
+        <div class="kpi-value" style="color:#10B981;">${fmtActual(invoicedToDate)}</div>
     </div>` : ''}
 </div>
 

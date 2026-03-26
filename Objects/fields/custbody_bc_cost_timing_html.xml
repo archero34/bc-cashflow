@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transactionbodycustomfield scriptid="custbody_bc_cost_timing_html">
+  <label>Cost Timing Schedule</label>
+  <description>Inline HTML mount for Cash Flow cost timing UI on Purchase Orders</description>
+  <fieldtype>INLINEHTML</fieldtype>
+  <displaytype>NORMAL</displaytype>
+  <storevalue>F</storevalue>
+  <isformula>F</isformula>
+  <accesslevel>2</accesslevel>
+  <searchlevel>1</searchlevel>
+  <appliestopurchase>T</appliestopurchase>
+  <appliestosale>F</appliestosale>
+  <appliestoexpense>F</appliestoexpense>
+  <appliestotransferorder>F</appliestotransferorder>
+  <appliestoitemreceipt>F</appliestoitemreceipt>
+  <appliestoitemfulfillment>F</appliestoitemfulfillment>
+</transactionbodycustomfield>

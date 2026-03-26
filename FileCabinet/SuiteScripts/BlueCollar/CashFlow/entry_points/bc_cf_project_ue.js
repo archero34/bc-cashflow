@@ -1,16 +1,16 @@
 /**
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
- * @description Injects "Cash Flow" parent tab with nested child tabs (Cost | Revenue | Combined)
- *              on the BlueCollar Project record. Each child tab loads a report Suitelet in an iframe.
+ * @description Populates the pre-existing INLINEHTML field on the BlueCollar Project record
+ *              with nested child tabs (Cost | Revenue | Combined).
+ *              Each child tab loads a report Suitelet in an iframe.
  */
 define([
     'N/log',
     'N/runtime',
     'N/url',
-    'N/ui/serverWidget',
     '../modules/bc_timing_constants'
-], (log, runtime, url, serverWidget, Constants) => {
+], (log, runtime, url, Constants) => {
 
     const MODULE = 'bc_cf_project_ue';
     const { BRAND } = Constants;
@@ -170,19 +170,12 @@ define([
 
             if (!projectId) return;
 
-            // Add Cash Flow parent tab
-            context.form.addTab({
-                id: 'custpage_bc_cashflow',
-                label: 'Cash Flow'
-            });
-
-            // Add inline HTML field
-            const htmlField = context.form.addField({
-                id: 'custpage_bc_cf_html',
-                type: serverWidget.FieldType.INLINEHTML,
-                label: ' ',
-                container: 'custpage_bc_cashflow'
-            });
+            // Populate the pre-existing INLINEHTML field
+            const htmlField = context.form.getField({ id: 'custrecord_bc_cashflow_html' });
+            if (!htmlField) {
+                log.debug({ title: MODULE, details: 'INLINEHTML field custrecord_bc_cashflow_html not found on form.' });
+                return;
+            }
 
             htmlField.defaultValue = buildCashFlowHtml(projectId);
 

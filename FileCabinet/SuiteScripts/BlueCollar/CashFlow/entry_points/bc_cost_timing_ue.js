@@ -1,10 +1,10 @@
 /**
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
- * @description Injects the Cash Flow Schedule subtab onto Purchase Orders.
- *              Renders inline HTML grids for Cash Flow and Accrual timing
- *              using the shared UI module. Data flows through the Suitelet
- *              AJAX endpoint for all CRUD operations.
+ * @description Populates the pre-existing INLINEHTML field on Purchase Orders
+ *              with Cash Flow and Accrual timing grids using the shared UI
+ *              module. Data flows through the Suitelet AJAX endpoint for all
+ *              CRUD operations.
  *
  * Deployed on: Purchase Order (VIEW / EDIT)
  */
@@ -12,12 +12,10 @@ define([
     'N/log',
     'N/runtime',
     'N/url',
-    'N/ui/serverWidget',
-    'N/query',
     '../modules/bc_timing_constants',
     '../modules/bc_timing_dao',
     '../modules/bc_timing_ui'
-], (log, runtime, url, serverWidget, query, Constants, DAO, UI) => {
+], (log, runtime, url, Constants, DAO, UI) => {
 
     const MODULE = 'bc_cost_timing_ue';
 
@@ -53,26 +51,17 @@ define([
 
             // ── If no project assigned, show empty state ─────────────────
             if (!projectId) {
-                context.form.addTab({
-                    id: 'custpage_bc_schedule',
-                    label: 'Schedule'
-                });
-
-                const emptyField = context.form.addField({
-                    id: 'custpage_bc_schedule_html',
-                    type: serverWidget.FieldType.INLINEHTML,
-                    label: ' ',
-                    container: 'custpage_bc_schedule'
-                });
-
-                emptyField.defaultValue = [
-                    '<div style="padding:24px;text-align:center;color:#6B7280;',
-                    'font-family:\'Inter\',-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;">',
-                    '<p style="font-size:16px;margin-bottom:8px;">No Project Assigned</p>',
-                    '<p style="font-size:13px;">Assign this Purchase Order to a project ',
-                    'to enable Cash Flow and Accrual scheduling.</p>',
-                    '</div>'
-                ].join('');
+                const emptyField = context.form.getField({ id: 'custbody_bc_cost_timing_html' });
+                if (emptyField) {
+                    emptyField.defaultValue = [
+                        '<div style="padding:24px;text-align:center;color:#6B7280;',
+                        'font-family:\'Inter\',-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;">',
+                        '<p style="font-size:16px;margin-bottom:8px;">No Project Assigned</p>',
+                        '<p style="font-size:13px;">Assign this Purchase Order to a project ',
+                        'to enable Cash Flow and Accrual scheduling.</p>',
+                        '</div>'
+                    ].join('');
+                }
 
                 log.debug({ title: funcName, details: `PO ${poId} has no project — showing empty state.` });
                 return;
@@ -108,18 +97,12 @@ define([
                     + `${accrualLines.length} accrual lines.`
             });
 
-            // ── Add the Schedule subtab ──────────────────────────────────
-            context.form.addTab({
-                id: 'custpage_bc_schedule',
-                label: 'Schedule'
-            });
-
-            const htmlField = context.form.addField({
-                id: 'custpage_bc_schedule_html',
-                type: serverWidget.FieldType.INLINEHTML,
-                label: ' ',
-                container: 'custpage_bc_schedule'
-            });
+            // ── Populate the pre-existing INLINEHTML field ────────────────
+            const htmlField = context.form.getField({ id: 'custbody_bc_cost_timing_html' });
+            if (!htmlField) {
+                log.debug({ title: funcName, details: 'INLINEHTML field custbody_bc_cost_timing_html not found on form.' });
+                return;
+            }
 
             // ── Render the full Schedule subtab HTML ─────────────────────
             htmlField.defaultValue = UI.renderScheduleSubtab({

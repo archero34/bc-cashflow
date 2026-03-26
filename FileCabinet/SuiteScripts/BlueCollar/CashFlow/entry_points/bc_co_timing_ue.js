@@ -1,7 +1,7 @@
 /**
  * @NApiVersion 2.1
  * @NScriptType UserEventScript
- * @description Injects the Cash Flow Schedule subtab onto Change Requests
+ * @description Populates the pre-existing INLINEHTML field on Change Requests
  *              with a DUAL-PANE layout: Revenue timing (billing impact) on top,
  *              Cost timing (budget items grouped by cost code) below.
  *              Data flows through the Suitelet AJAX endpoint for all CRUD.
@@ -12,12 +12,11 @@ define([
     'N/log',
     'N/runtime',
     'N/url',
-    'N/ui/serverWidget',
     'N/query',
     '../modules/bc_timing_constants',
     '../modules/bc_timing_dao',
     '../modules/bc_timing_ui'
-], (log, runtime, url, serverWidget, query, Constants, DAO, UI) => {
+], (log, runtime, url, query, Constants, DAO, UI) => {
 
     const MODULE = 'bc_co_timing_ue';
 
@@ -142,27 +141,18 @@ define([
             }
 
             if (!projectId) {
-                // Show empty-state tab and exit
-                context.form.addTab({
-                    id: 'custpage_bc_schedule',
-                    label: 'Schedule'
-                });
-
-                const emptyField = context.form.addField({
-                    id: 'custpage_bc_schedule_html',
-                    type: serverWidget.FieldType.INLINEHTML,
-                    label: ' ',
-                    container: 'custpage_bc_schedule'
-                });
-
-                emptyField.defaultValue = [
-                    '<div style="padding:24px;text-align:center;color:#6B7280;',
-                    "font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\">",
-                    '<p style="font-size:16px;margin-bottom:8px;">No Project Assigned</p>',
-                    '<p style="font-size:13px;">This Change Request must be linked to a project ',
-                    'to enable Cash Flow and Accrual scheduling.</p>',
-                    '</div>'
-                ].join('');
+                // Show empty-state message and exit
+                const emptyField = context.form.getField({ id: 'custrecord_bc_co_timing_html' });
+                if (emptyField) {
+                    emptyField.defaultValue = [
+                        '<div style="padding:24px;text-align:center;color:#6B7280;',
+                        "font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;\">",
+                        '<p style="font-size:16px;margin-bottom:8px;">No Project Assigned</p>',
+                        '<p style="font-size:13px;">This Change Request must be linked to a project ',
+                        'to enable Cash Flow and Accrual scheduling.</p>',
+                        '</div>'
+                    ].join('');
+                }
 
                 log.debug({ title: funcName, details: `CR ${crId} has no project — showing empty state.` });
                 return;
@@ -296,18 +286,12 @@ define([
                 </div>`;
             }
 
-            // ── Add the Schedule subtab ────────────────────────────────────
-            context.form.addTab({
-                id: 'custpage_bc_schedule',
-                label: 'Schedule'
-            });
-
-            const htmlField = context.form.addField({
-                id: 'custpage_bc_schedule_html',
-                type: serverWidget.FieldType.INLINEHTML,
-                label: ' ',
-                container: 'custpage_bc_schedule'
-            });
+            // ── Populate the pre-existing INLINEHTML field ──────────────────
+            const htmlField = context.form.getField({ id: 'custrecord_bc_co_timing_html' });
+            if (!htmlField) {
+                log.debug({ title: funcName, details: 'INLINEHTML field custrecord_bc_co_timing_html not found on form.' });
+                return;
+            }
 
             // ── Combine into dual-pane wrapper ─────────────────────────────
             htmlField.defaultValue = `

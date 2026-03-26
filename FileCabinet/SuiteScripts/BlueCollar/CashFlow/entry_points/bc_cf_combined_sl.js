@@ -168,7 +168,7 @@ define([
             'Revenue Actual' AS flow_direction,
             'Invoiced' AS cost_group,
             TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-            SUM(ABS(tl.foreignamount)) AS amount
+            SUM(tl.foreignamount) AS amount
         FROM transaction t
         JOIN transactionline tl ON tl.transaction = t.id
         WHERE t.type = 'CustInvc'
@@ -183,7 +183,7 @@ define([
             'Revenue Actual' AS flow_direction,
             'Collected' AS cost_group,
             TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-            SUM(ABS(pmtline.foreignamount)) AS amount
+            SUM(pmtline.foreignamount) AS amount
         FROM transaction pmt
         JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
         JOIN transaction inv ON inv.id = pmtline.createdfrom AND inv.type = 'CustInvc'
@@ -198,7 +198,7 @@ define([
             'Cost Actual' AS flow_direction,
             'Billed' AS cost_group,
             TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-            SUM(ABS(tl.foreignamount)) AS amount
+            SUM(tl.foreignamount) AS amount
         FROM transaction t
         JOIN transactionline tl ON tl.transaction = t.id
         WHERE t.type = 'VendBill'
@@ -213,7 +213,7 @@ define([
             'Cost Actual' AS flow_direction,
             'Paid' AS cost_group,
             TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-            SUM(ABS(pmtline.foreignamount)) AS amount
+            SUM(pmtline.foreignamount) AS amount
         FROM transaction pmt
         JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
         JOIN transaction bill ON bill.id = pmtline.createdfrom AND bill.type = 'VendBill'
@@ -634,10 +634,11 @@ function switchView(val) {
         return ['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1] + ' ' + y;
     };
 
-    const buildBarChart = (periods, netTotals, data) => {
+    const buildBarChart = (periods, netTotals, data, actuals) => {
         if (!periods.length) return '';
 
         const { revenueGroups, costGroups, revTotals, costTotals } = data;
+        const { revActualTotals, costActualTotals } = actuals || { revActualTotals: {}, costActualTotals: {} };
 
         // Find max of revenue totals and cost totals across all periods
         const maxRev = Math.max(...periods.map((p) => revTotals[p] || 0), 1);
@@ -682,6 +683,22 @@ function switchView(val) {
             const costX = cx + gap / 2;
             if (costH > 0) {
                 svg += '<rect x="' + costX + '" y="' + baseline + '" width="' + barW + '" height="' + costH + '" rx="2" fill="#04233D"/>';
+            }
+
+            // Actual revenue marker (white line across gold bar)
+            const revActual = revActualTotals[p] || 0;
+            if (revActual > 0 && revH > 0) {
+                const revActH = Math.max(Math.round((revActual / maxVal) * halfH), 1);
+                const revActY = baseline - Math.min(revActH, revH);
+                svg += '<line x1="' + revX + '" y1="' + revActY + '" x2="' + (revX + barW) + '" y2="' + revActY + '" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.8"/>';
+            }
+
+            // Actual cost marker (white line across navy bar)
+            const costActual = costActualTotals[p] || 0;
+            if (costActual > 0 && costH > 0) {
+                const costActH = Math.max(Math.round((costActual / maxVal) * halfH), 1);
+                const costActY = baseline + Math.min(costActH, costH);
+                svg += '<line x1="' + costX + '" y1="' + costActY + '" x2="' + (costX + barW) + '" y2="' + costActY + '" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.8"/>';
             }
 
             // Net label above the column group
@@ -1147,7 +1164,7 @@ function switchView(val) {
             // Build full report
             const bodyContent = [
                 buildKPICards(data, actuals),
-                buildBarChart(data.periods, data.netTotals, data),
+                buildBarChart(data.periods, data.netTotals, data, actuals),
                 buildTable(data, actuals),
                 buildExportButtons(data, projectName)
             ].join('\n');

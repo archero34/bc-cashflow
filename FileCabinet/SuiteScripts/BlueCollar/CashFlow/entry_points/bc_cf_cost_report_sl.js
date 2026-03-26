@@ -106,7 +106,7 @@ define([
                 SELECT
                     NVL(NVL(e.entitytitle, e.entityid), 'Vendor') AS cost_group,
                     TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-                    SUM(ABS(tl.foreignamount)) AS amount,
+                    SUM(tl.foreignamount) AS amount,
                     'actual' AS row_type
                 FROM transaction t
                 JOIN transactionline tl ON tl.transaction = t.id
@@ -215,7 +215,7 @@ define([
      * Single navy bars extend downward (costs are outflows).
      * Hover tooltips show group breakdown.
      */
-    const buildCostChart = (groups, periods, totals) => {
+    const buildCostChart = (groups, periods, totals, actualTotals) => {
         if (!periods.length) return '';
 
         const groupNames = Object.keys(groups).sort();
@@ -248,6 +248,14 @@ define([
             const h = total > 0 ? Math.max(Math.round((total / maxTotal) * barAreaH), 2) : 0;
             if (h > 0) {
                 svg += '<rect x="' + x + '" y="' + topBaseline + '" width="' + barW + '" height="' + h + '" rx="2" fill="#04233D"/>';
+            }
+
+            // Actual cost marker (white line across bar)
+            const costActual = actualTotals ? (actualTotals[p] || 0) : 0;
+            if (costActual > 0 && h > 0) {
+                const actH = Math.max(Math.round((costActual / maxTotal) * barAreaH), 1);
+                const actY = topBaseline + Math.min(actH, h);
+                svg += '<line x1="' + x + '" y1="' + actY + '" x2="' + (x + barW) + '" y2="' + actY + '" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.8"/>';
             }
 
             // Total label below bar
@@ -324,7 +332,7 @@ define([
 
         // KPI calculations
         const totalForecast = grandTotal;
-        const paidToDate = 0;  // Placeholder for POC
+        const paidToDate = hasActuals ? actualGrandTotal : 0;
         const dueThisMonth = totals[curMonth] || 0;
         const overdue = 0;     // Placeholder for POC
 
@@ -672,7 +680,7 @@ define([
     </div>` : ''}
 </div>
 
-${!isEmpty ? buildCostChart(groups, periods, totals) : ''}
+${!isEmpty ? buildCostChart(groups, periods, totals, actualTotals) : ''}
 
 ${isEmpty ? `
 <div class="empty-state">

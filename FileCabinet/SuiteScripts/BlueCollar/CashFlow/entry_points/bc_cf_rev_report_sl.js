@@ -102,7 +102,7 @@ define([
                 SELECT
                     'Invoiced' AS cost_group,
                     TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-                    SUM(ABS(tl.foreignamount)) AS amount
+                    SUM(tl.foreignamount) AS amount
                 FROM transaction t
                 JOIN transactionline tl ON tl.transaction = t.id
                 WHERE t.type = 'CustInvc'
@@ -116,7 +116,7 @@ define([
                 SELECT
                     'Collected' AS cost_group,
                     TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-                    SUM(ABS(pmtline.foreignamount)) AS amount
+                    SUM(pmtline.foreignamount) AS amount
                 FROM transaction pmt
                 JOIN transactionline pmtline ON pmtline.transaction = pmt.id AND pmtline.mainline = 'F'
                 JOIN transaction inv ON inv.id = pmtline.createdfrom AND inv.type = 'CustInvc'
@@ -223,7 +223,7 @@ define([
      * Single gold bars extend upward (revenue is inflows).
      * Hover tooltips show group breakdown.
      */
-    const buildRevenueChart = (groups, periods, totals) => {
+    const buildRevenueChart = (groups, periods, totals, actualTotals) => {
         if (!periods.length) return '';
 
         const groupNames = Object.keys(groups).sort((a, b) => {
@@ -260,6 +260,14 @@ define([
             const h = total > 0 ? Math.max(Math.round((total / maxTotal) * barAreaH), 2) : 0;
             if (h > 0) {
                 svg += '<rect x="' + x + '" y="' + (bottomBaseline - h) + '" width="' + barW + '" height="' + h + '" rx="2" fill="#FFB703"/>';
+            }
+
+            // Actual revenue marker (white line across bar)
+            const revActual = actualTotals ? (actualTotals[p] || 0) : 0;
+            if (revActual > 0 && h > 0) {
+                const actH = Math.max(Math.round((revActual / maxTotal) * barAreaH), 1);
+                const actY = bottomBaseline - Math.min(actH, h);
+                svg += '<line x1="' + x + '" y1="' + actY + '" x2="' + (x + barW) + '" y2="' + actY + '" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.8"/>';
             }
 
             // Total label above bar
@@ -341,7 +349,7 @@ define([
 
         // KPI calculations
         const totalForecast = grandTotal;
-        const receivedToDate = 0;    // Placeholder for POC
+        const receivedToDate = hasActuals ? actualGrandTotal : 0;
         const expectedThisMonth = totals[curMonth] || 0;
         const overdue = 0;           // Placeholder for POC
 
@@ -689,7 +697,7 @@ define([
     </div>` : ''}
 </div>
 
-${!isEmpty ? buildRevenueChart(groups, periods, totals) : ''}
+${!isEmpty ? buildRevenueChart(groups, periods, totals, actualTotals) : ''}
 
 ${isEmpty ? `
 <div class="empty-state">

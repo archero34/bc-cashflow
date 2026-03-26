@@ -44,7 +44,7 @@ define([
             }
 
             // ── BlueCollar Contract gate — only activate for BC contracts ──
-            const isBcContract = context.newRecord.getValue('custbody_bc_contract');
+            const isBcContract = context.newRecord.getValue('custbody_bc_is_bluecollar_contract');
             if (!isBcContract) {
                 log.debug({ title: funcName, details: `SO ${soId} is not a BC Contract — skipping.` });
                 return;

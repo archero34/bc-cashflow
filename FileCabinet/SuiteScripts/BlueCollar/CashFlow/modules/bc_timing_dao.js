@@ -82,26 +82,29 @@ define([
                 params.push(sourceGroup);
             }
 
+            // Alias columns to camelCase names expected by the UI module
             const selectCols = [
                 'id',
-                fields.PERIOD_DATE,
-                fields.PERCENTAGE,
-                fields.AMOUNT,
-                fields.CUMULATIVE_PCT,
-                fields.CUMULATIVE_AMT,
-                fields.LABEL,
-                fields.SOURCE,
-                fields.SOURCE_GROUP,
-                fields.TIMING_TYPE
+                `${fields.PERIOD_DATE} AS perioddate`,
+                `${fields.PERCENTAGE} AS percentage`,
+                `${fields.AMOUNT} AS amount`,
+                `${fields.CUMULATIVE_PCT} AS cumulativepct`,
+                `${fields.CUMULATIVE_AMT} AS cumulativeamt`,
+                `${fields.LABEL} AS label`,
+                `${fields.SOURCE} AS source`,
+                `${fields.SOURCE_GROUP} AS sourcegroup`,
+                `${fields.TIMING_TYPE} AS timingtype`
             ];
 
-            // Cost lines carry cost code, cost type, and change order
             if (recordType === 'cost') {
-                selectCols.push(fields.COST_CODE, fields.COST_TYPE, fields.CHANGE_ORDER);
+                selectCols.push(
+                    `${fields.COST_CODE} AS costcode`,
+                    `${fields.COST_TYPE} AS costtype`,
+                    `${fields.CHANGE_ORDER} AS changeorder`
+                );
             }
-            // Revenue lines carry change order
             if (recordType === 'revenue') {
-                selectCols.push(fields.CHANGE_ORDER);
+                selectCols.push(`${fields.CHANGE_ORDER} AS changeorder`);
             }
 
             const sql = `
@@ -113,7 +116,23 @@ define([
 
             log.debug({ title: funcName, details: `SQL: ${sql} | params: ${JSON.stringify(params)}` });
 
-            return runSQL(sql, params);
+            // Map SuiteQL lowercase results to camelCase for UI compatibility
+            const rows = runSQL(sql, params);
+            return rows.map((r) => ({
+                id: r.id,
+                periodDate: r.perioddate,
+                percentage: r.percentage,
+                amount: r.amount,
+                cumulativePct: r.cumulativepct,
+                cumulativeAmt: r.cumulativeamt,
+                label: r.label,
+                source: r.source,
+                sourceGroup: r.sourcegroup,
+                timingType: r.timingtype,
+                costCode: r.costcode || null,
+                costType: r.costtype || null,
+                changeOrder: r.changeorder || null
+            }));
 
         } catch (e) {
             log.error({ title: funcName, details: e.message || JSON.stringify(e) });

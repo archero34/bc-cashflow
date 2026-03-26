@@ -196,7 +196,7 @@ define([
                     + `cost CF=${costCashFlowLines.length}, cost Acc=${costAccrualLines.length}`
             });
 
-            const editable = context.type !== context.UserEventType.VIEW;
+            const editable = true;  // Always editable — timing lives in custom records, not on the CR
 
             // ── Build Revenue Pane ─────────────────────────────────────────
             let revenueHtml = '';

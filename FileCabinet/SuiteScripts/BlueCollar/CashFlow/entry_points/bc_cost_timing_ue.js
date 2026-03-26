@@ -115,7 +115,7 @@ define([
                 projectName: projectName,
                 cashFlowLines: cashFlowLines,
                 accrualLines: accrualLines,
-                editable: context.type !== context.UserEventType.VIEW,
+                editable: true,  // Always editable — timing lives in custom records, not on the PO
                 showCostCode: false,
                 templates: Constants.BUILT_IN_TEMPLATES,
                 suiteletUrl: suiteletUrl,

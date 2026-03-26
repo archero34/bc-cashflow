@@ -1786,10 +1786,67 @@ if (document.readyState !== 'loading') {
             pctInput.value = newPct;
         }
 
-        // Now call recalculate — it reads percentages and computes amounts.
-        // Since we already set the correct percentage above, recalculate will
-        // produce the matching amount AND properly update totals + cumulatives + KPIs.
-        bcTiming.recalculate(sectionId);
+        // Format the amount
+        amtInput.value = bcTiming.formatCurrency(rawAmt);
+
+        // Update cumulatives and totals WITHOUT recalculating other lines.
+        // recalculate() recomputes ALL amounts from %, which would change
+        // lines that were created at a different source amount.
+        var allRows = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        var runPct = 0, runAmt = 0, totalPct = 0, totalAmt = 0;
+        for (var k = 0; k < allRows.length; k++) {
+            var rPct = parseFloat(allRows[k].querySelector('input[data-field="percentage"]').value) || 0;
+            var rAmtVal = allRows[k].querySelector('input[data-field="amount"]').value;
+            var rAmt = parseFloat(rAmtVal.replace(/[^0-9.\-]/g, '')) || 0;
+            runPct = Math.round((runPct + rPct) * 100) / 100;
+            runAmt = Math.round((runAmt + rAmt) * 100) / 100;
+            totalPct += rPct;
+            totalAmt += rAmt;
+            // Update cumulative cells (last 2 non-button cells)
+            var tds = allRows[k].querySelectorAll('td');
+            var cumPct = tds[tds.length - 3];
+            var cumAmt = tds[tds.length - 2];
+            if (cumPct && !cumPct.querySelector('input')) cumPct.textContent = runPct.toFixed(1) + '%';
+            if (cumAmt && !cumAmt.querySelector('input')) cumAmt.textContent = bcTiming.formatCurrency(runAmt);
+        }
+
+        // Update total row — find it by looking for the row after the data rows
+        var allTrs = tbody.querySelectorAll('tr');
+        var lastTr = allTrs[allTrs.length - 1];
+        if (lastTr && !lastTr.getAttribute('data-section')) {
+            // This is the total row (no data-section attribute)
+            var tCells = lastTr.querySelectorAll('td');
+            for (var t = 0; t < tCells.length; t++) {
+                var txt = tCells[t].textContent;
+                if (txt.indexOf('%') > -1 && txt.indexOf('allocated') === -1) {
+                    tCells[t].textContent = totalPct.toFixed(1) + '%';
+                } else if (txt.indexOf('$') > -1) {
+                    tCells[t].textContent = bcTiming.formatCurrency(totalAmt);
+                }
+            }
+            // Update allocated badge
+            var badge = lastTr.querySelector('td:last-child');
+            if (badge && badge.textContent.indexOf('allocated') > -1) {
+                var isBalanced = totalPct >= 99.5 && totalPct <= 100.5;
+                badge.innerHTML = isBalanced
+                    ? '<span style="color:#10B981;">&#10003; Balanced (' + totalPct.toFixed(0) + '%)</span>'
+                    : '<span style="color:#EF4444;">&#9201; ' + totalPct.toFixed(1) + '% allocated</span>';
+            }
+        }
+
+        // Update KPI cards
+        var section = document.getElementById(sectionId + '_section');
+        if (section) {
+            var kpis = section.querySelectorAll('.bc-cf-kpi-value');
+            if (kpis.length >= 3) {
+                var pctLabel = section.querySelectorAll('.bc-cf-kpi-label');
+                kpis[1].textContent = bcTiming.formatCurrency(totalAmt);
+                if (pctLabel[1]) pctLabel[1].textContent = 'SCHEDULED (' + totalPct.toFixed(1) + '%)';
+                var rem = sourceAmount - totalAmt;
+                kpis[2].textContent = bcTiming.formatCurrency(rem);
+                if (pctLabel[2]) pctLabel[2].textContent = 'REMAINING (' + (100 - totalPct).toFixed(1) + '%)';
+            }
+        }
     };
 
     // ─── Save ───────────────────────────────────────────────────────────

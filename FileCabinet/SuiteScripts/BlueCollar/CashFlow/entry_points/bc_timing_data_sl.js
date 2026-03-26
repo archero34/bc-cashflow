@@ -124,8 +124,12 @@ define([
             case 'save': {
                 const { recordType, transactionId, projectId, lines, timingType, sourceGroup, changeOrderId } = body;
 
-                if (!recordType || !transactionId || !projectId || !lines || !timingType || !sourceGroup) {
+                // transactionId can be 0/null for CO cost lines — require changeOrderId instead
+                if (!recordType || !projectId || !lines || !timingType || !sourceGroup) {
                     return sendError(response, 'Missing required fields for save');
+                }
+                if (!transactionId && !changeOrderId) {
+                    return sendError(response, 'Either transactionId or changeOrderId is required');
                 }
 
                 // Convert date strings to Date objects

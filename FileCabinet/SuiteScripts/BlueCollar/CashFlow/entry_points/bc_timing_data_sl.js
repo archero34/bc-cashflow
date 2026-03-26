@@ -36,6 +36,12 @@ define([
     const parseDate = (dateStr) => {
         if (!dateStr) return null;
         if (dateStr instanceof Date) return dateStr;
+        // HTML date inputs send ISO format (YYYY-MM-DD) — parse directly
+        if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+        // Fallback for NS-formatted dates (MM/DD/YYYY)
         return format.parse({ value: dateStr, type: format.Type.DATE });
     };
 

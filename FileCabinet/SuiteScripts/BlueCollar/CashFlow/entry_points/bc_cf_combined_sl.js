@@ -308,7 +308,7 @@ define([
         -webkit-font-smoothing: antialiased;
     }
 
-    .page { max-width: 1400px; margin: 0 auto; padding: 24px 28px 40px; }
+    .page { max-width: 100%; margin: 0; padding: 16px 12px 32px; }
 
     /* Header */
     .hdr { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }

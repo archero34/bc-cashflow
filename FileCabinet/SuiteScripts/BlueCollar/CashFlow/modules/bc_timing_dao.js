@@ -116,15 +116,24 @@ define([
 
             log.debug({ title: funcName, details: `SQL: ${sql} | params: ${JSON.stringify(params)}` });
 
-            // Map SuiteQL lowercase results to camelCase for UI compatibility
+            // Map SuiteQL results to camelCase for UI compatibility.
+            // PERCENT fields return decimals via SuiteQL (0.5 = 50%) — multiply by 100.
+            // Recalculate cumulatives on load rather than trusting stored values.
             const rows = runSQL(sql, params);
-            return rows.map((r) => ({
+            let runPct = 0;
+            let runAmt = 0;
+            return rows.map((r) => {
+                const pct = Math.round((r.percentage || 0) * 100 * 100) / 100;
+                const amt = r.amount || 0;
+                runPct = Math.round((runPct + pct) * 100) / 100;
+                runAmt = Math.round((runAmt + amt) * 100) / 100;
+                return {
                 id: r.id,
                 periodDate: r.perioddate,
-                percentage: r.percentage,
-                amount: r.amount,
-                cumulativePct: r.cumulativepct,
-                cumulativeAmt: r.cumulativeamt,
+                percentage: pct,
+                amount: amt,
+                cumulativePct: runPct,
+                cumulativeAmt: runAmt,
                 label: r.label,
                 source: r.source,
                 sourceGroup: r.sourcegroup,
@@ -132,7 +141,8 @@ define([
                 costCode: r.costcode || null,
                 costType: r.costtype || null,
                 changeOrder: r.changeorder || null
-            }));
+            };
+            });
 
         } catch (e) {
             log.error({ title: funcName, details: e.message || JSON.stringify(e) });

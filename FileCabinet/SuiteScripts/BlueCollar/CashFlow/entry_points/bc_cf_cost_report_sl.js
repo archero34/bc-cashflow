@@ -55,7 +55,7 @@ define([
                     WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                         THEN 'CO: ' || NVL(cr.name, 'Change Order')
                     WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
-                        THEN NVL(NVL(e.companyname, e.firstname || ' ' || e.lastname), 'Vendor')
+                        THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
                     ELSE 'Other'
                 END AS cost_group,
                 TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') AS period,
@@ -67,7 +67,7 @@ define([
             WHERE ctl.custrecord_bc_ctl_project = ?
               AND ctl.custrecord_bc_ctl_timing_type = ?
             GROUP BY
-                CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL THEN 'CO: ' || NVL(cr.name, 'Change Order') WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL THEN NVL(NVL(e.companyname, e.firstname || ' ' || e.lastname), 'Vendor') ELSE 'Other' END,
+                CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL THEN 'CO: ' || NVL(cr.name, 'Change Order') WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor') ELSE 'Other' END,
                 TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
             ORDER BY cost_group, period
         `;

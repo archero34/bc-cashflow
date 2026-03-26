@@ -314,7 +314,7 @@ define([
                 SELECT
                     t.id,
                     t.tranid,
-                    NVL(e.companyname, e.firstname || ' ' || e.lastname) AS entityname,
+                    NVL(e.entitytitle, e.entityid) AS entityname,
                     t.foreigntotal AS totalamount,
                     t.status,
                     t.memo
@@ -448,7 +448,7 @@ define([
                             WHEN ctl.${CTL_FIELDS.CHANGE_ORDER} IS NOT NULL
                                 THEN 'CO: ' || NVL(cr.name, 'Change Order ' || ctl.${CTL_FIELDS.CHANGE_ORDER})
                             WHEN ctl.${CTL_FIELDS.SOURCE_GROUP} = ${Constants.SOURCE_GROUP.BASE_PO.id}
-                                THEN 'PO: ' || NVL(NVL(e.companyname, e.firstname || ' ' || e.lastname), 'Vendor ' || t.entity)
+                                THEN 'PO: ' || NVL(NVL(e.entitytitle, e.entityid), 'Vendor ' || t.entity)
                             ELSE 'Base Bid'
                         END AS cost_group,
                         ctl.${CTL_FIELDS.PERIOD_DATE} AS period_date,

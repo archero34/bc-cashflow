@@ -127,6 +127,10 @@ define([
             const crName       = crInfo.name || `CO-${crId}`;
             const billingTotal = crInfo.billingTotal || 0;
             const budgetItems  = crInfo.budgetItems || [];
+
+            // Get the related Sales Order (parent contract) for revenue timing lines
+            const relatedSOId = context.newRecord.getValue('custrecord_bc_related_transactions');
+            log.debug({ title: funcName, details: `Related SO: ${relatedSOId}` });
             const costTotal    = budgetItems.reduce((sum, item) => sum + item.amount, 0);
 
             // ── Get project from the Change Request record ─────────────────
@@ -210,8 +214,8 @@ define([
             } else {
                 revenueHtml = UI.renderScheduleSubtab({
                     transactionType: 'changeorder_revenue',
-                    transactionId: crId,
-                    transactionName: `${crName} \u2014 Revenue`,
+                    transactionId: relatedSOId || crId,
+                    transactionName: `${crName} \u2014 Contract`,
                     entityName: '',
                     totalAmount: billingTotal,
                     projectId: projectId,
@@ -240,8 +244,8 @@ define([
             } else {
                 costHtml = UI.renderScheduleSubtab({
                     transactionType: 'changeorder_cost',
-                    transactionId: crId,
-                    transactionName: `${crName} \u2014 Cost`,
+                    transactionId: 0,
+                    transactionName: `${crName} \u2014 Estimate`,
                     entityName: '',
                     totalAmount: costTotal,
                     projectId: projectId,
@@ -293,68 +297,42 @@ define([
                 return;
             }
 
-            // ── Combine into dual-pane wrapper ─────────────────────────────
+            // ── Contract / Estimate toggle ────────────────────────────────
             htmlField.defaultValue = `
 <style>
-    .bc-cf-dual-pane {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-    .bc-cf-pane {
-        margin-bottom: 24px;
-        border: 1px solid #D1D5DB;
-        border-radius: 6px;
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-    }
-    .bc-cf-pane-header {
-        padding: 14px 24px;
-        font-size: 16px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        letter-spacing: -0.01em;
-    }
-    .bc-cf-pane-header .bc-cf-pane-amount {
-        font-size: 14px;
-        font-weight: 600;
-        opacity: 0.85;
-    }
-    .bc-cf-pane-revenue .bc-cf-pane-header {
-        background: linear-gradient(135deg, #04233D 0%, #0A3A66 100%);
-        color: #FFFFFF;
-    }
-    .bc-cf-pane-cost .bc-cf-pane-header {
-        background: linear-gradient(135deg, #0A3A66 0%, #04233D 100%);
-        color: #FFFFFF;
-    }
-    .bc-cf-pane-body {
-        padding: 0;
-    }
+    .bc-co-wrap { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .bc-co-bar { display: flex; gap: 0; border-bottom: 2px solid #04233D; background: #F5F7FA; padding: 0 16px; }
+    .bc-co-btn { padding: 12px 28px; font-size: 13px; font-weight: 600; color: #6B7280; background: transparent;
+        border: none; border-bottom: 3px solid transparent; cursor: pointer; text-transform: uppercase;
+        letter-spacing: 0.5px; transition: all 0.2s; margin-bottom: -2px; }
+    .bc-co-btn:hover { color: #04233D; background: rgba(4,35,61,0.05); }
+    .bc-co-btn.active { color: #04233D; border-bottom-color: #FFB703; background: #FFFFFF; }
+    .bc-co-btn .bc-co-amt { font-size: 11px; font-weight: 400; opacity: 0.7; margin-left: 8px; }
+    .bc-co-pane { display: none; }
+    .bc-co-pane.active { display: block; }
 </style>
-<div class="bc-cf-dual-pane">
-    <div class="bc-cf-pane bc-cf-pane-revenue">
-        <div class="bc-cf-pane-header">
-            <span>Revenue Timing</span>
-            <span class="bc-cf-pane-amount">\u2014 CO Billing Impact: $${fmtCurrency(billingTotal)}</span>
-        </div>
-        <div class="bc-cf-pane-body">
-            ${revenueHtml}
-        </div>
+<div class="bc-co-wrap">
+    <div class="bc-co-bar">
+        <button class="bc-co-btn active" onclick="bcCoToggle('contract')" id="bcCoBtn_contract">
+            Contract <span class="bc-co-amt">$${fmtCurrency(billingTotal)}</span>
+        </button>
+        <button class="bc-co-btn" onclick="bcCoToggle('estimate')" id="bcCoBtn_estimate">
+            Estimate <span class="bc-co-amt">$${fmtCurrency(costTotal)}</span>
+        </button>
     </div>
-    <div class="bc-cf-pane bc-cf-pane-cost">
-        <div class="bc-cf-pane-header">
-            <span>Cost Timing</span>
-            <span class="bc-cf-pane-amount">\u2014 CO Estimate Impact: $${fmtCurrency(costTotal)}</span>
-        </div>
-        <div class="bc-cf-pane-body">
-            ${costCodeSummary}
-            ${costHtml}
-        </div>
-    </div>
-</div>`;
+    <div class="bc-co-pane active" id="bcCoPane_contract">${revenueHtml}</div>
+    <div class="bc-co-pane" id="bcCoPane_estimate">${costCodeSummary}${costHtml}</div>
+</div>
+<script>
+function bcCoToggle(p) {
+    document.querySelectorAll('.bc-co-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.bc-co-pane').forEach(function(v){v.classList.remove('active');});
+    document.getElementById('bcCoBtn_'+p).classList.add('active');
+    document.getElementById('bcCoPane_'+p).classList.add('active');
+}
+</script>`;
 
-            log.debug({ title: funcName, details: `Dual-pane Schedule subtab rendered for CR ${crId}.` });
+            log.debug({ title: funcName, details: `CO Schedule with toggle rendered for CR ${crId}.` });
 
         } catch (e) {
             // Never block the Change Request from loading — log and move on

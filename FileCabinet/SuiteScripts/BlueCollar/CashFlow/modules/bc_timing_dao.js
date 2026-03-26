@@ -202,7 +202,9 @@ define([
                 if (!line.id) {
                     // ── Create ──
                     rec = record.create({ type: recType, isDynamic: false });
-                    rec.setValue({ fieldId: fields.TRANSACTION, value: transactionId });
+                    if (transactionId) {
+                        rec.setValue({ fieldId: fields.TRANSACTION, value: transactionId });
+                    }
                     rec.setValue({ fieldId: fields.PROJECT, value: projectId });
                     rec.setValue({ fieldId: fields.TIMING_TYPE, value: timingType });
                     rec.setValue({ fieldId: fields.SOURCE_GROUP, value: sourceGroup });

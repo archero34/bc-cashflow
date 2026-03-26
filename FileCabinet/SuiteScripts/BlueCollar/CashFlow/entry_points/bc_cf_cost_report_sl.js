@@ -194,6 +194,7 @@ define([
         const topBaseline = topM;
 
         let svg = '';
+        const tooltipArray = [];
 
         // $0 baseline — thin dashed line
         svg += '<line x1="' + pad + '" y1="' + topBaseline + '" x2="' + (vbW - pad) + '" y2="' + topBaseline + '" stroke="#9CA3AF" stroke-width="0.75" stroke-dasharray="6,4"/>';
@@ -217,21 +218,29 @@ define([
             // Month label
             svg += '<text x="' + cx + '" y="' + (vbH - 6) + '" text-anchor="middle" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
 
-            // Tooltip HTML
-            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + escTooltip(monthFull(p)) + '</div>';
+            // Tooltip HTML — collected into array, referenced by index
+            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + monthFull(p) + '</div>';
             tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
             groupNames.forEach((g) => {
                 const amt = groups[g][p] || 0;
                 if (amt > 0) {
-                    tip += '<div style="display:flex;justify-content:space-between;gap:16px;"><span>' + escTooltip(g) + '</span><span>' + escTooltip(fmtCompact(amt)) + '</span></div>';
+                    tip += '<div style="display:flex;justify-content:space-between;gap:16px;"><span>' + esc(g) + '</span><span>' + fmtCompact(amt) + '</span></div>';
                 }
             });
             tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
-            tip += '<div style="font-weight:700;display:flex;justify-content:space-between;gap:16px;"><span>Total</span><span>' + escTooltip(fmtCompact(total)) + '</span></div>';
+            tip += '<div style="font-weight:700;display:flex;justify-content:space-between;gap:16px;"><span>Total</span><span>' + fmtCompact(total) + '</span></div>';
+            tooltipArray.push(tip);
 
-            // Transparent overlay rect for hover
-            svg += '<rect x="' + (pad + slotW * i) + '" y="0" width="' + slotW + '" height="' + vbH + '" fill="transparent" onmouseover="bcShowTooltip(evt, \'' + tip + '\')" onmouseout="bcHideTooltip()" style="cursor:pointer;"/>';
+            // Transparent overlay rect for hover — pass index, not HTML
+            svg += '<rect x="' + (pad + slotW * i) + '" y="0" width="' + slotW + '" height="' + vbH + '" fill="transparent" onmouseover="bcShowTooltip(evt,' + i + ')" onmouseout="bcHideTooltip()" style="cursor:pointer;"/>';
         });
+
+        const tooltipScript = '<script>'
+            + 'var bcTTData=' + JSON.stringify(tooltipArray) + ';'
+            + 'var bcTTEl=document.getElementById("bcChartTooltip");'
+            + 'function bcShowTooltip(evt,idx){bcTTEl.innerHTML=bcTTData[idx];bcTTEl.style.display="block";bcTTEl.style.left=(evt.clientX+12)+"px";bcTTEl.style.top=(evt.clientY-10)+"px";}'
+            + 'function bcHideTooltip(){bcTTEl.style.display="none";}'
+            + '<\/script>';
 
         return '<div style="border:1px solid #E5E7EB;border-radius:8px;padding:16px 20px 8px;margin:8px 0;">'
             + '<div style="font-size:13px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Cost by Month</div>'
@@ -239,11 +248,7 @@ define([
             + svg
             + '</svg>'
             + '<div id="bcChartTooltip" style="display:none;position:fixed;background:#04233D;color:#fff;padding:12px 16px;border-radius:8px;font-size:12px;font-family:Inter,sans-serif;pointer-events:none;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);line-height:1.6;min-width:180px;"></div>'
-            + '<script>'
-            + 'var bcTooltipEl=document.getElementById("bcChartTooltip");'
-            + 'function bcShowTooltip(evt,html){bcTooltipEl.innerHTML=html;bcTooltipEl.style.display="block";bcTooltipEl.style.left=(evt.clientX+12)+"px";bcTooltipEl.style.top=(evt.clientY-10)+"px";}'
-            + 'function bcHideTooltip(){bcTooltipEl.style.display="none";}'
-            + '<\/script>'
+            + tooltipScript
             + '</div>';
     };
 

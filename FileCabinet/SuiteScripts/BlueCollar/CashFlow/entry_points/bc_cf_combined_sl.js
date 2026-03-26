@@ -515,6 +515,7 @@ function switchView(val) {
         const baseline = topM + halfH;
 
         let svg = '';
+        const tooltipArray = [];
 
         // $0 baseline — thin dashed line
         svg += '<line x1="' + pad + '" y1="' + baseline + '" x2="' + (vbW - pad) + '" y2="' + baseline + '" stroke="#9CA3AF" stroke-width="0.75" stroke-dasharray="6,4"/>';
@@ -547,36 +548,44 @@ function switchView(val) {
             // Month label below
             svg += '<text x="' + cx + '" y="' + (vbH - 6) + '" text-anchor="middle" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
 
-            // Tooltip HTML — build server-side
+            // Tooltip HTML — collected into array, referenced by index
             const revGroupNames = Object.keys(revenueGroups);
             const costGroupNames = Object.keys(costGroups);
-            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + escTooltip(monthFull(p)) + '</div>';
+            let tip = '<div style="font-weight:700;margin-bottom:4px;">' + monthFull(p) + '</div>';
             tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
             if (revTotal > 0) {
-                tip += '<div style="color:#FFB703;font-weight:600;">Revenue&nbsp;&nbsp;&nbsp;' + escTooltip(fmtCompact(revTotal)) + '</div>';
+                tip += '<div style="color:#FFB703;font-weight:600;">Revenue&nbsp;&nbsp;&nbsp;' + fmtCompact(revTotal) + '</div>';
                 revGroupNames.forEach((g) => {
                     const amt = revenueGroups[g][p] || 0;
                     if (amt > 0) {
-                        tip += '<div style="padding-left:10px;opacity:0.85;">' + escTooltip(g) + '&nbsp;&nbsp;' + escTooltip(fmtCompact(amt)) + '</div>';
+                        tip += '<div style="padding-left:10px;opacity:0.85;">' + esc(g) + '&nbsp;&nbsp;' + fmtCompact(amt) + '</div>';
                     }
                 });
             }
             if (costTotal > 0) {
-                tip += '<div style="color:#93C5FD;font-weight:600;margin-top:4px;">Cost&nbsp;&nbsp;&nbsp;' + escTooltip(fmtCompact(costTotal)) + '</div>';
+                tip += '<div style="color:#93C5FD;font-weight:600;margin-top:4px;">Cost&nbsp;&nbsp;&nbsp;' + fmtCompact(costTotal) + '</div>';
                 costGroupNames.forEach((g) => {
                     const amt = costGroups[g][p] || 0;
                     if (amt > 0) {
-                        tip += '<div style="padding-left:10px;opacity:0.85;">' + escTooltip(g) + '&nbsp;&nbsp;' + escTooltip(amt > 0 ? fmtCompact(amt) : '') + '</div>';
+                        tip += '<div style="padding-left:10px;opacity:0.85;">' + esc(g) + '&nbsp;&nbsp;' + fmtCompact(amt) + '</div>';
                     }
                 });
             }
             tip += '<div style="border-top:1px solid #4B6A88;margin:4px 0;"></div>';
             const netTipColor = net >= 0 ? '#34D399' : '#F87171';
-            tip += '<div style="font-weight:700;color:' + netTipColor + ';">Net&nbsp;&nbsp;&nbsp;' + escTooltip(fmtCompact(net)) + '</div>';
+            tip += '<div style="font-weight:700;color:' + netTipColor + ';">Net&nbsp;&nbsp;&nbsp;' + fmtCompact(net) + '</div>';
+            tooltipArray.push(tip);
 
-            // Transparent overlay rect for hover
-            svg += '<rect x="' + (pad + slotW * i) + '" y="0" width="' + slotW + '" height="' + vbH + '" fill="transparent" onmouseover="bcShowTooltip(evt, \'' + tip + '\')" onmouseout="bcHideTooltip()" style="cursor:pointer;"/>';
+            // Transparent overlay rect for hover — pass index, not HTML
+            svg += '<rect x="' + (pad + slotW * i) + '" y="0" width="' + slotW + '" height="' + vbH + '" fill="transparent" onmouseover="bcShowTooltip(evt,' + i + ')" onmouseout="bcHideTooltip()" style="cursor:pointer;"/>';
         });
+
+        const tooltipScript = '<script>'
+            + 'var bcTTData=' + JSON.stringify(tooltipArray) + ';'
+            + 'var bcTTEl=document.getElementById("bcChartTooltip");'
+            + 'function bcShowTooltip(evt,idx){bcTTEl.innerHTML=bcTTData[idx];bcTTEl.style.display="block";bcTTEl.style.left=(evt.clientX+12)+"px";bcTTEl.style.top=(evt.clientY-10)+"px";}'
+            + 'function bcHideTooltip(){bcTTEl.style.display="none";}'
+            + '<\/script>';
 
         return '<div class="chart-wrap">'
             + '<h3>Revenue vs Cost by Month</h3>'
@@ -584,11 +593,7 @@ function switchView(val) {
             + svg
             + '</svg>'
             + '<div id="bcChartTooltip" style="display:none;position:fixed;background:#04233D;color:#fff;padding:12px 16px;border-radius:8px;font-size:12px;font-family:Inter,sans-serif;pointer-events:none;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);line-height:1.6;min-width:180px;"></div>'
-            + '<script>'
-            + 'var bcTooltipEl=document.getElementById("bcChartTooltip");'
-            + 'function bcShowTooltip(evt,html){bcTooltipEl.innerHTML=html;bcTooltipEl.style.display="block";bcTooltipEl.style.left=(evt.clientX+12)+"px";bcTooltipEl.style.top=(evt.clientY-10)+"px";}'
-            + 'function bcHideTooltip(){bcTooltipEl.style.display="none";}'
-            + '<\/script>'
+            + tooltipScript
             + '</div>';
     };
 

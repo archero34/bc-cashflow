@@ -221,10 +221,8 @@ define([
         FROM transaction pmt
         WHERE pmt.type = 'VendPmt'
           AND EXISTS (
-            SELECT 1 FROM transactionline pmtl
-            JOIN transactionline billl ON billl.transaction = pmtl.createdfrom
-            WHERE pmtl.transaction = pmt.id
-              AND pmtl.mainline = 'F'
+            SELECT 1 FROM transactionline billl
+            WHERE billl.transaction = pmt.createdfrom
               AND billl.cseg_bc_project = ?
               AND billl.mainline = 'F'
           )

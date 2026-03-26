@@ -710,7 +710,7 @@ define([
     </div>
     ${hasActuals ? `<div class="kpi-card" style="border-left:4px solid #10B981;">
         <div class="kpi-label">Actual Invoiced</div>
-        <div class="kpi-value" style="color:#10B981;">${fmt(actualGrandTotal)}</div>
+        <div class="kpi-value" style="color:#10B981;">${fmtActual(actualGrandTotal)}</div>
     </div>` : ''}
 </div>
 

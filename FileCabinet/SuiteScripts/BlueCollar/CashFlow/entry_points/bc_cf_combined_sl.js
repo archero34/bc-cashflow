@@ -1,91 +1,28 @@
 /**
  * @NApiVersion 2.1
  * @NScriptType Suitelet
- * @description Combined Cash Flow Report — THE MONEY SHOT.
- *              Renders a full standalone HTML page (runs inside an iframe on the
- *              BlueCollar Project record) showing Revenue In vs Cost Out = Net
- *              Cash Position by month.  Includes inline SVG bar chart, summary
- *              KPI cards, detail grid, and CSV export.
+ * @description Combined Cash Flow Report — Revenue In vs Cost Out = Net Cash Position.
+ *              Renders a standalone HTML page (iframe on BC Project record) with
+ *              KPI cards, grouped bar chart, combined detail grid, and CSV export.
  *
  * URL Params:
  *   projectId  – internal ID of the BC Project
  *   timingType – 1 = Cash Flow (default), 2 = Accrual
+ *
+ * @module  entry_points/bc_cf_combined_sl
+ * @author  BlueCollar
  */
 define([
     'N/log',
     'N/query',
-    'N/runtime',
-    '../modules/bc_timing_constants'
-], (log, query, runtime, Constants) => {
+    '../modules/bc_timing_constants',
+    '../modules/bc_cf_report_utils'
+], (log, query, Constants, utils) => {
 
     const MODULE = 'bc_cf_combined_sl';
     const { BRAND, TIMING_TYPE } = Constants;
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ────────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Format a number as $X,XXX with optional negative-parentheses.
-     * Zero/null → em-dash.
-     */
-    const fmtDollar = (val) => {
-        if (val == null || val === 0) return '\u2014';
-        const abs = Math.abs(val);
-        const formatted = '$' + abs.toLocaleString('en-US', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-        return val < 0 ? '(' + formatted + ')' : formatted;
-    };
-
-    /**
-     * Compact dollar formatting for chart labels — e.g. $3.5K, $1.2M
-     */
-    const fmtCompact = (val) => {
-        if (val == null || val === 0) return '$0';
-        const abs = Math.abs(val);
-        let label;
-        if (abs >= 1000000) {
-            label = '$' + (abs / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-        } else if (abs >= 1000) {
-            label = '$' + (abs / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-        } else {
-            label = '$' + abs.toFixed(0);
-        }
-        return val < 0 ? '-' + label : label;
-    };
-
-    /**
-     * Turn 'YYYY-MM' → 'Mon-YY'  (e.g. '2026-04' → 'Apr-26')
-     */
-    const periodLabel = (yyyymm) => {
-        const [y, m] = yyyymm.split('-');
-        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        return months[Number(m) - 1] + '-' + y.slice(2);
-    };
-
-    /**
-     * Short month abbreviation for chart axis — 'Apr', 'May', etc.
-     */
-    const monthAbbrev = (yyyymm) => {
-        const m = Number(yyyymm.split('-')[1]);
-        return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
-    };
-
-    /**
-     * Escape HTML entities.
-     */
-    const esc = (s) => String(s == null ? '' : s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // SuiteQL
-    // ────────────────────────────────────────────────────────────────────────────
+    // ─── SuiteQL ──────────────────────────────────────────────────────────────
 
     const COMBINED_SQL = `
         SELECT
@@ -157,88 +94,13 @@ define([
         ORDER BY flow_direction DESC, cost_group, period
     `;
 
-    const PROJECT_NAME_SQL = `
-        SELECT name
-        FROM customrecord_cseg_bc_project
-        WHERE id = ?
-    `;
+    const PROJECT_NAME_SQL = `SELECT name FROM customrecord_cseg_bc_project WHERE id = ?`;
 
-    const ACTUALS_SQL = `
-        SELECT
-            'Revenue Actual' AS flow_direction,
-            'Invoiced' AS cost_group,
-            TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-            SUM(-tl.foreignamount) AS amount
-        FROM transaction t
-        JOIN transactionline tl ON tl.transaction = t.id
-        WHERE t.type = 'CustInvc'
-          AND tl.cseg_bc_project = ?
-          AND tl.mainline = 'F'
-          AND tl.taxline = 'F'
-        GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')
-
-        UNION ALL
-
-        SELECT
-            'Revenue Actual' AS flow_direction,
-            'Collected' AS cost_group,
-            TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-            SUM(-pmt.foreigntotal) AS amount
-        FROM transaction pmt
-        WHERE pmt.type = 'CustPymt'
-          AND EXISTS (
-            SELECT 1 FROM transactionline pmtl
-            JOIN transactionline invl ON invl.transaction = pmtl.createdfrom
-            WHERE pmtl.transaction = pmt.id
-              AND pmtl.mainline = 'F'
-              AND invl.cseg_bc_project = ?
-              AND invl.mainline = 'F'
-          )
-        GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
-
-        UNION ALL
-
-        SELECT
-            'Cost Actual' AS flow_direction,
-            'Billed' AS cost_group,
-            TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-            SUM(tl.foreignamount) AS amount
-        FROM transaction t
-        JOIN transactionline tl ON tl.transaction = t.id
-        WHERE t.type = 'VendBill'
-          AND tl.cseg_bc_project = ?
-          AND tl.mainline = 'F'
-          AND tl.taxline = 'F'
-        GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')
-
-        UNION ALL
-
-        SELECT
-            'Cost Actual' AS flow_direction,
-            'Paid' AS cost_group,
-            TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-            SUM(pmt.foreigntotal) AS amount
-        FROM transaction pmt
-        WHERE pmt.type = 'VendPmt'
-          AND EXISTS (
-            SELECT 1 FROM transactionline billl
-            WHERE billl.transaction = pmt.createdfrom
-              AND billl.cseg_bc_project = ?
-              AND billl.mainline = 'F'
-          )
-        GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
-    `;
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // Data fetching & transformation
-    // ────────────────────────────────────────────────────────────────────────────
+    // ─── Data Fetching ────────────────────────────────────────────────────────
 
     const fetchProjectName = (projectId) => {
         try {
-            const rs = query.runSuiteQL({
-                query: PROJECT_NAME_SQL,
-                params: [projectId]
-            }).asMappedResults();
+            const rs = query.runSuiteQL({ query: PROJECT_NAME_SQL, params: [projectId] }).asMappedResults();
             return rs.length ? rs[0].name : 'Project #' + projectId;
         } catch (e) {
             log.error({ title: MODULE + '.fetchProjectName', details: e.message });
@@ -247,18 +109,15 @@ define([
     };
 
     const fetchCombinedData = (projectId, timingType) => {
-        const rs = query.runSuiteQL({
+        return query.runSuiteQL({
             query: COMBINED_SQL,
             params: [projectId, timingType, projectId, timingType]
         }).asMappedResults();
-        return rs;
     };
 
     /**
-     * Fetch actual transaction data (invoices, payments, bills) for a project.
-     * Returns { revActualGroups, costActualGroups, revActualTotals, costActualTotals,
-     *           grandRevActual, grandCostActual, periods }
-     * Wrapped in try/catch — returns empty on failure so forecast-only still works.
+     * Fetch actual transaction data — 4 independent queries.
+     * Each wrapped in its own try/catch so one failure doesn't kill the rest.
      */
     const fetchActuals = (projectId) => {
         const periodsSet = new Set();
@@ -276,7 +135,6 @@ define([
             });
         };
 
-        // Each query independent — failure in one doesn't kill the others
         const runQ = (sql, params, label) => {
             try {
                 return query.runSuiteQL({ query: sql, params }).asMappedResults() || [];
@@ -327,40 +185,29 @@ define([
         };
     };
 
+    // ─── Transform ────────────────────────────────────────────────────────────
+
     /**
-     * Transform flat query rows into the report model.
-     *
-     * Returns {
-     *   periods:       ['2026-04','2026-05', ...],       // sorted
-     *   revenueGroups: { 'Base Bid': { '2026-04': 7500, ... }, ... },
-     *   costGroups:    { 'Vendor A': { '2026-05': 3000, ... }, ... },
-     *   revTotals:     { '2026-04': 7500, ... },
-     *   costTotals:    { '2026-04': 4000, ... },
-     *   netTotals:     { '2026-04': 3500, ... },
-     *   grandRevenue:  42000,
-     *   grandCost:     33000,
-     *   grandNet:       9000
-     * }
+     * Transform flat rows into dual-view model: revenue + cost groups with
+     * per-period amounts, totals, and net.
      */
     const transformData = (rows) => {
         const periodsSet = new Set();
         const revenueGroups = {};
         const costGroups = {};
-        const groupSourceMap = {};  // groupName → { source_id, source_type }
+        const groupSourceMap = {};
 
         rows.forEach((r) => {
             const dir = r.flow_direction;
             const grp = r.cost_group;
             const per = r.period;
             const amt = Number(r.amount) || 0;
-
             periodsSet.add(per);
 
             const bucket = dir === 'Revenue' ? revenueGroups : costGroups;
             if (!bucket[grp]) bucket[grp] = {};
             bucket[grp][per] = (bucket[grp][per] || 0) + amt;
 
-            // Capture source link info (first occurrence wins)
             if (!groupSourceMap[grp] && r.source_id) {
                 groupSourceMap[grp] = { source_id: r.source_id, source_type: r.source_type };
             }
@@ -368,7 +215,6 @@ define([
 
         const periods = Array.from(periodsSet).sort();
 
-        // Sort group names — "Base Bid" first for revenue, then alphabetical
         const sortGroups = (groups, firstKey) => {
             const keys = Object.keys(groups).sort();
             if (keys.includes(firstKey)) {
@@ -381,9 +227,8 @@ define([
         };
 
         const sortedRev = sortGroups(revenueGroups, 'Base Bid');
-        const sortedCost = sortGroups(costGroups, 'Other Cost'); // alphabetical, no special first
+        const sortedCost = sortGroups(costGroups, 'Other Cost');
 
-        // Compute totals per period
         const revTotals = {};
         const costTotals = {};
         const netTotals = {};
@@ -395,7 +240,6 @@ define([
             Object.values(sortedRev).forEach((g) => { rSum += (g[p] || 0); });
             let cSum = 0;
             Object.values(sortedCost).forEach((g) => { cSum += (g[p] || 0); });
-
             revTotals[p] = rSum;
             costTotals[p] = cSum;
             netTotals[p] = rSum - cSum;
@@ -404,593 +248,135 @@ define([
         });
 
         return {
-            periods,
-            revenueGroups: sortedRev,
-            costGroups: sortedCost,
-            revTotals,
-            costTotals,
-            netTotals,
-            grandRevenue,
-            grandCost,
-            grandNet: grandRevenue - grandCost,
+            periods, revenueGroups: sortedRev, costGroups: sortedCost,
+            revTotals, costTotals, netTotals,
+            grandRevenue, grandCost, grandNet: grandRevenue - grandCost,
             groupSourceMap
         };
     };
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // HTML Builders
-    // ────────────────────────────────────────────────────────────────────────────
+    // ─── Combined Table (unique to this report) ───────────────────────────────
 
-    const buildEmptyState = (projectName, timingType, scriptUrl) => {
-        return buildPageShell(projectName, timingType, scriptUrl, `
-            <div style="display:flex;align-items:center;justify-content:center;min-height:400px;text-align:center;">
-                <div style="max-width:480px;">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${BRAND.GREY_MID}" stroke-width="1.5" style="margin-bottom:16px;">
-                        <path d="M3 3v18h18"/>
-                        <path d="M7 16l4-8 4 4 4-6" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <h2 style="color:${BRAND.NAVY};margin:0 0 12px 0;font-size:18px;font-weight:600;">
-                        No Timing Data Yet
-                    </h2>
-                    <p style="color:${BRAND.GREY_DARK};font-size:14px;line-height:1.6;margin:0;">
-                        No timing schedules have been configured for this project.
-                        Add timing data on Purchase Orders, Sales Orders, or Change
-                        Requests to see the cash flow forecast here.
-                    </p>
-                </div>
-            </div>
-        `);
-    };
-
-    /**
-     * Common page wrapper — <html><head>...<body> + header + content + </body></html>
-     */
-    const buildPageShell = (projectName, timingType, scriptUrl, bodyContent) => {
-        const typeName = timingType === TIMING_TYPE.ACCRUAL.id ? 'Accrual' : 'Cash Flow';
-        const otherType = timingType === TIMING_TYPE.ACCRUAL.id
-            ? TIMING_TYPE.CASH_FLOW.id
-            : TIMING_TYPE.ACCRUAL.id;
-
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Combined Cash Flow \u2014 ${esc(projectName)}</title>
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html, body {
-        font-family: ${BRAND.FONT_FAMILY};
-        font-size: 13px;
-        color: ${BRAND.NAVY};
-        background: ${BRAND.WHITE};
-        -webkit-font-smoothing: antialiased;
-    }
-
-    .page { max-width: 100%; margin: 0; padding: 16px 12px 32px; }
-
-    /* Header */
-    .hdr { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-    .hdr-left h1 { font-size: 20px; font-weight: 700; color: ${BRAND.NAVY}; letter-spacing: -0.3px; margin-bottom: 4px; }
-    .hdr-left .sub { font-size: 13px; color: ${BRAND.GREY_DARK}; }
-    .hdr-right { display: flex; align-items: center; gap: 8px; }
-
-    /* Toggle buttons are inline-styled — no class needed */
-
-    /* KPI Cards */
-    .kpi-row { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
-    .kpi-card {
-        flex: 1 1 180px;
-        background: ${BRAND.WHITE};
-        border: 1px solid ${BRAND.GREY_MID};
-        border-radius: ${BRAND.BORDER_RADIUS};
-        padding: 16px 20px;
-        box-shadow: ${BRAND.BOX_SHADOW};
-    }
-    .kpi-card .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: ${BRAND.GREY_DARK}; margin-bottom: 6px; }
-    .kpi-card .kpi-value { font-size: 22px; font-weight: 700; }
-    .kpi-revenue .kpi-value { color: ${BRAND.NAVY}; }
-    .kpi-cost .kpi-value    { color: ${BRAND.NAVY}; }
-    .kpi-net .kpi-value     { color: ${BRAND.GREEN}; }
-    .kpi-net.negative .kpi-value { color: ${BRAND.RED}; }
-    .kpi-status { display: flex; align-items: center; gap: 8px; }
-    .kpi-status .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .kpi-status .dot.positive { background: ${BRAND.GREEN}; }
-    .kpi-status .dot.negative { background: ${BRAND.RED}; }
-    .kpi-status .status-text { font-size: 15px; font-weight: 600; }
-
-    /* Chart container */
-    .chart-wrap {
-        background: ${BRAND.WHITE};
-        border: 1px solid #E5E7EB;
-        border-radius: ${BRAND.BORDER_RADIUS};
-        padding: 16px 20px 8px;
-        margin: 8px 0;
-    }
-    .chart-wrap h3 { font-size: 13px; font-weight: 600; color: ${BRAND.GREY_DARK}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-
-    /* Table */
-    .tbl-wrap {
-        background: ${BRAND.WHITE};
-        border: 1px solid ${BRAND.GREY_MID};
-        border-radius: ${BRAND.BORDER_RADIUS};
-        box-shadow: ${BRAND.BOX_SHADOW};
-        overflow-x: auto;
-        margin-bottom: 20px;
-    }
-    table { width: 100%; border-collapse: collapse; min-width: 700px; }
-    th, td { padding: 8px 12px; text-align: right; white-space: nowrap; font-size: 12.5px; border-bottom: 1px solid #E5E7EB; }
-    th { font-weight: 600; color: ${BRAND.WHITE}; background: ${BRAND.NAVY}; position: sticky; top: 0; }
-    th:first-child, td:first-child { text-align: left; position: sticky; left: 0; z-index: 1; background: inherit; min-width: 160px; }
-    th:first-child { z-index: 2; }
-
-    /* Section header rows */
-    tr.sec-hdr td { font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; color: ${BRAND.NAVY}; background: ${BRAND.GREY_LIGHT}; border-bottom: 2px solid ${BRAND.GREY_MID}; }
-    tr.detail td { color: #374151; }
-    tr.detail td:first-child { padding-left: 24px; }
-    tr.detail:nth-child(even) td { background: ${BRAND.GREY_LIGHT}; }
-
-    /* Revenue total */
-    tr.rev-total td { font-weight: 700; background: rgba(255,183,3,0.10); color: ${BRAND.NAVY}; border-top: 2px solid ${BRAND.GOLD}; }
-
-    /* Cost total */
-    tr.cost-total td { font-weight: 700; background: ${BRAND.GREY_LIGHT}; color: ${BRAND.NAVY}; border-top: 2px solid ${BRAND.GREY_MID}; }
-
-    /* Net row */
-    tr.net-row td { font-weight: 700; background: ${BRAND.NAVY}; color: ${BRAND.WHITE}; font-size: 13px; border-top: none; }
-    tr.net-row td.positive { color: ${BRAND.GOLD}; }
-    tr.net-row td.negative { color: ${BRAND.RED}; }
-
-    /* Separator */
-    tr.sep td { padding: 0; height: 4px; border: none; background: ${BRAND.WHITE}; }
-
-    /* Current month highlight */
-    th.cur-month-hdr { background: ${BRAND.GOLD}; color: ${BRAND.NAVY}; font-weight: 700; }
-    td.cur-month-cell { border-left: 2px solid rgba(255,183,3,0.45); background: #FFF8E1; }
-
-    /* Actual section rows */
-    tr.actual-sec-hdr td { font-weight: 700; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; color: ${BRAND.NAVY}; background: #EEF2F7; border-bottom: 2px solid #CBD5E1; }
-    tr.actual-sec-hdr td .actual-badge { display: inline-block; background: #64748B; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; letter-spacing: 0.3px; }
-    tr.actual-detail td { color: #64748B; font-style: italic; background: #FAFBFC; }
-    tr.actual-detail td:first-child { padding-left: 24px; }
-    tr.actual-detail:nth-child(even) td { background: #F8FAFC; }
-    tr.rev-actual-total td { font-weight: 700; background: rgba(255,183,3,0.06); color: #64748B; border-top: 2px solid #CBD5E1; font-style: italic; }
-    tr.cost-actual-total td { font-weight: 700; background: #F1F5F9; color: #64748B; border-top: 2px solid #CBD5E1; font-style: italic; }
-    tr.net-actual-row td { font-weight: 700; background: #334155; color: ${BRAND.WHITE}; font-size: 13px; border-top: none; font-style: italic; }
-    tr.net-actual-row td.positive { color: ${BRAND.GOLD}; }
-    tr.net-actual-row td.negative { color: ${BRAND.RED}; }
-    td.actual-over-forecast { background: rgba(16,185,129,0.10) !important; }
-
-    /* Action bar */
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .btn {
-        display: inline-flex; align-items: center; gap: 6px;
-        padding: 8px 16px;
-        font-family: inherit;
-        font-size: 12.5px;
-        font-weight: 600;
-        border: 1px solid ${BRAND.GREY_MID};
-        border-radius: ${BRAND.BORDER_RADIUS};
-        background: ${BRAND.WHITE};
-        color: ${BRAND.NAVY};
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-    .btn:hover { background: ${BRAND.GREY_LIGHT}; border-color: ${BRAND.NAVY}; }
-    .btn svg { width: 14px; height: 14px; }
-</style>
-</head>
-<body>
-<div class="page">
-
-    <!-- Header -->
-    <div class="hdr">
-        <div class="hdr-left">
-            <h1>Combined Cash Flow Forecast</h1>
-            <div class="sub">Project: ${esc(projectName)}</div>
-        </div>
-        <div class="hdr-right">
-            <div style="display:flex;gap:8px;align-items:center;">
-                <span style="font-size:13px;color:#6B7280;font-weight:500;">View:</span>
-                <button type="button" disabled
-                    style="padding:8px 16px;font-size:13px;font-weight:600;background:#04233D;color:#FFFFFF;
-                    border:none;border-radius:6px;cursor:default;">
-                    ${esc(typeName)}
-                </button>
-                <button type="button" onclick="switchView('${otherType}')"
-                    style="padding:8px 16px;font-size:13px;font-weight:600;background:#FFB703;color:#04233D;
-                    border:none;border-radius:6px;cursor:pointer;">
-                    Switch to ${esc(typeName === 'Cash Flow' ? 'Accrual' : 'Cash Flow')}
-                </button>
-            </div>
-        </div>
-    </div>
-
-    ${bodyContent}
-
-</div><!-- /.page -->
-
-<script>
-function switchView(val) {
-    var url = new URL(window.location.href);
-    url.searchParams.set('timingType', val);
-    window.location.href = url.toString();
-}
-</script>
-</body>
-</html>`;
-    };
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // SVG Bar Chart
-    // ────────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Escape single quotes for safe embedding inside onmouseover attribute strings.
-     */
-    const escTooltip = (s) => String(s).replace(/'/g, '&#39;').replace(/\\/g, '&#92;');
-
-    /**
-     * Full month name from YYYY-MM.
-     */
-    const monthFull = (yyyymm) => {
-        const m = Number(yyyymm.split('-')[1]);
-        const y = yyyymm.split('-')[0];
-        return ['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1] + ' ' + y;
-    };
-
-    const buildBarChart = (periods, netTotals, data, actuals) => {
-        if (!periods.length) return '';
-
-        const { revenueGroups, costGroups, revTotals, costTotals } = data;
-        const { revActualTotals, costActualTotals } = actuals || { revActualTotals: {}, costActualTotals: {} };
-
-        // Find max of revenue totals and cost totals across all periods
-        const maxRev = Math.max(...periods.map((p) => revTotals[p] || 0), 1);
-        const maxCost = Math.max(...periods.map((p) => costTotals[p] || 0), 1);
-        const maxVal = Math.max(maxRev, maxCost, 1);
-
-        // SVG layout — compact
-        const n = periods.length;
-        const vbW = 1000;
-        const pad = 40;
-        const usable = vbW - pad * 2;
-        const slotW = usable / n;
-        const barW = Math.min(slotW * 0.28, 32);
-        const gap = Math.min(slotW * 0.06, 6);
-        const halfH = 70;
-        const topM = 24;
-        const botM = 28;
-        const vbH = topM + halfH * 2 + botM;
-        const baseline = topM + halfH;
-
-        let svg = '';
-        const tooltipArray = [];
-
-        // $0 baseline — thin dashed line
-        svg += '<line x1="' + pad + '" y1="' + baseline + '" x2="' + (vbW - pad) + '" y2="' + baseline + '" stroke="#9CA3AF" stroke-width="0.75" stroke-dasharray="6,4"/>';
-
-        periods.forEach((p, i) => {
-            const cx = pad + slotW * i + slotW / 2;
-            const revTotal = revTotals[p] || 0;
-            const costTotal = costTotals[p] || 0;
-            const net = netTotals[p] || 0;
-
-            // Revenue bar (gold, going UP from baseline)
-            const revH = revTotal > 0 ? Math.max(Math.round((revTotal / maxVal) * halfH), 2) : 0;
-            const revX = cx - barW - gap / 2;
-            if (revH > 0) {
-                svg += '<rect x="' + revX + '" y="' + (baseline - revH) + '" width="' + barW + '" height="' + revH + '" rx="2" fill="#FFB703"/>';
-            }
-
-            // Cost bar (navy, going DOWN from baseline)
-            const costH = costTotal > 0 ? Math.max(Math.round((costTotal / maxVal) * halfH), 2) : 0;
-            const costX = cx + gap / 2;
-            if (costH > 0) {
-                svg += '<rect x="' + costX + '" y="' + baseline + '" width="' + barW + '" height="' + costH + '" rx="2" fill="#04233D"/>';
-            }
-
-            // Actual revenue marker (white line across gold bar)
-            const revActual = revActualTotals[p] || 0;
-            if (revActual > 0 && revH > 0) {
-                const revActH = Math.max(Math.round((revActual / maxVal) * halfH), 1);
-                const revActY = baseline - Math.min(revActH, revH);
-                svg += '<line x1="' + revX + '" y1="' + revActY + '" x2="' + (revX + barW) + '" y2="' + revActY + '" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.8"/>';
-            }
-
-            // Actual cost marker (white line across navy bar)
-            const costActual = costActualTotals[p] || 0;
-            if (costActual > 0 && costH > 0) {
-                const costActH = Math.max(Math.round((costActual / maxVal) * halfH), 1);
-                const costActY = baseline + Math.min(costActH, costH);
-                svg += '<line x1="' + costX + '" y1="' + costActY + '" x2="' + (costX + barW) + '" y2="' + costActY + '" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.8"/>';
-            }
-
-            // Net label above the column group
-            const netColor = net >= 0 ? '#10B981' : '#EF4444';
-            const netLabelY = revH > 0 ? (baseline - revH - 6) : (baseline - 6);
-            svg += '<text x="' + cx + '" y="' + netLabelY + '" text-anchor="middle" fill="' + netColor + '" font-size="9" font-weight="700" font-family="Inter,sans-serif">' + fmtCompact(net) + '</text>';
-
-            // Month label below
-            svg += '<text x="' + cx + '" y="' + (vbH - 6) + '" text-anchor="middle" fill="#6B7280" font-size="10" font-weight="500" font-family="Inter,sans-serif">' + monthAbbrev(p) + '</text>';
-
-            // Tooltip — simple summary only (detail is in the table)
-            const netTipColor = net >= 0 ? '#34D399' : '#F87171';
-            let tip = '<div style="font-weight:700;margin-bottom:6px;">' + monthFull(p) + '</div>';
-            tip += '<div style="display:flex;justify-content:space-between;gap:24px;"><span style="color:#FFB703;">Revenue</span><span style="font-weight:600;">' + fmtCompact(revTotal) + '</span></div>';
-            tip += '<div style="display:flex;justify-content:space-between;gap:24px;"><span style="color:#93C5FD;">Cost</span><span style="font-weight:600;">' + fmtCompact(costTotal) + '</span></div>';
-            tip += '<div style="border-top:1px solid #4B6A88;margin:6px 0 4px;"></div>';
-            tip += '<div style="display:flex;justify-content:space-between;gap:24px;font-weight:700;color:' + netTipColor + ';"><span>Net</span><span>' + fmtCompact(net) + '</span></div>';
-            tooltipArray.push(tip);
-
-            // Transparent overlay rect for hover — pass index, not HTML
-            svg += '<rect x="' + (pad + slotW * i) + '" y="0" width="' + slotW + '" height="' + vbH + '" fill="transparent" onmouseover="bcShowTooltip(evt,' + i + ')" onmouseout="bcHideTooltip()" style="cursor:pointer;"/>';
-        });
-
-        const tooltipScript = '<script>'
-            + 'var bcTTData=' + JSON.stringify(tooltipArray) + ';'
-            + 'var bcTTEl=document.getElementById("bcChartTooltip");'
-            + 'function bcShowTooltip(evt,idx){bcTTEl.innerHTML=bcTTData[idx];bcTTEl.style.display="block";bcTTEl.style.left=(evt.clientX+12)+"px";bcTTEl.style.top=(evt.clientY-10)+"px";}'
-            + 'function bcHideTooltip(){bcTTEl.style.display="none";}'
-            + '<\/script>';
-
-        return '<div class="chart-wrap">'
-            + '<h3>Revenue vs Cost by Month</h3>'
-            + '<svg width="100%" viewBox="0 0 ' + vbW + ' ' + vbH + '" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">'
-            + svg
-            + '</svg>'
-            + '<div id="bcChartTooltip" style="display:none;position:fixed;background:#04233D;color:#fff;padding:12px 16px;border-radius:8px;font-size:12px;font-family:Inter,sans-serif;pointer-events:none;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);line-height:1.6;min-width:180px;"></div>'
-            + tooltipScript
-            + '</div>';
-    };
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // KPI Cards
-    // ────────────────────────────────────────────────────────────────────────────
-
-    const buildKPICards = (data, actuals) => {
-        const { grandRevenue, grandCost, grandNet } = data;
-        const { revActualGroups, costActualGroups } = actuals || { revActualGroups: {}, costActualGroups: {} };
-
-        // "Received to Date" = sum of Collected actuals (customer payments)
-        let receivedToDate = 0;
-        if (revActualGroups && revActualGroups['Collected']) {
-            receivedToDate = Object.values(revActualGroups['Collected']).reduce((s, v) => s + Math.abs(v), 0);
-        }
-
-        // "Paid to Date" = sum of Paid actuals (vendor payments)
-        let paidToDate = 0;
-        if (costActualGroups && costActualGroups['Paid']) {
-            paidToDate = Object.values(costActualGroups['Paid']).reduce((s, v) => s + Math.abs(v), 0);
-        }
-
-        const isPositive = grandNet >= 0;
-        const statusLabel = isPositive ? 'Cash Positive' : 'Cash Negative';
-        const statusColor = isPositive ? BRAND.GREEN : BRAND.RED;
-
-        return `<div class="kpi-row">
-            <div class="kpi-card kpi-revenue">
-                <div class="kpi-label">Total Revenue</div>
-                <div class="kpi-value">${fmtDollar(grandRevenue)}</div>
-            </div>
-            <div class="kpi-card kpi-cost">
-                <div class="kpi-label">Total Cost</div>
-                <div class="kpi-value">${fmtDollar(grandCost)}</div>
-            </div>
-            <div class="kpi-card kpi-net ${isPositive ? '' : 'negative'}">
-                <div class="kpi-label">Net Cash Flow</div>
-                <div class="kpi-value">${fmtDollar(grandNet)}</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">Status</div>
-                <div class="kpi-status">
-                    <span class="dot ${isPositive ? 'positive' : 'negative'}"></span>
-                    <span class="status-text" style="color:${statusColor}">${statusLabel}</span>
-                </div>
-            </div>
-            ${receivedToDate ? `<div class="kpi-card" style="border-left:4px solid #10B981;">
-                <div class="kpi-label">Received to Date</div>
-                <div class="kpi-value" style="color:#10B981;">${fmtDollar(receivedToDate)}</div>
-            </div>` : ''}
-            ${paidToDate ? `<div class="kpi-card" style="border-left:4px solid #EF4444;">
-                <div class="kpi-label">Paid to Date</div>
-                <div class="kpi-value" style="color:#EF4444;">${fmtDollar(paidToDate)}</div>
-            </div>` : ''}
-        </div>`;
-    };
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // Detail Grid Table
-    // ────────────────────────────────────────────────────────────────────────────
-
-    const buildTable = (data, actuals) => {
-        const { periods: forecastPeriods, revenueGroups, costGroups, revTotals, costTotals, netTotals,
-                grandRevenue, grandCost, grandNet, groupSourceMap } = data;
+    const buildCombinedTable = (data, actuals) => {
+        const { periods: forecastPeriods, revenueGroups, costGroups, revTotals, costTotals,
+                netTotals, grandRevenue, grandCost, grandNet, groupSourceMap } = data;
         const { revActualGroups, costActualGroups, revActualTotals, costActualTotals,
                 grandRevActual, grandCostActual, actualPeriods } = actuals || {
             revActualGroups: {}, costActualGroups: {}, revActualTotals: {}, costActualTotals: {},
             grandRevActual: 0, grandCostActual: 0, actualPeriods: []
         };
 
-        // Merge forecast + actual periods into one sorted set
+        // Merge forecast + actual periods
         const allPeriodsSet = new Set(forecastPeriods);
         (actualPeriods || []).forEach((p) => allPeriodsSet.add(p));
         const periods = Array.from(allPeriodsSet).sort();
 
-        // Current month for column highlighting
-        const curMonth = (() => {
-            const d = new Date();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            return `${d.getFullYear()}-${mm}`;
-        })();
+        const curMonth = utils.currentYYYYMM();
+        const colSpan = periods.length + 2;
 
-        // Helper: build a dollar cell value
-        const cell = (val) => fmtDollar(val || 0);
-
-        // Helper: build a dollar cell for actual rows (always positive display)
-        const actualCell = (val) => fmtDollar(Math.abs(val || 0));
-
-        // Helper: sum a group's values across all periods
         const groupTotal = (grpMap) => {
-            let total = 0;
-            periods.forEach((p) => { total += (grpMap[p] || 0); });
-            return total;
+            let t = 0;
+            periods.forEach((p) => { t += (grpMap[p] || 0); });
+            return t;
         };
 
-        // Helper: build drillable link for a group name
-        const drillLink = (name) => {
-            const src = groupSourceMap[name];
-            if (!src || !src.source_id) return esc(name);
-            const linkUrl = src.source_type === 'cr'
-                ? '/app/common/custom/custrecordentry.nl?rectype=495&id=' + src.source_id
-                : '/app/accounting/transactions/transaction.nl?id=' + src.source_id;
-            return '<a href="' + linkUrl + '" target="_top" style="color:' + BRAND.NAVY + ';text-decoration:none;border-bottom:1px dashed #D1D5DB;">' + esc(name) + '</a>';
-        };
-
-        // Header row — highlight current month
+        // Header
         let headerCells = '<th>Category</th>';
         periods.forEach((p) => {
-            const isCur = p === curMonth;
-            const cls = isCur ? ' class="cur-month-hdr"' : '';
-            headerCells += `<th${cls}>${periodLabel(p)}</th>`;
+            const cls = p === curMonth ? ' class="cur-month"' : '';
+            headerCells += `<th${cls}>${utils.periodLabel(p)}</th>`;
         });
-        headerCells += '<th>Total</th>';
+        headerCells += '<th class="col-total">Total</th>';
 
-        // Revenue section header
-        let revHeader = '<tr class="sec-hdr"><td>REVENUE</td>';
-        periods.forEach(() => { revHeader += '<td></td>'; });
-        revHeader += '<td></td></tr>';
-
-        // Revenue detail rows
+        // Revenue section
+        let revHeader = `<tr class="sec-hdr"><td colspan="${colSpan}">REVENUE</td></tr>`;
         let revRows = '';
-        const revGroupNames = Object.keys(revenueGroups);
-        revGroupNames.forEach((name) => {
+        Object.keys(revenueGroups).forEach((name) => {
             const grp = revenueGroups[name];
-            revRows += '<tr class="detail"><td>' + drillLink(name) + '</td>';
+            revRows += '<tr class="detail"><td>' + utils.drillLink(name, groupSourceMap) + '</td>';
             periods.forEach((p) => {
-                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-                revRows += '<td' + cls + '>' + cell(grp[p]) + '</td>';
+                const cls = p === curMonth ? ' class="cur-month"' : '';
+                revRows += `<td${cls}>${utils.fmtDollar(grp[p] || 0)}</td>`;
             });
-            revRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
+            revRows += `<td class="col-total">${utils.fmtDollar(groupTotal(grp))}</td></tr>`;
         });
 
-        // Revenue total row
+        // Revenue total
         let revTotalRow = '<tr class="rev-total"><td>Revenue Total</td>';
         periods.forEach((p) => {
-            const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-            revTotalRow += '<td' + cls + '>' + cell(revTotals[p]) + '</td>';
+            const cls = p === curMonth ? ' class="cur-month"' : '';
+            revTotalRow += `<td${cls}>${utils.fmtDollar(revTotals[p] || 0)}</td>`;
         });
-        revTotalRow += '<td>' + cell(grandRevenue) + '</td></tr>';
+        revTotalRow += `<td class="col-total">${utils.fmtDollar(grandRevenue)}</td></tr>`;
 
-        // Separator
-        const sep = '<tr class="sep"><td colspan="' + (periods.length + 2) + '"></td></tr>';
+        const sep = `<tr class="sep"><td colspan="${colSpan}"></td></tr>`;
 
-        // Cost section header
-        let costHeader = '<tr class="sec-hdr"><td>COST</td>';
-        periods.forEach(() => { costHeader += '<td></td>'; });
-        costHeader += '<td></td></tr>';
-
-        // Cost detail rows
-        let costRows = '';
-        const costGroupNames = Object.keys(costGroups);
-        costGroupNames.forEach((name) => {
-            const grp = costGroups[name];
-            costRows += '<tr class="detail"><td>' + drillLink(name) + '</td>';
-            periods.forEach((p) => {
-                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-                costRows += '<td' + cls + '>' + cell(grp[p]) + '</td>';
-            });
-            costRows += '<td>' + cell(groupTotal(grp)) + '</td></tr>';
-        });
-
-        // Cost total row
-        let costTotalRow = '<tr class="cost-total"><td>Cost Total</td>';
-        periods.forEach((p) => {
-            const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-            costTotalRow += '<td' + cls + '>' + cell(costTotals[p]) + '</td>';
-        });
-        costTotalRow += '<td>' + cell(grandCost) + '</td></tr>';
-
-        // ── Revenue Actual section
+        // Revenue actuals (no column total row — stages not additive)
         const hasRevActuals = revActualGroups && Object.keys(revActualGroups).length > 0;
-        let revActualHeader = '';
-        let revActualRows = '';
-        let revActualTotalRow = '';
-
+        let revActualHtml = '';
         if (hasRevActuals) {
-            revActualHeader = '<tr class="actual-sec-hdr"><td>REVENUE ACTUAL <span class="actual-badge">ACTUAL</span></td>';
-            periods.forEach(() => { revActualHeader += '<td></td>'; });
-            revActualHeader += '<td></td></tr>';
-
-            const revActGroupNames = Object.keys(revActualGroups).sort();
-            revActGroupNames.forEach((name) => {
+            revActualHtml += sep;
+            revActualHtml += `<tr class="actual-sec-hdr"><td colspan="${colSpan}">REVENUE ACTUAL <span class="actual-badge">ACTUAL</span></td></tr>`;
+            Object.keys(revActualGroups).sort().forEach((name) => {
                 const grp = revActualGroups[name];
-                revActualRows += '<tr class="actual-detail"><td>' + esc(name) + '</td>';
+                revActualHtml += '<tr class="actual-detail"><td>' + utils.esc(name) + '</td>';
                 periods.forEach((p) => {
-                    const val = grp[p] || 0;
-                    const forecastVal = revTotals[p] || 0;
-                    let cls = p === curMonth ? 'cur-month-cell' : '';
-                    if (Math.abs(val) > 0 && forecastVal > 0 && Math.abs(val) > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
-                    revActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + actualCell(val) + '</td>';
+                    const cls = p === curMonth ? ' class="cur-month"' : '';
+                    revActualHtml += `<td${cls}>${utils.fmtActual(grp[p])}</td>`;
                 });
-                revActualRows += '<td>' + actualCell(groupTotal(grp)) + '</td></tr>';
+                revActualHtml += `<td class="col-total">${utils.fmtActual(groupTotal(grp))}</td></tr>`;
             });
-
-            revActualTotalRow = '<tr class="rev-actual-total"><td>Actual Total</td>';
-            periods.forEach((p) => {
-                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-                revActualTotalRow += '<td' + cls + '>' + actualCell(revActualTotals[p]) + '</td>';
-            });
-            revActualTotalRow += '<td>' + actualCell(grandRevActual) + '</td></tr>';
+            revActualHtml += `<tr class="actual-close"><td colspan="${colSpan}"></td></tr>`;
         }
 
-        // ── Cost Actual section
-        const hasCostActuals = costActualGroups && Object.keys(costActualGroups).length > 0;
-        let costActualHeader = '';
-        let costActualRows = '';
-        let costActualTotalRow = '';
-
-        if (hasCostActuals) {
-            costActualHeader = '<tr class="actual-sec-hdr"><td>COST ACTUAL <span class="actual-badge">ACTUAL</span></td>';
-            periods.forEach(() => { costActualHeader += '<td></td>'; });
-            costActualHeader += '<td></td></tr>';
-
-            const costActGroupNames = Object.keys(costActualGroups).sort();
-            costActGroupNames.forEach((name) => {
-                const grp = costActualGroups[name];
-                costActualRows += '<tr class="actual-detail"><td>' + esc(name) + '</td>';
-                periods.forEach((p) => {
-                    const val = grp[p] || 0;
-                    const forecastVal = costTotals[p] || 0;
-                    let cls = p === curMonth ? 'cur-month-cell' : '';
-                    if (Math.abs(val) > 0 && forecastVal > 0 && Math.abs(val) > forecastVal) cls += (cls ? ' ' : '') + 'actual-over-forecast';
-                    costActualRows += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + actualCell(val) + '</td>';
-                });
-                costActualRows += '<td>' + actualCell(groupTotal(grp)) + '</td></tr>';
-            });
-
-            costActualTotalRow = '<tr class="cost-actual-total"><td>Actual Total</td>';
+        // Cost section
+        let costHeader = `<tr class="sec-hdr"><td colspan="${colSpan}">COST</td></tr>`;
+        let costRows = '';
+        Object.keys(costGroups).forEach((name) => {
+            const grp = costGroups[name];
+            costRows += '<tr class="detail"><td>' + utils.drillLink(name, groupSourceMap) + '</td>';
             periods.forEach((p) => {
-                const cls = p === curMonth ? ' class="cur-month-cell"' : '';
-                costActualTotalRow += '<td' + cls + '>' + actualCell(costActualTotals[p]) + '</td>';
+                const cls = p === curMonth ? ' class="cur-month"' : '';
+                costRows += `<td${cls}>${utils.fmtDollar(grp[p] || 0)}</td>`;
             });
-            costActualTotalRow += '<td>' + actualCell(grandCostActual) + '</td></tr>';
+            costRows += `<td class="col-total">${utils.fmtDollar(groupTotal(grp))}</td></tr>`;
+        });
+
+        // Cost total
+        let costTotalRow = '<tr class="cost-total"><td>Cost Total</td>';
+        periods.forEach((p) => {
+            const cls = p === curMonth ? ' class="cur-month"' : '';
+            costTotalRow += `<td${cls}>${utils.fmtDollar(costTotals[p] || 0)}</td>`;
+        });
+        costTotalRow += `<td class="col-total">${utils.fmtDollar(grandCost)}</td></tr>`;
+
+        // Cost actuals (no column total row — stages not additive)
+        const hasCostActuals = costActualGroups && Object.keys(costActualGroups).length > 0;
+        let costActualHtml = '';
+        if (hasCostActuals) {
+            costActualHtml += sep;
+            costActualHtml += `<tr class="actual-sec-hdr"><td colspan="${colSpan}">COST ACTUAL <span class="actual-badge">ACTUAL</span></td></tr>`;
+            Object.keys(costActualGroups).sort().forEach((name) => {
+                const grp = costActualGroups[name];
+                costActualHtml += '<tr class="actual-detail"><td>' + utils.esc(name) + '</td>';
+                periods.forEach((p) => {
+                    const cls = p === curMonth ? ' class="cur-month"' : '';
+                    costActualHtml += `<td${cls}>${utils.fmtActual(grp[p])}</td>`;
+                });
+                costActualHtml += `<td class="col-total">${utils.fmtActual(groupTotal(grp))}</td></tr>`;
+            });
+            costActualHtml += `<tr class="actual-close"><td colspan="${colSpan}"></td></tr>`;
         }
 
         // Net Forecast row
         let netRow = '<tr class="net-row"><td>NET FORECAST</td>';
         periods.forEach((p) => {
             const v = netTotals[p] || 0;
-            const cls = v >= 0 ? 'positive' : 'negative';
-            netRow += '<td class="' + cls + '">' + fmtDollar(v) + '</td>';
+            netRow += `<td class="${v >= 0 ? 'positive' : 'negative'}">${utils.fmtDollar(v)}</td>`;
         });
-        const netCls = grandNet >= 0 ? 'positive' : 'negative';
-        netRow += '<td class="' + netCls + '">' + fmtDollar(grandNet) + '</td></tr>';
+        netRow += `<td class="${grandNet >= 0 ? 'positive' : 'negative'}">${utils.fmtDollar(grandNet)}</td></tr>`;
 
-        // Net Actual row
+        // Net Actual row (only if any actuals exist)
         const hasAnyActuals = hasRevActuals || hasCostActuals;
         let netActualRow = '';
         if (hasAnyActuals) {
@@ -998,45 +384,28 @@ function switchView(val) {
             netActualRow = '<tr class="net-actual-row"><td>NET ACTUAL</td>';
             periods.forEach((p) => {
                 const v = (revActualTotals[p] || 0) - (costActualTotals[p] || 0);
-                const cls = v >= 0 ? 'positive' : 'negative';
-                netActualRow += '<td class="' + cls + '">' + fmtDollar(v) + '</td>';
+                netActualRow += `<td class="${v >= 0 ? 'positive' : 'negative'}">${utils.fmtDollar(v)}</td>`;
             });
-            const netActCls = grandNetActual >= 0 ? 'positive' : 'negative';
-            netActualRow += '<td class="' + netActCls + '">' + fmtDollar(grandNetActual) + '</td></tr>';
+            netActualRow += `<td class="${grandNetActual >= 0 ? 'positive' : 'negative'}">${utils.fmtDollar(grandNetActual)}</td></tr>`;
         }
 
-        return `<div class="tbl-wrap">
-            <table>
-                <thead><tr>${headerCells}</tr></thead>
-                <tbody>
-                    ${revHeader}
-                    ${revRows}
-                    ${revTotalRow}
-                    ${hasRevActuals ? sep : ''}
-                    ${revActualHeader}
-                    ${revActualRows}
-                    ${revActualTotalRow}
-                    ${sep}
-                    ${costHeader}
-                    ${costRows}
-                    ${costTotalRow}
-                    ${hasCostActuals ? sep : ''}
-                    ${costActualHeader}
-                    ${costActualRows}
-                    ${costActualTotalRow}
-                    ${sep}
-                    ${netRow}
-                    ${netActualRow}
-                </tbody>
-            </table>
-        </div>`;
+        return `<div class="tbl-wrap"><table>
+            <thead><tr>${headerCells}</tr></thead>
+            <tbody>
+                ${revHeader}${revRows}${revTotalRow}
+                ${revActualHtml}
+                ${sep}
+                ${costHeader}${costRows}${costTotalRow}
+                ${costActualHtml}
+                ${sep}
+                ${netRow}${netActualRow}
+            </tbody>
+        </table></div>`;
     };
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // CSV Export
-    // ────────────────────────────────────────────────────────────────────────────
+    // ─── CSV Export Data ──────────────────────────────────────────────────────
 
-    const buildCSVScript = (data) => {
+    const buildCSVRows = (data) => {
         const { periods, revenueGroups, costGroups, revTotals, costTotals, netTotals,
                 grandRevenue, grandCost, grandNet } = data;
 
@@ -1046,99 +415,28 @@ function switchView(val) {
             return t;
         };
 
-        // Build CSV as a JS string literal
-        const rows = [];
-
-        // Header
-        rows.push(['Category', ...periods.map(periodLabel), 'Total']);
-
-        // Revenue header
-        rows.push(['REVENUE', ...periods.map(() => ''), '']);
-
-        // Revenue detail
+        const csvRows = [];
+        csvRows.push(['Category', ...periods.map(utils.periodLabel), 'Total']);
+        csvRows.push(['REVENUE']);
         Object.keys(revenueGroups).forEach((name) => {
             const g = revenueGroups[name];
-            rows.push([name, ...periods.map((p) => g[p] || 0), groupTotal(g)]);
+            csvRows.push([name, ...periods.map((p) => g[p] || 0), groupTotal(g)]);
         });
-
-        // Revenue total
-        rows.push(['Revenue Total', ...periods.map((p) => revTotals[p] || 0), grandRevenue]);
-
-        // Blank
-        rows.push([]);
-
-        // Cost header
-        rows.push(['COST', ...periods.map(() => ''), '']);
-
-        // Cost detail
+        csvRows.push(['Revenue Total', ...periods.map((p) => revTotals[p] || 0), grandRevenue]);
+        csvRows.push([]);
+        csvRows.push(['COST']);
         Object.keys(costGroups).forEach((name) => {
             const g = costGroups[name];
-            rows.push([name, ...periods.map((p) => g[p] || 0), groupTotal(g)]);
+            csvRows.push([name, ...periods.map((p) => g[p] || 0), groupTotal(g)]);
         });
+        csvRows.push(['Cost Total', ...periods.map((p) => costTotals[p] || 0), grandCost]);
+        csvRows.push([]);
+        csvRows.push(['NET CASH FLOW', ...periods.map((p) => netTotals[p] || 0), grandNet]);
 
-        // Cost total
-        rows.push(['Cost Total', ...periods.map((p) => costTotals[p] || 0), grandCost]);
-
-        // Blank
-        rows.push([]);
-
-        // Net
-        rows.push(['NET CASH FLOW', ...periods.map((p) => netTotals[p] || 0), grandNet]);
-
-        // Escape CSV cell
-        const csvEsc = (v) => {
-            const s = String(v == null ? '' : v);
-            return s.includes(',') || s.includes('"') || s.includes('\n')
-                ? '"' + s.replace(/"/g, '""') + '"'
-                : s;
-        };
-
-        const csvString = rows.map((r) => r.map(csvEsc).join(',')).join('\\n');
-
-        return csvString;
+        return csvRows;
     };
 
-    const buildExportButtons = (data, projectName) => {
-        const csvContent = buildCSVScript(data);
-        const safeName = (projectName || 'project').replace(/[^a-zA-Z0-9_-]/g, '_');
-
-        return `<div class="actions">
-            <button class="btn" onclick="exportCSV()" title="Export to CSV">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Export CSV
-            </button>
-            <button class="btn" onclick="window.print()" title="Print / Save as PDF">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 6 2 18 2 18 9"/>
-                    <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
-                    <rect x="6" y="14" width="12" height="8"/>
-                </svg>
-                Export PDF
-            </button>
-        </div>
-        <script>
-        function exportCSV() {
-            var csv = "${csvContent}";
-            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = '${safeName}_cashflow.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        </script>`;
-    };
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // Entry Point
-    // ────────────────────────────────────────────────────────────────────────────
+    // ─── Entry Point ──────────────────────────────────────────────────────────
 
     const onRequest = (context) => {
         const { request, response } = context;
@@ -1158,13 +456,9 @@ function switchView(val) {
                 return;
             }
 
-            // Fetch project name
             const projectName = fetchProjectName(projectId);
 
-            // Build the script URL base (for toggle navigation)
-            const scriptUrl = runtime.getCurrentScript().getParameter({ name: 'custscript_bc_cf_combined_url' }) || '';
-
-            // Fetch combined data
+            // Fetch combined forecast data
             let rows;
             try {
                 rows = fetchCombinedData(projectId, timingType);
@@ -1175,31 +469,96 @@ function switchView(val) {
 
             // Empty state
             if (!rows || !rows.length) {
-                response.write(buildEmptyState(projectName, timingType, scriptUrl));
+                response.write(utils.buildEmptyState({
+                    title: 'Combined Cash Flow',
+                    projectName,
+                    timingType
+                }));
                 return;
             }
 
-            // Transform
+            // Transform + fetch actuals
             const data = transformData(rows);
-
-            // Fetch actuals (wrapped in try/catch inside fetchActuals)
             const actuals = fetchActuals(projectId);
+            const { grandRevenue, grandCost, grandNet, periods, revTotals, costTotals, netTotals } = data;
+            const { revActualGroups, costActualGroups } = actuals;
 
-            // Build full report
+            // ── KPI Cards ──
+            const heroItems = [
+                {
+                    label: 'Net Cash Position', hero: true,
+                    value: grandNet,
+                    accent: grandNet >= 0 ? BRAND.GREEN : BRAND.RED,
+                    statusDot: grandNet >= 0 ? BRAND.GREEN : BRAND.RED,
+                    statusText: grandNet >= 0 ? 'Cash Positive' : 'Cash Negative'
+                },
+                { label: 'Revenue In', value: grandRevenue, accent: BRAND.NAVY },
+                { label: 'Cost Out', value: grandCost, accent: BRAND.NAVY }
+            ];
+
+            // Conditional actuals KPI row
+            let actualsKPI = null;
+            const hasCollected = revActualGroups.Collected && Object.keys(revActualGroups.Collected).length;
+            const hasPaid = costActualGroups.Paid && Object.keys(costActualGroups.Paid).length;
+            const hasInvoiced = revActualGroups.Invoiced && Object.keys(revActualGroups.Invoiced).length;
+            const hasBilled = costActualGroups.Billed && Object.keys(costActualGroups.Billed).length;
+
+            if (hasCollected || hasPaid || hasInvoiced || hasBilled) {
+                actualsKPI = [];
+                if (hasCollected) {
+                    const val = Object.values(revActualGroups.Collected).reduce((s, v) => s + Math.abs(v), 0);
+                    actualsKPI.push({ label: 'Received', accent: BRAND.GREEN, value: val });
+                }
+                if (hasPaid) {
+                    const val = Object.values(costActualGroups.Paid).reduce((s, v) => s + Math.abs(v), 0);
+                    actualsKPI.push({ label: 'Paid', accent: BRAND.RED, value: val });
+                }
+                if (hasInvoiced) {
+                    const val = Object.values(revActualGroups.Invoiced).reduce((s, v) => s + Math.abs(v), 0);
+                    actualsKPI.push({ label: 'Invoiced', accent: BRAND.GOLD, value: val });
+                }
+                if (hasBilled) {
+                    const val = Object.values(costActualGroups.Billed).reduce((s, v) => s + Math.abs(v), 0);
+                    actualsKPI.push({ label: 'Billed', accent: BRAND.GREY_DARK, value: val });
+                }
+            }
+
+            // ── Chart ──
+            const chartHtml = utils.buildChart({
+                mode: 'grouped',
+                series: [
+                    { values: revTotals, color: BRAND.GOLD, gradientFrom: BRAND.GOLD, gradientTo: BRAND.GOLD_LIGHT, label: 'Revenue' },
+                    { values: costTotals, color: BRAND.NAVY, gradientFrom: BRAND.NAVY, gradientTo: BRAND.NAVY_LIGHT, label: 'Cost' }
+                ],
+                netLine: { values: netTotals, color: BRAND.GREEN },
+                periods,
+                title: 'Revenue vs Cost by Month'
+            });
+
+            // ── CSV ──
+            const safeName = (projectName || 'project').replace(/[^a-zA-Z0-9_-]/g, '_');
+            const csvRows = buildCSVRows(data);
+
+            // ── Assemble ──
             const bodyContent = [
-                buildKPICards(data, actuals),
-                buildBarChart(data.periods, data.netTotals, data, actuals),
-                buildTable(data, actuals),
-                buildExportButtons(data, projectName)
+                utils.buildKPICards(heroItems, actualsKPI),
+                chartHtml,
+                buildCombinedTable(data, actuals),
+                utils.buildExportBar({ filename: safeName + '_cashflow', csvRows })
             ].join('\n');
 
-            response.write(buildPageShell(projectName, timingType, scriptUrl, bodyContent));
+            response.write(utils.buildPageShell({
+                title: 'Combined Cash Flow',
+                projectName,
+                timingType,
+                bodyContent
+            }));
 
         } catch (e) {
             log.error({ title: MODULE + '.onRequest', details: `${e.name}: ${e.message}\n${e.stack}` });
             response.write('<html><body style="font-family:sans-serif;padding:40px;color:#EF4444;">'
                 + '<h3>Cash Flow Report Error</h3>'
-                + '<p>' + esc(e.message) + '</p></body></html>');
+                + '<p>' + utils.esc(e.message) + '</p></body></html>');
         }
     };
 

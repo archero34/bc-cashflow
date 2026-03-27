@@ -12,7 +12,7 @@ define([
     'N/query',
     '../modules/bc_timing_constants',
     '../modules/bc_cf_report_utils'
-], (log, query, Constants, U) => {
+], (log, query, Constants, utils) => {
 
     const MODULE = 'bc_cf_rev_report_sl';
     const { TIMING_TYPE, BRAND } = Constants;
@@ -128,12 +128,12 @@ define([
 
             // Empty state
             if (!data.rows.length) {
-                response.write(U.buildEmptyState({ title: 'Revenue Cash Flow', projectName: '', timingType: timingTypeId }));
+                response.write(utils.buildEmptyState({ title: 'Revenue Cash Flow', projectName: 'Project ' + projectId, timingType: timingTypeId }));
                 return;
             }
 
             // Pivot forecast
-            const pv = U.pivot(data.rows, periods, 'Base Bid');
+            const pv = utils.pivot(data.rows, periods, 'Base Bid');
             const groupOrder = Object.keys(pv.groups).sort((a, b) => {
                 if (a === 'Base Bid') return -1;
                 if (b === 'Base Bid') return 1;
@@ -142,11 +142,11 @@ define([
 
             // Pivot actuals
             const hasActuals = actData.rows.length > 0;
-            const apv = hasActuals ? U.pivot(actData.rows, periods) : null;
+            const apv = hasActuals ? utils.pivot(actData.rows, periods) : null;
             const actualGroupOrder = apv ? Object.keys(apv.groups).sort() : [];
 
             // KPI calculations
-            const curMonth = U.currentYYYYMM();
+            const curMonth = utils.currentYYYYMM();
             let receivedToDate = 0;
             if (apv && apv.groups['Collected']) {
                 receivedToDate = Object.values(apv.groups['Collected']).reduce((s, v) => s + Math.abs(v), 0);
@@ -169,7 +169,7 @@ define([
                 : null;
 
             // Build chart
-            const chartHtml = U.buildChart({
+            const chartHtml = utils.buildChart({
                 mode: 'single',
                 series: [{
                     values: pv.totals,
@@ -183,7 +183,7 @@ define([
             });
 
             // Build table
-            const tableHtml = U.buildTable({
+            const tableHtml = utils.buildTable({
                 columnHeader: 'Revenue Source',
                 periods,
                 groups: pv.groups,
@@ -201,23 +201,23 @@ define([
             });
 
             // Build CSV rows
-            const csvHeader = ['Revenue Source', ...periods.map(U.periodLabel), 'Total'];
+            const csvHeader = ['Revenue Source', ...periods.map(utils.periodLabel), 'Total'];
             const csvData = [csvHeader];
             groupOrder.forEach((g) => {
                 csvData.push([g, ...periods.map((p) => pv.groups[g][p] || 0), pv.groupTotals[g]]);
             });
             csvData.push(['Total', ...periods.map((p) => pv.totals[p] || 0), pv.grandTotal]);
 
-            const exportHtml = U.buildExportBar({ filename: 'revenue_cashflow_report', csvRows: csvData });
+            const exportHtml = utils.buildExportBar({ filename: 'revenue_cashflow_report', csvRows: csvData });
 
             // Assemble page
-            const bodyContent = U.buildKPICards(kpiItems, actualsKpi) + chartHtml + tableHtml + exportHtml;
-            const html = U.buildPageShell({ title: 'Revenue Cash Flow', projectName: '', timingType: timingTypeId, bodyContent });
+            const bodyContent = utils.buildKPICards(kpiItems, actualsKpi) + chartHtml + tableHtml + exportHtml;
+            const html = utils.buildPageShell({ title: 'Revenue Cash Flow', projectName: 'Project ' + projectId, timingType: timingTypeId, bodyContent });
             response.write(html);
 
         } catch (e) {
             log.error({ title: MODULE + '.onRequest', details: `${e.name}: ${e.message}\n${e.stack}` });
-            response.write(`<html><body style="font-family:sans-serif;padding:40px;color:#EF4444;"><h2>Error</h2><pre>${U.esc(e.message)}</pre></body></html>`);
+            response.write(`<html><body style="font-family:sans-serif;padding:40px;color:#EF4444;"><h2>Error</h2><pre>${utils.esc(e.message)}</pre></body></html>`);
         }
     };
 

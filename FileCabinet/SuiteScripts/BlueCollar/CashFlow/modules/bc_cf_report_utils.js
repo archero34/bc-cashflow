@@ -5,7 +5,7 @@
  *              Formatting, data processing, CSS, and HTML builders used by
  *              the cost, revenue, and combined report Suitelets.
  */
-define(['../modules/bc_timing_constants'], (Constants) => {
+define(['./bc_timing_constants'], (Constants) => {
 
     const { BRAND, TIMING_TYPE } = Constants;
 

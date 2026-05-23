@@ -11,7 +11,7 @@ define([
     './bc_cf_ui',
 ], (Constants, Styles, UI) => {
 
-    const { BRAND, BUILT_IN_TEMPLATES, TIMING_TYPE, PERIOD_INTERVAL } = Constants;
+    const { BRAND, TIMING_TYPE, PERIOD_INTERVAL } = Constants;
 
     // =========================================================================
     //  Utility Helpers
@@ -168,6 +168,41 @@ define([
 .bccf-empty-state p { font-size: var(--bccf-text-base); margin: 0 0 6px; font-weight: 600; color: var(--bccf-ink-700); }
 .bccf-empty-state span { font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); }
 
+/* Calculator toolbar additions */
+.bccf-toolbar input[type="number"] { font-size: var(--bccf-text-sm); padding: 8px 10px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); width: 70px; -moz-appearance: textfield; }
+.bccf-toolbar input[type="number"]::-webkit-outer-spin-button, .bccf-toolbar input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bccf-toolbar input[type="number"]:focus { border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); outline: none; }
+.bccf-toolbar input[readonly] { background: var(--bccf-bg-50); color: var(--bccf-ink-500); cursor: default; }
+.bccf-toolbar input[type="date"] { min-width: 140px; }
+
+/* Calculator preview panel */
+.bccf-calc-preview { background: var(--bccf-bg-50); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 12px 16px; margin-bottom: 16px; display: none; }
+.bccf-calc-preview.visible { display: block; }
+.bccf-calc-preview-meta { font-size: 12px; font-weight: 600; color: var(--bccf-ink-700); margin-bottom: 10px; }
+.bccf-calc-preview-bars { display: flex; align-items: flex-end; gap: 4px; height: 48px; margin-bottom: 10px; }
+.bccf-calc-preview-bars .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+.bccf-calc-preview-bars .bar-lbl { font-size: 9px; color: var(--bccf-ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+.bccf-calc-preview-bars .bar { width: 100%; background: var(--bccf-brand-500); border-radius: 2px 2px 0 0; min-height: 2px; }
+.bccf-calc-preview table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bccf-calc-preview th { color: var(--bccf-ink-500); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; padding: 3px 6px; border-bottom: 1px solid var(--bccf-border); text-align: left; }
+.bccf-calc-preview td { padding: 3px 6px; color: var(--bccf-ink-700); border-bottom: 1px solid var(--bccf-bg-100); }
+.bccf-calc-preview td.right, .bccf-calc-preview th.right { text-align: right; }
+.bccf-calc-preview .more-rows { font-size: 11px; color: var(--bccf-ink-500); padding: 4px 6px; text-align: center; }
+
+/* Toast host */
+#bccf-toast-host { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.bccf-toast { background: var(--bccf-ink-900); color: #fff; padding: 10px 16px; border-radius: var(--bccf-r-md); font-size: var(--bccf-text-sm); font-weight: 500; box-shadow: var(--bccf-shadow-2); pointer-events: auto; transition: opacity 0.3s ease, transform 0.3s ease; opacity: 1; transform: translateY(0); }
+.bccf-toast.success { background: var(--bccf-success-500); }
+.bccf-toast.error { background: var(--bccf-danger-500); }
+.bccf-toast.warn { background: var(--bccf-warn-500); color: var(--bccf-ink-900); }
+
+/* Modal */
+.bccf-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 10000; display: flex; align-items: center; justify-content: center; }
+.bccf-modal { background: var(--bccf-surface); border-radius: var(--bccf-r-lg); padding: 24px 28px; min-width: 320px; max-width: 440px; box-shadow: var(--bccf-shadow-2); }
+.bccf-modal-headline { font-size: 16px; font-weight: 700; color: var(--bccf-ink-900); margin-bottom: 8px; }
+.bccf-modal-body { font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); margin-bottom: 20px; }
+.bccf-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
 </style>`);
     };
 
@@ -234,40 +269,98 @@ define([
     };
 
     // =========================================================================
-    //  3. renderTemplateSelector(options)
+    //  3. renderCalculatorToolbar(options)  [was: renderTemplateSelector]
     // =========================================================================
 
     /**
-     * Renders the template selector toolbar.
+     * Renders the schedule calculator toolbar + live preview region.
+     * Replaces the old stamp-only template selector.
      * @param {Object} options
      * @param {string} options.sectionId
-     * @param {Object[]} options.templates
      * @returns {string}
      */
-    const renderTemplateSelector = ({ sectionId, templates }) => {
-        const selId = `${esc(sectionId)}_template_select`;
-        const dateId = `${esc(sectionId)}_start_date`;
-        const btnId = `${esc(sectionId)}_apply_btn`;
-
-        let templateOptions = '<option value="">-- Choose a Template --</option>';
-        (templates || BUILT_IN_TEMPLATES).forEach((t) => {
-            templateOptions += `<option value="${esc(t.id)}">${esc(t.name)}</option>`;
-        });
+    const renderCalculatorToolbar = ({ sectionId }) => {
+        const sid = esc(sectionId);
+        const distId  = `${sid}_calc_dist`;
+        const perdsId = `${sid}_calc_periods`;
+        const intId   = `${sid}_calc_interval`;
+        const startId = `${sid}_calc_start`;
+        const endId   = `${sid}_calc_end`;
+        const genId   = `${sid}_calc_generate`;
+        const clrId   = `${sid}_calc_clear`;
+        const prevId  = `${sid}_calc_preview`;
+        const today   = fmtDateInput(new Date());
 
         return `
-<div class="bccf-toolbar">
-    <label for="${selId}">Template</label>
-    <select id="${selId}" data-section="${esc(sectionId)}">
-        ${templateOptions}
-    </select>
-    <label for="${dateId}">${ICONS.calendar} Start Date</label>
-    <input type="date" id="${dateId}" data-section="${esc(sectionId)}" value="${fmtDateInput(new Date())}">
-    <button type="button" class="bccf-btn bccf-btn-pri" id="${btnId}"
-            onclick="bcTiming.applyTemplate('${esc(sectionId)}')">
-        Apply Template
-    </button>
+<div class="bccf-toolbar" id="${sid}_calc_toolbar">
+    <div class="bccf-field">
+        <label for="${distId}">Distribution</label>
+        <select id="${distId}" data-section="${sid}" data-calc="dist"
+                onchange="bcTiming.calcPreview('${sid}')">
+            <option value="s_curve" selected>S-curve</option>
+            <option value="linear">Linear</option>
+            <option value="front_loaded">Front-loaded</option>
+            <option value="back_loaded">Back-loaded</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="${perdsId}">Periods</label>
+        <input type="number" id="${perdsId}" data-section="${sid}" data-calc="periods"
+               value="6" min="1" max="36"
+               oninput="bcTiming.calcPreview('${sid}')">
+    </div>
+    <div class="bccf-field">
+        <label for="${intId}">Interval</label>
+        <select id="${intId}" data-section="${sid}" data-calc="interval"
+                onchange="bcTiming.calcPreview('${sid}')">
+            <option value="monthly" selected>Monthly</option>
+            <option value="bi_weekly">Bi-weekly</option>
+            <option value="weekly">Weekly</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="${startId}">${ICONS.calendar} Start date</label>
+        <input type="date" id="${startId}" data-section="${sid}" data-calc="start"
+               value="${today}"
+               oninput="bcTiming.calcPreview('${sid}')">
+    </div>
+    <div class="bccf-field">
+        <label for="${endId}">End date</label>
+        <input type="date" id="${endId}" readonly tabindex="-1">
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:2px;">
+        <button type="button" class="bccf-btn bccf-btn-pri" id="${genId}"
+                onclick="bcTiming.calcGenerate('${sid}')">
+            Generate
+        </button>
+        <button type="button" class="bccf-btn" id="${clrId}"
+                onclick="bcTiming.calcClearAll('${sid}')">
+            Clear all
+        </button>
+    </div>
+</div>
+<div class="bccf-calc-preview" id="${prevId}">
+    <div class="bccf-calc-preview-meta" id="${prevId}_meta"></div>
+    <div class="bccf-calc-preview-bars" id="${prevId}_bars"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Label</th>
+                <th class="right">%</th>
+                <th class="right">Amount</th>
+                <th class="right">Total %</th>
+                <th class="right">Total Amt</th>
+            </tr>
+        </thead>
+        <tbody id="${prevId}_rows"></tbody>
+    </table>
+    <div class="more-rows" id="${prevId}_more"></div>
 </div>`;
     };
+
+    // Keep old name as alias for backward compatibility in callers
+    const renderTemplateSelector = ({ sectionId }) => renderCalculatorToolbar({ sectionId });
 
     // =========================================================================
     //  4. renderTimingGrid(options)
@@ -478,7 +571,7 @@ ${addRowHtml}`;
         });
 
         const toolbarHtml = editable
-            ? renderTemplateSelector({ sectionId: sid, templates: templates || BUILT_IN_TEMPLATES })
+            ? renderCalculatorToolbar({ sectionId: sid })
             : '';
 
         const gridHtml = renderTimingGrid({
@@ -515,10 +608,9 @@ ${addRowHtml}`;
     const renderScheduleSubtab = ({
         transactionType, transactionId, transactionName, entityName, totalAmount,
         projectId, projectName, cashFlowLines, accrualLines, editable,
-        showCostCode, templates, suiteletUrl, recordType, sourceGroup, changeOrderId,
+        showCostCode, suiteletUrl, recordType, sourceGroup, changeOrderId,
         sectionPrefix
     }) => {
-        const safeTemplates = templates || BUILT_IN_TEMPLATES;
         const amt = Number(totalAmount) || 0;
 
         // sectionPrefix allows multiple renderScheduleSubtab calls on the same page
@@ -539,7 +631,6 @@ ${addRowHtml}`;
             lines: cashFlowLines || [],
             editable: editable !== false,
             showCostCode: showCostCode || false,
-            templates: safeTemplates,
             timingType: 'cashflow'
         });
 
@@ -550,7 +641,6 @@ ${addRowHtml}`;
             lines: accrualLines || [],
             editable: editable !== false,
             showCostCode: showCostCode || false,
-            templates: safeTemplates,
             timingType: 'accrual'
         });
 
@@ -619,6 +709,7 @@ ${getBaseStyles()}
     <!-- Save Bar -->
     ${saveBarHtml}
 </div>
+<div id="bccf-toast-host"></div>
 
 <script>
 ${getClientScript()}
@@ -697,9 +788,6 @@ ${getBaseStyles()}
      * @returns {string}
      */
     const getClientScript = () => {
-        // Build the BUILT_IN_TEMPLATES JSON for embedding in client-side code
-        const templatesJson = JSON.stringify(BUILT_IN_TEMPLATES);
-        const periodIntervalJson = JSON.stringify(PERIOD_INTERVAL);
 
         return `
 (function() {
@@ -708,9 +796,6 @@ ${getBaseStyles()}
     // =====================================================================
     //  BlueCollar Timing Client-Side Controller
     // =====================================================================
-
-    var TEMPLATES = ${templatesJson};
-    var PERIOD_INTERVAL = ${periodIntervalJson};
 
     var bcTiming = window.bcTiming = {};
 
@@ -825,20 +910,198 @@ ${getBaseStyles()}
      * Show a toast notification.
      */
     function showToast(message, type) {
-        var existing = document.querySelectorAll('.bccf-toast');
-        for (var i = 0; i < existing.length; i++) {
-            existing[i].remove();
+        var host = document.getElementById('bccf-toast-host');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'bccf-toast-host';
+            document.body.appendChild(host);
         }
         var toast = document.createElement('div');
         toast.className = 'bccf-toast ' + (type || 'info');
         toast.textContent = message;
-        document.body.appendChild(toast);
+        host.appendChild(toast);
         setTimeout(function() {
             toast.style.opacity = '0';
-            toast.style.transform = 'translateY(-12px)';
+            toast.style.transform = 'translateY(12px)';
             setTimeout(function() { toast.remove(); }, 300);
         }, 3000);
     }
+
+    /**
+     * Show a confirmation modal. Returns a Promise<boolean>.
+     * Resolves true on Confirm / Enter, false on Cancel / Esc.
+     */
+    function confirmDialog(opts) {
+        return new Promise(function(resolve) {
+            var backdrop = document.createElement('div');
+            backdrop.className = 'bccf-modal-backdrop';
+
+            var modal = document.createElement('div');
+            modal.className = 'bccf-modal';
+            modal.setAttribute('role', 'dialog');
+
+            var headline = document.createElement('div');
+            headline.className = 'bccf-modal-headline';
+            headline.textContent = opts.headline || 'Confirm';
+
+            var body = document.createElement('div');
+            body.className = 'bccf-modal-body';
+            body.textContent = opts.body || '';
+
+            var actions = document.createElement('div');
+            actions.className = 'bccf-modal-actions';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'bccf-btn';
+            cancelBtn.textContent = 'Cancel';
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.type = 'button';
+            confirmBtn.className = 'bccf-btn bccf-btn-pri';
+            confirmBtn.textContent = 'Confirm';
+
+            actions.appendChild(cancelBtn);
+            actions.appendChild(confirmBtn);
+            modal.appendChild(headline);
+            modal.appendChild(body);
+            modal.appendChild(actions);
+            backdrop.appendChild(modal);
+            document.body.appendChild(backdrop);
+
+            function cleanup(result) {
+                backdrop.remove();
+                resolve(result);
+            }
+
+            cancelBtn.addEventListener('click', function() { cleanup(false); });
+            confirmBtn.addEventListener('click', function() { cleanup(true); });
+            backdrop.addEventListener('click', function(e) {
+                if (e.target === backdrop) cleanup(false);
+            });
+            document.addEventListener('keydown', function handler(e) {
+                if (e.key === 'Escape') { document.removeEventListener('keydown', handler); cleanup(false); }
+                if (e.key === 'Enter')  { document.removeEventListener('keydown', handler); cleanup(true); }
+            });
+
+            confirmBtn.focus();
+        });
+    }
+
+    // =====================================================================
+    //  BCCF_CALC — inline mirror of bc_cf_calculator.js (client IIFE copy)
+    //  Must match the AMD module exactly. Spec §3.14.
+    // =====================================================================
+
+    var BCCF_CALC = (function() {
+        var _round2 = function(n) { return Math.round(n * 100) / 100; };
+
+        var weights = function(distribution, n) {
+            var w = new Array(n);
+            for (var i = 1; i <= n; i++) {
+                if (distribution === 'linear') {
+                    w[i - 1] = 1;
+                } else if (distribution === 's_curve') {
+                    w[i - 1] = Math.sin(Math.PI * (i - 0.5) / n);
+                } else if (distribution === 'front_loaded') {
+                    w[i - 1] = n - i + 1;
+                } else if (distribution === 'back_loaded') {
+                    w[i - 1] = i;
+                } else {
+                    throw new Error('Unknown distribution: ' + distribution);
+                }
+            }
+            return w;
+        };
+
+        var normalize = function(w) {
+            var total = w.reduce(function(s, x) { return s + x; }, 0);
+            var p = w.map(function(x) { return _round2(x / total * 100); });
+            var drift = _round2(100 - p.reduce(function(s, x) { return s + x; }, 0));
+            p[p.length - 1] = _round2(p[p.length - 1] + drift);
+            return p;
+        };
+
+        var computeDates = function(startDate, n, interval) {
+            if (interval !== 'monthly' && interval !== 'bi_weekly' && interval !== 'weekly') {
+                throw new Error('Unknown interval: ' + interval);
+            }
+            var out = new Array(n);
+            for (var i = 0; i < n; i++) {
+                if (interval === 'monthly') {
+                    var d = new Date(startDate);
+                    d.setMonth(d.getMonth() + i);
+                    out[i] = d;
+                } else {
+                    var days = interval === 'weekly' ? 7 : 14;
+                    var d2 = new Date(startDate);
+                    d2.setDate(d2.getDate() + i * days);
+                    out[i] = d2;
+                }
+            }
+            return out;
+        };
+
+        var computeEndDate = function(startDate, n, interval) {
+            return computeDates(startDate, n, interval)[n - 1];
+        };
+
+        var generate = function(opts) {
+            var distribution = opts.distribution;
+            var periods = opts.periods;
+            var interval = opts.interval;
+            var startDate = opts.startDate;
+            var source = opts.source;
+
+            var w = weights(distribution, periods);
+            var p = normalize(w);
+            var dates = computeDates(startDate, periods, interval);
+            var rows = p.map(function(pct, i) {
+                return {
+                    periodDate: dates[i],
+                    label: 'Period ' + (i + 1),
+                    percentage: pct,
+                    amount: _round2(source * pct / 100)
+                };
+            });
+            var sumAmt = rows.reduce(function(s, r) { return s + r.amount; }, 0);
+            var amtDrift = _round2(source - sumAmt);
+            if (amtDrift !== 0) {
+                rows[rows.length - 1].amount = _round2(rows[rows.length - 1].amount + amtDrift);
+            }
+            return rows;
+        };
+
+        var rebalance = function(rows, source, lastEditedIndex) {
+            var out = rows.map(function(r) { return Object.assign({}, r); });
+            var excess = _round2(out.reduce(function(s, r) { return s + r.percentage; }, 0) - 100);
+            if (Math.abs(excess) < 0.01) return out;
+            var targets = out.map(function(_, i) { return i; }).filter(function(i) { return i !== lastEditedIndex; });
+            var sumTarget = targets.reduce(function(s, i) { return s + out[i].percentage; }, 0);
+            if (sumTarget > 0) {
+                targets.forEach(function(i) {
+                    out[i].percentage = _round2(out[i].percentage - (out[i].percentage / sumTarget) * excess);
+                    if (out[i].percentage < 0) out[i].percentage = 0;
+                });
+                targets.forEach(function(i) {
+                    out[i].amount = _round2(source * out[i].percentage / 100);
+                });
+                var lastTarget = targets[targets.length - 1];
+                var sumPct = out.reduce(function(s, r) { return s + r.percentage; }, 0);
+                var pctDrift = _round2(100 - sumPct);
+                var adjustedPct = _round2(out[lastTarget].percentage + pctDrift);
+                if (adjustedPct >= 0) {
+                    out[lastTarget].percentage = adjustedPct;
+                    var sumAmt = out.reduce(function(s, r) { return s + r.amount; }, 0);
+                    var amtDrift = _round2(source - sumAmt);
+                    out[lastTarget].amount = _round2(out[lastTarget].amount + amtDrift);
+                }
+            }
+            return out;
+        };
+
+        return { weights: weights, normalize: normalize, computeDates: computeDates, computeEndDate: computeEndDate, generate: generate, rebalance: rebalance };
+    })();
 
     // ─── Tab Switching ──────────────────────────────────────────────────
 
@@ -881,89 +1144,241 @@ ${getBaseStyles()}
         }
     };
 
-    // ─── Template Application ───────────────────────────────────────────
+    // ─── Calculator (T21–T23) ───────────────────────────────────────────
 
     /**
-     * Apply a template to a section — calculates lines client-side and populates grid.
+     * Read the current calculator inputs for a section.
      */
-    bcTiming.applyTemplate = function(sectionId) {
-        var selectEl = document.getElementById(sectionId + '_template_select');
-        var dateEl = document.getElementById(sectionId + '_start_date');
+    function getCalcInputs(sectionId) {
+        var dist     = document.getElementById(sectionId + '_calc_dist');
+        var perdsEl  = document.getElementById(sectionId + '_calc_periods');
+        var intEl    = document.getElementById(sectionId + '_calc_interval');
+        var startEl  = document.getElementById(sectionId + '_calc_start');
+        return {
+            distribution: dist     ? dist.value    : 's_curve',
+            periods:      perdsEl  ? (parseInt(perdsEl.value, 10) || 6) : 6,
+            interval:     intEl    ? intEl.value   : 'monthly',
+            startDateStr: startEl  ? startEl.value : ''
+        };
+    }
 
-        if (!selectEl || !dateEl) {
-            showToast('Template controls not found.', 'error');
+    /**
+     * Format a Date to YYYY-MM-DD (for input[type=date]).
+     */
+    function calcFmtDate(d) {
+        if (!d) return '';
+        var yyyy = d.getFullYear();
+        var mm   = String(d.getMonth() + 1).padStart(2, '0');
+        var dd   = String(d.getDate()).padStart(2, '0');
+        return yyyy + '-' + mm + '-' + dd;
+    }
+
+    /**
+     * Format a Date for display: "Apr 15 2026"
+     */
+    function calcFmtDisplay(d) {
+        if (!d) return '';
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
+    }
+
+    /**
+     * Update the live preview panel for a section.
+     */
+    bcTiming.calcPreview = function(sectionId) {
+        var inp = getCalcInputs(sectionId);
+        var prevId = sectionId + '_calc_preview';
+        var preview = document.getElementById(prevId);
+        if (!preview) return;
+
+        if (!inp.startDateStr) {
+            preview.classList.remove('visible');
             return;
         }
 
-        var templateId = selectEl.value;
-        if (!templateId) {
-            showToast('Please select a template.', 'error');
+        var startDate = new Date(inp.startDateStr + 'T00:00:00');
+        if (isNaN(startDate.getTime())) {
+            preview.classList.remove('visible');
             return;
         }
 
-        var startDateStr = dateEl.value;
-        if (!startDateStr) {
-            showToast('Please select a start date.', 'error');
-            return;
-        }
+        var n = Math.max(1, Math.min(36, inp.periods));
+        var endDate = BCCF_CALC.computeEndDate(startDate, n, inp.interval);
 
-        // Find the template
-        var template = null;
-        for (var i = 0; i < TEMPLATES.length; i++) {
-            if (TEMPLATES[i].id === templateId) {
-                template = TEMPLATES[i];
-                break;
-            }
-        }
-        if (!template) {
-            showToast('Template not found: ' + templateId, 'error');
-            return;
-        }
+        // Update end date input
+        var endEl = document.getElementById(sectionId + '_calc_end');
+        if (endEl) endEl.value = calcFmtDate(endDate);
 
+        // Build preview rows
         var sourceAmount = getSourceAmount(sectionId);
-        var startDate = new Date(startDateStr + 'T00:00:00');
-        var intervalId = template.interval || PERIOD_INTERVAL.MONTHLY.id;
-
-        // Build lines
-        var lines = [];
-        var allocated = 0;
-        for (var p = 0; p < template.periods.length; p++) {
-            var period = template.periods[p];
-            var periodDate = advanceDate(startDate, intervalId, p);
-            var isLast = (p === template.periods.length - 1);
-            var amount;
-
-            if (isLast) {
-                amount = round2(sourceAmount - allocated);
-            } else {
-                amount = round2((period.percentage / 100) * sourceAmount);
-            }
-            allocated = round2(allocated + amount);
-
-            lines.push({
-                periodDate: formatDateInput(periodDate),
-                percentage: period.percentage,
-                amount: amount,
-                label: 'Period ' + period.periodNumber + ' (' + template.name + ')',
-                costCode: '',
-                costType: ''
+        var rows;
+        try {
+            rows = BCCF_CALC.generate({
+                distribution: inp.distribution,
+                periods: n,
+                interval: inp.interval,
+                startDate: startDate,
+                source: sourceAmount
             });
+        } catch (e) {
+            preview.classList.remove('visible');
+            return;
         }
 
-        // Recalculate cumulatives
-        var runPct = 0;
-        var runAmt = 0;
-        for (var c = 0; c < lines.length; c++) {
-            runPct = round2(runPct + lines[c].percentage);
-            runAmt = round2(runAmt + lines[c].amount);
-            lines[c].cumulativePct = runPct;
-            lines[c].cumulativeAmt = runAmt;
+        // Compute cumulatives
+        var runPct = 0, runAmt = 0;
+        rows.forEach(function(r) {
+            runPct = Math.round((runPct + r.percentage) * 100) / 100;
+            runAmt = Math.round((runAmt + r.amount) * 100) / 100;
+            r.cumPct = runPct;
+            r.cumAmt = runAmt;
+        });
+
+        // Meta line
+        var distLabel = { s_curve: 'S-curve', linear: 'Linear', front_loaded: 'Front-loaded', back_loaded: 'Back-loaded' }[inp.distribution] || inp.distribution;
+        var intLabel  = { monthly: 'monthly', bi_weekly: 'bi-weekly', weekly: 'weekly' }[inp.interval] || inp.interval;
+        var metaEl = document.getElementById(prevId + '_meta');
+        if (metaEl) {
+            metaEl.textContent = distLabel + ' · ' + n + ' ' + intLabel + ' periods · ' + calcFmtDisplay(startDate) + ' → ' + calcFmtDisplay(endDate);
         }
 
-        // Render into the grid
-        populateGrid(sectionId, lines, sourceAmount);
-        updateKpi(sectionId, lines, sourceAmount);
-        showToast('Applied: ' + template.name, 'success');
+        // Bar chart
+        var barsEl = document.getElementById(prevId + '_bars');
+        if (barsEl) {
+            var maxPct = rows.reduce(function(m, r) { return Math.max(m, r.percentage); }, 0);
+            var barsHtml = '';
+            rows.forEach(function(r) {
+                var h = maxPct > 0 ? Math.round((r.percentage / maxPct) * 40) : 2;
+                barsHtml += '<div class="bar-wrap"><div class="bar-lbl">' + r.percentage.toFixed(1) + '%</div><div class="bar" style="height:' + Math.max(h, 2) + 'px;"></div></div>';
+            });
+            barsEl.innerHTML = barsHtml;
+        }
+
+        // Preview rows table (max 5 + "N more")
+        var rowsEl = document.getElementById(prevId + '_rows');
+        var moreEl = document.getElementById(prevId + '_more');
+        if (rowsEl) {
+            var preview5 = rows.slice(0, 5);
+            var rowsHtml = '';
+            preview5.forEach(function(r) {
+                rowsHtml += '<tr>'
+                    + '<td>' + calcFmtDate(r.periodDate) + '</td>'
+                    + '<td>' + esc(r.label) + '</td>'
+                    + '<td class="right">' + r.percentage.toFixed(1) + '%</td>'
+                    + '<td class="right">$' + r.amount.toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + '</td>'
+                    + '<td class="right">' + r.cumPct.toFixed(1) + '%</td>'
+                    + '<td class="right">$' + r.cumAmt.toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + '</td>'
+                    + '</tr>';
+            });
+            rowsEl.innerHTML = rowsHtml;
+        }
+        if (moreEl) {
+            moreEl.textContent = rows.length > 5 ? ('+ ' + (rows.length - 5) + ' more') : '';
+        }
+
+        preview.classList.add('visible');
+    };
+
+    /**
+     * Generate rows from the calculator — replaces the grid (with confirm if dirty).
+     */
+    bcTiming.calcGenerate = function(sectionId) {
+        var inp = getCalcInputs(sectionId);
+        if (!inp.startDateStr) {
+            showToast('Please enter a start date.', 'error');
+            return;
+        }
+        var startDate = new Date(inp.startDateStr + 'T00:00:00');
+        if (isNaN(startDate.getTime())) {
+            showToast('Invalid start date.', 'error');
+            return;
+        }
+        var n = Math.max(1, Math.min(36, inp.periods));
+        var sourceAmount = getSourceAmount(sectionId);
+        var isDirty = !!window._bccfDirty && !!window._bccfDirty[sectionId];
+
+        function doGenerate() {
+            var rows;
+            try {
+                rows = BCCF_CALC.generate({
+                    distribution: inp.distribution,
+                    periods: n,
+                    interval: inp.interval,
+                    startDate: startDate,
+                    source: sourceAmount
+                });
+            } catch (e) {
+                showToast('Generation failed: ' + e.message, 'error');
+                return;
+            }
+
+            // Add cumulatives
+            var runPct = 0, runAmt = 0;
+            rows.forEach(function(r) {
+                runPct = Math.round((runPct + r.percentage) * 100) / 100;
+                runAmt = Math.round((runAmt + r.amount) * 100) / 100;
+                r.cumulativePct = runPct;
+                r.cumulativeAmt = runAmt;
+                r.periodDate = calcFmtDate(r.periodDate);
+                r.costCode = '';
+                r.costType = '';
+            });
+
+            populateGrid(sectionId, rows, sourceAmount);
+            updateKpi(sectionId, rows, sourceAmount);
+
+            // Reset dirty flags
+            if (!window._bccfDirty) window._bccfDirty = {};
+            window._bccfDirty[sectionId] = false;
+
+            showToast('Generated ' + rows.length + ' rows.', 'success');
+        }
+
+        if (isDirty) {
+            confirmDialog({
+                headline: 'Replace existing rows?',
+                body: 'Generating will replace your current rows.'
+            }).then(function(confirmed) {
+                if (confirmed) doGenerate();
+            });
+        } else {
+            doGenerate();
+        }
+    };
+
+    /**
+     * Clear all rows from the grid.
+     */
+    bcTiming.calcClearAll = function(sectionId) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return;
+        var hasRows = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]').length > 0;
+        if (!hasRows) return;
+
+        confirmDialog({
+            headline: 'Clear all rows?',
+            body: 'This will remove all timing lines from the grid.'
+        }).then(function(confirmed) {
+            if (!confirmed) return;
+            tbody.innerHTML = '';
+            var sourceAmount = getSourceAmount(sectionId);
+            updateTotals(sectionId, [], sourceAmount);
+            updateKpi(sectionId, [], sourceAmount);
+            if (!window._bccfDirty) window._bccfDirty = {};
+            window._bccfDirty[sectionId] = false;
+            showToast('Cleared all rows.', 'info');
+        });
+    };
+
+    // ─── Dirty tracking ─────────────────────────────────────────────────
+
+    /**
+     * Mark a section grid as dirty when any row input changes.
+     * Called from grid row inputs (added when rows are populated).
+     */
+    bcTiming.markDirty = function(sectionId) {
+        if (!window._bccfDirty) window._bccfDirty = {};
+        window._bccfDirty[sectionId] = true;
     };
 
     /**
@@ -1015,10 +1430,10 @@ ${getBaseStyles()}
             row += '<td><input type="text" value="' + esc(line.costType || '') + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="costType" placeholder="Cost Type"></td>';
         }
 
-        row += '<td><input type="date" value="' + esc(dateVal) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="periodDate"></td>';
-        row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label"></td>';
-        row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
-        row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.select()" onblur="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" onchange="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" style="text-align:right;"></td>';
+        row += '<td><input type="date" value="' + esc(dateVal) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="periodDate" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.select()" onblur="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" style="text-align:right;"></td>';
         row += '<td class="right cum">' + bcTiming.formatPercent(cumPct) + '</td>';
         row += '<td class="right cum">' + bcTiming.formatCurrency(cumAmt) + '</td>';
         row += '<td class="center"><button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line" onclick="bcTiming.removeRow(\\'' + esc(sectionId) + '\\', ' + idx + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
@@ -1491,7 +1906,8 @@ ${getBaseStyles()}
     return {
         getBaseStyles,
         renderKpiBar,
-        renderTemplateSelector,
+        renderCalculatorToolbar,
+        renderTemplateSelector,    // backward-compat alias for renderCalculatorToolbar
         renderTimingGrid,
         renderTimingSection,
         renderScheduleSubtab,

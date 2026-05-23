@@ -319,4 +319,16 @@ describe('bc_cf_combined_sl — date range picker (E1)', () => {
             expect(body).toMatch(/availableBounds/);
         });
     });
+
+    it('renderKpis function in CLIENT_SCRIPT accepts projectTotals', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        // The fetch resolver passes projectTotals into renderKpis
+        expect(body).toMatch(/renderKpis\(data\.kpis,\s*data\.projectTotals\)/);
+        // The renderKpis function signature accepts the new arg
+        expect(body).toMatch(/function renderKpis\(kpis,\s*projectTotals\)/);
+        // KPI sublines reference project totals
+        expect(body).toMatch(/projectTotals/);
+    });
 });

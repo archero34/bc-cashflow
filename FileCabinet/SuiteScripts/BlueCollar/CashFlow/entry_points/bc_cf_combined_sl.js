@@ -304,38 +304,45 @@ define([
      * Per spec §3.6, §3.7, §3.15.5 — bccf-k / bccf-v / bccf-sub inner classes.
      * No KPI ever colors .bccf-v green/red — only Net uses accent.
      */
-    function renderKpis(kpis) {
+    function renderKpis(kpis, projectTotals) {
+        projectTotals = projectTotals || { revenue: 0, cost: 0 };
+
+        var projectNet = (projectTotals.revenue || 0) - (projectTotals.cost || 0);
+        var projectMargin = projectTotals.revenue
+            ? (projectNet / projectTotals.revenue) * 100
+            : 0;
+
         var netColor = kpis.netCashFlow >= 0
             ? 'var(--bccf-success-500)'
             : 'var(--bccf-danger-500)';
 
         var cards = [
-            // 1. Total Revenue — navy value per §3.7
+            // 1. Total Revenue (range) — subline shows project total
             '<div class="bccf-kpi">'
                 + '<div class="bccf-k">Total Revenue</div>'
                 + '<div class="bccf-v" style="color:var(--bccf-brand-500)">' + esc(fmtCurrency(kpis.totalRevenue)) + '</div>'
-                + '<div class="bccf-sub">Forecast</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(projectTotals.revenue)) + ' project total</div>'
             + '</div>',
 
-            // 2. Total Cost — coral value per §3.7 (cost identity color)
+            // 2. Total Cost (range) — subline shows project total
             '<div class="bccf-kpi">'
                 + '<div class="bccf-k">Total Cost</div>'
                 + '<div class="bccf-v" style="color:var(--bccf-cost-500)">' + esc(fmtCurrency(kpis.totalCost)) + '</div>'
-                + '<div class="bccf-sub">Forecast</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(projectTotals.cost)) + ' project total</div>'
             + '</div>',
 
-            // 3. Net Cash Flow — accent class, net color on value per §3.7 + §3.15.5
+            // 3. Net Cash Flow (range) — subline shows project net + margin
             '<div class="bccf-kpi accent">'
                 + '<div class="bccf-k">Net Cash Flow</div>'
                 + '<div class="bccf-v" style="color:' + netColor + '">' + esc(fmtCurrency(kpis.netCashFlow)) + '</div>'
-                + '<div class="bccf-sub">' + (kpis.netCashFlow >= 0 ? 'Positive' : 'Negative') + '</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(projectNet)) + ' project / ' + esc(fmtPct(projectMargin)) + ' overall</div>'
             + '</div>',
 
-            // 4. Margin % — default ink color
+            // 4. Margin (range) — subline shows project margin
             '<div class="bccf-kpi">'
                 + '<div class="bccf-k">Margin</div>'
                 + '<div class="bccf-v">' + esc(fmtPct(kpis.margin)) + '</div>'
-                + '<div class="bccf-sub">Net / Revenue</div>'
+                + '<div class="bccf-sub">' + esc(fmtPct(projectMargin)) + ' project overall</div>'
             + '</div>'
         ];
 
@@ -639,7 +646,7 @@ define([
 
                 // Bug 1: use innerHTML on stable wrapper divs (IDs never destroyed)
                 var kpiEl = document.getElementById('bccf-kpis');
-                if (kpiEl) kpiEl.innerHTML = renderKpis(data.kpis);
+                if (kpiEl) kpiEl.innerHTML = renderKpis(data.kpis, data.projectTotals);
 
                 var chartEl = document.getElementById('bccf-chart');
                 if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.categories);

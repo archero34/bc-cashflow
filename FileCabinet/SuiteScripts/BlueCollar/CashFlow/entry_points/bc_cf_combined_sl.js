@@ -417,12 +417,12 @@ define([
             return { x: x, y: y, value: v, label: periods[i] };
         });
         var polyPoints = trendPoints.map(function(p) { return p.x + ',' + p.y; }).join(' ');
-        // Dots are hoverable — native title tooltip shows cumulative net at that period.
-        // Browser places the tooltip optimistically (above/beside, avoiding screen edges).
+        // Dots are hoverable — CSS-based tooltip (.bccf-trend-dot::after) shows cumulative net.
+        // Native title attribute is unreliable inside NetSuite iframes; CSS hover is immediate.
         var dotsHtml = trendPoints.map(function(p) {
             var color = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-            var tip = esc(p.label) + ': ' + fmtCurrency(p.value) + ' cumulative';
-            return '<span title="' + esc(tip) + '" style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);cursor:default;"></span>';
+            var tip = p.label + ': ' + fmtCurrency(p.value) + ' cumulative';
+            return '<span class="bccf-trend-dot" data-tip="' + esc(tip) + '" style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);"></span>';
         }).join('');
         // Final-period cumulative label removed — Net Cash Flow KPI already surfaces this value.
         var svgOverlay = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible">'

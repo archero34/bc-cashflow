@@ -158,6 +158,29 @@ define([], function () {
         .bccf-daterange-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bccf-bg-100); }
         .bccf-daterange-hint { font-size: 11px; color: var(--bccf-ink-500); }
         .bccf-daterange-actions button[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+        /* Trend-line dot with hover tooltip (Combined chart) */
+        .bccf-trend-dot { cursor: default; }
+        .bccf-trend-dot::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bccf-ink-900);
+            color: #fff;
+            padding: 5px 9px;
+            border-radius: var(--bccf-r-md);
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            margin-bottom: 8px;
+            transition: opacity var(--bccf-t-fast);
+            z-index: 10;
+        }
+        .bccf-trend-dot:hover::after { opacity: 1; }
     `;
 
     /**

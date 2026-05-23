@@ -5,7 +5,11 @@
  *              Generates inline HTML/CSS/JS for injection into NetSuite
  *              record subtabs via UserEvent scripts.
  */
-define(['./bc_timing_constants'], (Constants) => {
+define([
+    './bc_timing_constants',
+    './bc_cf_styles',
+    './bc_cf_ui',
+], (Constants, Styles, UI) => {
 
     const { BRAND, BUILT_IN_TEMPLATES, TIMING_TYPE, PERIOD_INTERVAL } = Constants;
 
@@ -85,607 +89,86 @@ define(['./bc_timing_constants'], (Constants) => {
      * @returns {string}
      */
     const getBaseStyles = () => {
-        return /* css */`
-/* ── BlueCollar Cash Flow Timing ── Google Fonts Import ──────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        return Styles.getStyles().replace('</style>', `
 
-/* ── Reset & Container ───────────────────────────────────────────────── */
-.bc-cf-container {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 14px;
-    line-height: 1.5;
-    color: ${BRAND.NAVY};
-    background: ${BRAND.WHITE};
-    border-radius: ${BRAND.BORDER_RADIUS};
-    box-shadow: ${BRAND.BOX_SHADOW};
-    overflow: hidden;
-    position: relative;
-}
-.bc-cf-container *, .bc-cf-container *::before, .bc-cf-container *::after {
-    box-sizing: border-box;
-}
+/* ====================================================================
+   Schedule editor -- surface-specific additions (extends bc_cf_styles)
+   ==================================================================== */
 
-/* ── Header ──────────────────────────────────────────────────────────── */
-.bc-cf-header {
-    background: linear-gradient(135deg, ${BRAND.NAVY} 0%, ${BRAND.NAVY_LIGHT} 100%);
-    color: ${BRAND.WHITE};
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-.bc-cf-header-title {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.bc-cf-header-title svg {
-    flex-shrink: 0;
-}
-.bc-cf-header-meta {
-    font-size: 12px;
-    opacity: 0.8;
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-.bc-cf-header-meta span {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-.bc-cf-header-meta strong {
-    font-weight: 600;
-    opacity: 1;
-}
+/* Container + box-sizing reset */
+.bccf-container { overflow: hidden; position: relative; }
+.bccf-container *, .bccf-container *::before, .bccf-container *::after { box-sizing: border-box; }
 
-/* ── Tab Navigation ──────────────────────────────────────────────────── */
-.bc-cf-tab-nav {
-    display: flex;
-    background: ${BRAND.GREY_LIGHT};
-    border-bottom: 2px solid ${BRAND.GREY_MID};
-    padding: 0 24px;
-    gap: 0;
-}
-.bc-cf-tab-nav button {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 12px 24px;
-    border: none;
-    background: transparent;
-    color: ${BRAND.GREY_DARK};
-    cursor: pointer;
-    position: relative;
-    transition: color 0.2s ease, background 0.2s ease;
-    border-bottom: 3px solid transparent;
-    margin-bottom: -2px;
-}
-.bc-cf-tab-nav button:hover {
-    color: ${BRAND.NAVY};
-    background: rgba(4, 35, 61, 0.04);
-}
-.bc-cf-tab-nav button.active {
-    color: ${BRAND.NAVY};
-    border-bottom-color: ${BRAND.GOLD};
-    background: ${BRAND.WHITE};
-}
-.bc-cf-tab-nav button.active::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: ${BRAND.GOLD};
-    border-radius: 3px 3px 0 0;
-}
+/* Header: gradient banner */
+.bccf-header { background: linear-gradient(135deg, var(--bccf-brand-500) 0%, #2a5080 100%); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.bccf-header-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+.bccf-header-title svg { flex-shrink: 0; }
+.bccf-header-meta { font-size: 12px; opacity: 0.8; display: flex; gap: 20px; flex-wrap: wrap; }
+.bccf-header-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.bccf-header-meta strong { font-weight: 600; opacity: 1; }
 
-/* ── KPI Bar ─────────────────────────────────────────────────────────── */
-.bc-cf-kpi-bar {
-    display: flex;
-    gap: 16px;
-    padding: 20px 24px;
-    overflow-x: auto;
-    background: ${BRAND.GREY_LIGHT};
-    border-bottom: 1px solid ${BRAND.GREY_MID};
-}
-.bc-cf-kpi-card {
-    background: ${BRAND.WHITE};
-    border-radius: ${BRAND.BORDER_RADIUS};
-    box-shadow: ${BRAND.BOX_SHADOW};
-    padding: 16px 20px;
-    min-width: 140px;
-    flex: 1;
-    text-align: center;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    border: 1px solid rgba(0,0,0,0.04);
-}
-.bc-cf-kpi-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.bc-cf-kpi-value {
-    font-size: 24px;
-    font-weight: 700;
-    color: ${BRAND.NAVY};
-    line-height: 1.2;
-    margin-bottom: 4px;
-}
-.bc-cf-kpi-value.green { color: ${BRAND.GREEN}; }
-.bc-cf-kpi-value.gold  { color: ${BRAND.GOLD}; }
-.bc-cf-kpi-value.red   { color: ${BRAND.RED}; }
-.bc-cf-kpi-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: ${BRAND.GREY_DARK};
-}
+/* Section: tab-driven show/hide */
+.bccf-section { margin: 20px 24px; padding-left: 20px; display: none; }
+.bccf-section.active { display: block; }
+.bccf-section-title { font-size: 16px; font-weight: 700; color: var(--bccf-ink-900); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.bccf-section-title .bccf-badge { margin-left: 6px; }
 
-/* ── Section ─────────────────────────────────────────────────────────── */
-.bc-cf-section {
-    border-left: 3px solid ${BRAND.GOLD};
-    margin: 20px 24px;
-    padding-left: 20px;
-    display: none;
-}
-.bc-cf-section.active {
-    display: block;
-}
-.bc-cf-section-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: ${BRAND.NAVY};
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.bc-cf-section-title .bc-cf-badge {
-    margin-left: 6px;
-}
+/* Toolbar (template selector row) */
+.bccf-toolbar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bccf-bg-50); border-radius: var(--bccf-r-lg); margin-bottom: 16px; flex-wrap: wrap; border: 1px solid var(--bccf-border); }
+.bccf-toolbar label { font-size: 12px; font-weight: 600; color: var(--bccf-ink-500); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.bccf-toolbar select, .bccf-toolbar input[type="date"] { font-size: var(--bccf-text-sm); padding: 8px 12px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); outline: none; min-width: 0; }
+.bccf-toolbar select { min-width: 200px; max-width: 320px; flex: 1; }
+.bccf-toolbar select:focus, .bccf-toolbar input[type="date"]:focus { border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); }
 
-/* ── Toolbar ─────────────────────────────────────────────────────────── */
-.bc-cf-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    background: ${BRAND.GREY_LIGHT};
-    border-radius: ${BRAND.BORDER_RADIUS};
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    border: 1px solid ${BRAND.GREY_MID};
-}
-.bc-cf-toolbar label {
-    font-size: 12px;
-    font-weight: 600;
-    color: ${BRAND.GREY_DARK};
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-}
-.bc-cf-toolbar select,
-.bc-cf-toolbar input[type="date"] {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    padding: 8px 12px;
-    border: 1px solid ${BRAND.GREY_MID};
-    border-radius: 4px;
-    background: ${BRAND.WHITE};
-    color: ${BRAND.NAVY};
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    min-width: 0;
-}
-.bc-cf-toolbar select {
-    min-width: 200px;
-    max-width: 320px;
-    flex: 1;
-}
-.bc-cf-toolbar select:focus,
-.bc-cf-toolbar input[type="date"]:focus {
-    border-color: ${BRAND.GOLD};
-    box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.15);
-}
+/* Grid wrapper */
+.bccf-grid-wrapper { overflow-x: auto; border-radius: var(--bccf-r-lg); border: 1px solid var(--bccf-border); margin-bottom: 12px; }
 
-/* ── Grid (Table) ────────────────────────────────────────────────────── */
-.bc-cf-grid-wrapper {
-    overflow-x: auto;
-    border-radius: ${BRAND.BORDER_RADIUS};
-    border: 1px solid ${BRAND.GREY_MID};
-    margin-bottom: 12px;
-}
-.bc-cf-grid {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.bc-cf-grid th {
-    background: ${BRAND.NAVY};
-    color: ${BRAND.WHITE};
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 10px 12px;
-    text-align: left;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    white-space: nowrap;
-    border-bottom: 2px solid ${BRAND.GOLD};
-}
-.bc-cf-grid th:first-child {
-    border-top-left-radius: 5px;
-}
-.bc-cf-grid th:last-child {
-    border-top-right-radius: 5px;
-}
-.bc-cf-grid th.right,
-.bc-cf-grid td.right {
-    text-align: right;
-}
-.bc-cf-grid th.center,
-.bc-cf-grid td.center {
-    text-align: center;
-}
-.bc-cf-grid td {
-    padding: 8px 12px;
-    border-bottom: 1px solid ${BRAND.GREY_LIGHT};
-    color: ${BRAND.NAVY};
-    vertical-align: middle;
-    transition: background 0.1s ease;
-}
-.bc-cf-grid tbody tr:hover td {
-    background: ${BRAND.GOLD_LIGHT}22;
-}
-.bc-cf-grid tbody tr:last-child td {
-    border-bottom: none;
-}
-.bc-cf-grid input {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    color: ${BRAND.NAVY};
-    padding: 6px 8px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    width: 100%;
-    outline: none;
-    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-.bc-cf-grid input:hover {
-    background: ${BRAND.GREY_LIGHT};
-    border-color: ${BRAND.GREY_MID};
-}
-.bc-cf-grid input:focus {
-    background: ${BRAND.WHITE};
-    border-color: ${BRAND.GOLD};
-    box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.15);
-}
-.bc-cf-grid input[type="date"] {
-    min-width: 130px;
-}
-.bc-cf-grid input[type="number"] {
-    text-align: right;
-    min-width: 90px;
-    -moz-appearance: textfield;
-}
-.bc-cf-grid input[type="number"]::-webkit-outer-spin-button,
-.bc-cf-grid input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
+/* Grid input variant: transparent at rest, hover reveals, focus ring */
+.bccf-grid { width: 100%; border-collapse: collapse; font-size: var(--bccf-text-sm); color: var(--bccf-ink-900); }
+.bccf-grid th, .bccf-grid td { padding: 8px 10px; border-bottom: 1px solid var(--bccf-bg-100); text-align: left; color: var(--bccf-ink-900); vertical-align: middle; }
+.bccf-grid th { background: var(--bccf-bg-50); color: var(--bccf-ink-500); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+.bccf-grid th.right, .bccf-grid td.right { text-align: right; }
+.bccf-grid th.center, .bccf-grid td.center { text-align: center; }
+.bccf-grid input { width: 100%; padding: 4px 6px; font-size: var(--bccf-text-sm); border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--bccf-ink-900); font-family: inherit; }
+.bccf-grid input:hover { background: var(--bccf-bg-50); border-color: var(--bccf-border); }
+.bccf-grid input:focus { outline: none; background: var(--bccf-surface); border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); }
+.bccf-grid input.right { text-align: right; }
+.bccf-grid input[type="date"] { min-width: 130px; }
+.bccf-grid input[type="number"] { text-align: right; min-width: 90px; -moz-appearance: textfield; }
+.bccf-grid input[type="number"]::-webkit-outer-spin-button, .bccf-grid input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bccf-grid .rownum { color: var(--bccf-ink-500); font-size: 11px; font-weight: 600; }
+.bccf-grid .cum { color: var(--bccf-ink-500); font-size: 12px; }
+.bccf-grid tfoot td { background: var(--bccf-bg-50); font-weight: 600; border-top: 1px solid var(--bccf-border); border-bottom: 0; }
+.bccf-grid tr:hover td { background: #fafbfc; }
 
-/* ── Total Row ───────────────────────────────────────────────────────── */
-.bc-cf-total-row td {
-    background: ${BRAND.NAVY}0D !important;
-    font-weight: 700;
-    color: ${BRAND.NAVY};
-    border-top: 2px solid ${BRAND.NAVY};
-    font-size: 13px;
-}
+/* Validation badge in tfoot */
+.bccf-validation { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; transition: all 0.3s ease; }
+.bccf-validation.valid { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+.bccf-validation.invalid { background: var(--bccf-danger-50); color: var(--bccf-danger-500); }
 
-/* ── Buttons ─────────────────────────────────────────────────────────── */
-.bc-cf-btn {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    font-weight: 600;
-    padding: 9px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    text-decoration: none;
-    background: ${BRAND.GOLD};
-    color: ${BRAND.NAVY};
-}
-.bc-cf-btn:hover {
-    background: #E5A503;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(255, 183, 3, 0.3);
-}
-.bc-cf-btn:active {
-    transform: translateY(0);
-    box-shadow: none;
-}
-.bc-cf-btn-secondary {
-    background: transparent;
-    color: ${BRAND.NAVY};
-    border: 2px solid ${BRAND.NAVY};
-}
-.bc-cf-btn-secondary:hover {
-    background: ${BRAND.NAVY};
-    color: ${BRAND.WHITE};
-    box-shadow: 0 4px 12px rgba(4, 35, 61, 0.2);
-}
-.bc-cf-btn-danger {
-    background: transparent;
-    color: ${BRAND.RED};
-    border: none;
-    padding: 4px 8px;
-    font-size: 12px;
-}
-.bc-cf-btn-danger:hover {
-    background: ${BRAND.RED_LIGHT};
-    box-shadow: none;
-    transform: none;
-}
-.bc-cf-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
+/* Save bar: sticky bottom, pulse on dirty */
+.bccf-save-bar { position: sticky; bottom: 0; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 12px 18px; box-shadow: var(--bccf-shadow-2); display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 10px; }
+.bccf-save-status { font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); display: inline-flex; align-items: center; gap: 6px; }
+.bccf-save-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bccf-ink-500); }
+.bccf-save-status.dirty-balanced .dot { background: var(--bccf-ink-500); animation: bccf-pulse 1.5s ease-in-out infinite; }
+.bccf-save-status.dirty-warn { color: var(--bccf-warn-500); }
+.bccf-save-status.dirty-warn .dot { background: var(--bccf-warn-500); animation: bccf-pulse 1.5s ease-in-out infinite; }
+.bccf-save-status.saved { color: var(--bccf-success-500); }
+.bccf-save-status.saved .dot { background: var(--bccf-success-500); }
+@keyframes bccf-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.4 } }
+.bccf-save-actions { display: flex; gap: 8px; align-items: center; }
+.bccf-btn-rebalance { background: var(--bccf-warn-50); border-color: var(--bccf-warn-500); color: var(--bccf-warn-500); font-weight: 600; }
 
-/* ── Validation Badge ────────────────────────────────────────────────── */
-.bc-cf-validation {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 20px;
-    transition: all 0.3s ease;
-}
-.bc-cf-validation.valid {
-    background: ${BRAND.GREEN_LIGHT};
-    color: ${BRAND.GREEN};
-}
-.bc-cf-validation.invalid {
-    background: ${BRAND.RED_LIGHT};
-    color: ${BRAND.RED};
-}
+/* Field block (calculator + filter inputs) */
+.bccf-field { display: flex; flex-direction: column; gap: 4px; }
+.bccf-field label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; }
 
-/* ── Badge (generic pill) ────────────────────────────────────────────── */
-.bc-cf-badge {
-    display: inline-flex;
-    align-items: center;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 3px 8px;
-    border-radius: 20px;
-    white-space: nowrap;
-}
-.bc-cf-badge.navy   { background: ${BRAND.NAVY}15; color: ${BRAND.NAVY}; }
-.bc-cf-badge.gold   { background: ${BRAND.GOLD}30; color: #9A6F00; }
-.bc-cf-badge.green  { background: ${BRAND.GREEN_LIGHT}; color: ${BRAND.GREEN}; }
-.bc-cf-badge.red    { background: ${BRAND.RED_LIGHT}; color: ${BRAND.RED}; }
+/* Empty state */
+.bccf-empty-state { text-align: center; padding: 40px 24px; color: var(--bccf-ink-500); }
+.bccf-empty-state p { font-size: var(--bccf-text-base); margin: 0 0 6px; font-weight: 600; color: var(--bccf-ink-700); }
+.bccf-empty-state span { font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); }
 
-/* ── Add Row Link ────────────────────────────────────────────────────── */
-.bc-cf-add-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    font-weight: 600;
-    color: ${BRAND.NAVY_LIGHT};
-    cursor: pointer;
-    padding: 8px 0;
-    border: none;
-    background: none;
-    font-family: ${BRAND.FONT_FAMILY};
-    transition: color 0.2s ease;
-}
-.bc-cf-add-row:hover {
-    color: ${BRAND.GOLD};
-}
-.bc-cf-add-row svg {
-    width: 16px;
-    height: 16px;
-}
-
-/* ── Save Bar ────────────────────────────────────────────────────────── */
-.bc-cf-save-bar {
-    position: sticky;
-    bottom: 0;
-    background: ${BRAND.WHITE};
-    border-top: 2px solid ${BRAND.GREY_MID};
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    z-index: 10;
-    box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
-}
-.bc-cf-save-bar .bc-cf-save-status {
-    font-size: 13px;
-    color: ${BRAND.GREY_DARK};
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.bc-cf-save-bar .bc-cf-save-actions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-/* ── Empty State ─────────────────────────────────────────────────────── */
-.bc-cf-empty-state {
-    text-align: center;
-    padding: 48px 24px;
-    color: ${BRAND.GREY_DARK};
-}
-.bc-cf-empty-state svg {
-    margin-bottom: 16px;
-    opacity: 0.4;
-}
-.bc-cf-empty-state p {
-    font-size: 15px;
-    margin: 0 0 8px;
-    font-weight: 600;
-    color: ${BRAND.NAVY};
-}
-.bc-cf-empty-state span {
-    font-size: 13px;
-    color: ${BRAND.GREY_DARK};
-}
-
-/* ── Report Header ───────────────────────────────────────────────────── */
-.bc-cf-report-header {
-    background: linear-gradient(135deg, ${BRAND.NAVY} 0%, ${BRAND.NAVY_LIGHT} 100%);
-    color: ${BRAND.WHITE};
-    padding: 24px 32px;
-    border-radius: ${BRAND.BORDER_RADIUS} ${BRAND.BORDER_RADIUS} 0 0;
-}
-.bc-cf-report-header h1 {
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0 0 4px;
-    letter-spacing: -0.02em;
-}
-.bc-cf-report-header .subtitle {
-    font-size: 13px;
-    opacity: 0.8;
-}
-.bc-cf-report-filters {
-    display: flex;
-    gap: 16px;
-    padding: 16px 32px;
-    background: ${BRAND.GREY_LIGHT};
-    border-bottom: 1px solid ${BRAND.GREY_MID};
-    flex-wrap: wrap;
-    align-items: flex-end;
-}
-.bc-cf-report-filters .filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.bc-cf-report-filters label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: ${BRAND.GREY_DARK};
-}
-.bc-cf-report-filters select,
-.bc-cf-report-filters input {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    padding: 8px 12px;
-    border: 1px solid ${BRAND.GREY_MID};
-    border-radius: 4px;
-    background: ${BRAND.WHITE};
-    color: ${BRAND.NAVY};
-    outline: none;
-    transition: border-color 0.2s ease;
-}
-.bc-cf-report-filters select:focus,
-.bc-cf-report-filters input:focus {
-    border-color: ${BRAND.GOLD};
-    box-shadow: 0 0 0 3px rgba(255,183,3,0.15);
-}
-
-/* ── Spinner ─────────────────────────────────────────────────────────── */
-.bc-cf-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid ${BRAND.GREY_MID};
-    border-top-color: ${BRAND.GOLD};
-    border-radius: 50%;
-    animation: bc-spin 0.6s linear infinite;
-}
-@keyframes bc-spin {
-    to { transform: rotate(360deg); }
-}
-
-/* ── Toast Notification ──────────────────────────────────────────────── */
-.bc-cf-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10000;
-    padding: 14px 24px;
-    border-radius: ${BRAND.BORDER_RADIUS};
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 14px;
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    animation: bc-toast-in 0.3s ease;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-.bc-cf-toast.success {
-    background: ${BRAND.GREEN};
-    color: ${BRAND.WHITE};
-}
-.bc-cf-toast.error {
-    background: ${BRAND.RED};
-    color: ${BRAND.WHITE};
-}
-@keyframes bc-toast-in {
-    from { opacity: 0; transform: translateY(-12px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Responsive ──────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    .bc-cf-kpi-bar {
-        flex-direction: column;
-    }
-    .bc-cf-kpi-card {
-        min-width: auto;
-    }
-    .bc-cf-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .bc-cf-toolbar select {
-        min-width: auto;
-        max-width: none;
-    }
-    .bc-cf-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .bc-cf-save-bar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .bc-cf-save-bar .bc-cf-save-actions {
-        justify-content: flex-end;
-    }
-}
-`;
+</style>`);
     };
 
     // =========================================================================
@@ -725,27 +208,27 @@ define(['./bc_timing_constants'], (Constants) => {
         const remClass = remainingAmount <= 0 ? 'green' : (remainingPct > 50 ? 'red' : 'gold');
 
         return `
-<div class="bc-cf-kpi-bar">
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value">${esc(fmtCurrency(totalAmount))}</div>
-        <div class="bc-cf-kpi-label">${esc(label || 'Total Amount')}</div>
+<div style="display:flex;gap:12px;padding:16px 18px;overflow-x:auto;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
+    <div class="bccf-kpi">
+        <div class="bccf-k">${esc(label || 'Total Amount')}</div>
+        <div class="bccf-v">${esc(fmtCurrency(totalAmount))}</div>
     </div>
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value ${pctClass}">${esc(fmtCurrency(scheduledAmount))}</div>
-        <div class="bc-cf-kpi-label">Scheduled (${esc(fmtPercent(scheduledPct))})</div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Scheduled</div>
+        <div class="bccf-v${pctClass ? ' accent' : ''}">${esc(fmtCurrency(scheduledAmount))}</div>
+        <div class="bccf-sub">${esc(fmtPercent(scheduledPct))}</div>
     </div>
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value ${remClass}">${esc(fmtCurrency(remainingAmount))}</div>
-        <div class="bc-cf-kpi-label">Remaining (${esc(fmtPercent(remainingPct))})</div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Remaining</div>
+        <div class="bccf-v">${esc(fmtCurrency(remainingAmount))}</div>
+        <div class="bccf-sub">${esc(fmtPercent(remainingPct))}</div>
     </div>
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value" style="font-size:18px;">
-            <div style="background:${BRAND.GREY_LIGHT};border-radius:20px;height:8px;overflow:hidden;margin-bottom:8px;">
-                <div style="height:100%;width:${Math.min(scheduledPct, 100)}%;background:${isPctComplete ? BRAND.GREEN : BRAND.GOLD};border-radius:20px;transition:width 0.5s ease;"></div>
-            </div>
-            ${esc(fmtPercent(scheduledPct))}
+    <div class="bccf-kpi">
+        <div class="bccf-k">Completion</div>
+        <div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;">
+            <div style="height:100%;width:${Math.min(scheduledPct, 100)}%;background:${isPctComplete ? 'var(--bccf-success-500)' : 'var(--bccf-brand-500)'};border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div>
         </div>
-        <div class="bc-cf-kpi-label">Completion</div>
+        <div class="bccf-sub" style="margin-top:4px;">${esc(fmtPercent(scheduledPct))}</div>
     </div>
 </div>`;
     };
@@ -772,14 +255,14 @@ define(['./bc_timing_constants'], (Constants) => {
         });
 
         return `
-<div class="bc-cf-toolbar">
+<div class="bccf-toolbar">
     <label for="${selId}">Template</label>
     <select id="${selId}" data-section="${esc(sectionId)}">
         ${templateOptions}
     </select>
     <label for="${dateId}">${ICONS.calendar} Start Date</label>
     <input type="date" id="${dateId}" data-section="${esc(sectionId)}" value="${fmtDateInput(new Date())}">
-    <button type="button" class="bc-cf-btn" id="${btnId}"
+    <button type="button" class="bccf-btn bccf-btn-pri" id="${btnId}"
             onclick="bcTiming.applyTemplate('${esc(sectionId)}')">
         Apply Template
     </button>
@@ -811,8 +294,7 @@ define(['./bc_timing_constants'], (Constants) => {
         // Empty state
         if (safeLines.length === 0 && !editable) {
             return `
-<div class="bc-cf-empty-state">
-    ${ICONS.empty}
+<div class="bccf-panel-body bccf-empty-state">
     <p>No Timing Lines</p>
     <span>Apply a template or add lines manually to define the payment schedule.</span>
 </div>`;
@@ -854,15 +336,15 @@ define(['./bc_timing_constants'], (Constants) => {
         const isValid = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - (sourceAmount || 0)) < 0.01;
 
         const validationHtml = isValid
-            ? `<span class="bc-cf-validation valid">${ICONS.check} Balanced (100%)</span>`
-            : `<span class="bc-cf-validation invalid">${ICONS.warning} ${fmtPercent(totalPct)} allocated</span>`;
+            ? `<span class="bccf-validation valid">${ICONS.check} Balanced (100%)</span>`
+            : `<span class="bccf-validation invalid">${ICONS.warning} ${fmtPercent(totalPct)} allocated</span>`;
 
         const costCodeCols = showCostCode ? 2 : 0;
         const baseCols = 6; // #, date, label, pct, amt, cum%, cumAmt
         const actionCol = editable ? 1 : 0;
         const totalCols = baseCols + costCodeCols + actionCol;
 
-        let totalRow = `<tr class="bc-cf-total-row" id="${totalRowId}">`;
+        let totalRow = `<tr id="${totalRowId}">`;
         totalRow += `<td colspan="${1 + costCodeCols}"></td>`;
         totalRow += `<td colspan="2" style="text-align:right;">Total</td>`;
         totalRow += `<td class="right" data-field="total_pct">${esc(fmtPercent(totalPct))}</td>`;
@@ -872,14 +354,14 @@ define(['./bc_timing_constants'], (Constants) => {
 
         // Add row button
         const addRowHtml = editable
-            ? `<button type="button" class="bc-cf-add-row" onclick="bcTiming.addRow('${sid}')">
+            ? `<button type="button" class="bccf-add-row-btn" onclick="bcTiming.addRow('${sid}')">
                    ${ICONS.plus} Add Line
                </button>`
             : '';
 
         return `
-<div class="bc-cf-grid-wrapper">
-    <table class="bc-cf-grid" id="${gridId}">
+<div class="bccf-grid-wrapper">
+    <table class="bccf-grid" id="${gridId}">
         <thead>${colHeaders}</thead>
         <tbody id="${tbodyId}">
             ${rows}
@@ -908,7 +390,7 @@ ${addRowHtml}`;
         const costType = line.costType || '';
 
         let row = `<tr data-section="${sid}" data-index="${idx}">`;
-        row += `<td class="center" style="color:${BRAND.GREY_DARK};font-size:12px;font-weight:600;">${rowNum}</td>`;
+        row += `<td class="center rownum">${rowNum}</td>`;
 
         if (showCostCode) {
             row += `<td>${editable
@@ -931,12 +413,12 @@ ${addRowHtml}`;
             row += `<td class="right">${esc(fmtCurrency(amt))}</td>`;
         }
 
-        row += `<td class="right" style="color:${BRAND.GREY_DARK};font-size:12px;">${esc(fmtPercent(cumPct))}</td>`;
-        row += `<td class="right" style="color:${BRAND.GREY_DARK};font-size:12px;">${esc(fmtCurrency(cumAmt))}</td>`;
+        row += `<td class="right cum">${esc(fmtPercent(cumPct))}</td>`;
+        row += `<td class="right cum">${esc(fmtCurrency(cumAmt))}</td>`;
 
         if (editable) {
             row += `<td class="center">
-                <button type="button" class="bc-cf-btn-danger" title="Remove line"
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"
                         onclick="bcTiming.removeRow('${sid}', ${idx})">
                     ${ICONS.trash}
                 </button>
@@ -978,12 +460,12 @@ ${addRowHtml}`;
         const remainingPct = amt > 0 ? Math.round((remainingAmt / amt) * 10000) / 100 : 0;
 
         const typeBadge = timingType === 'accrual'
-            ? '<span class="bc-cf-badge navy">Accrual</span>'
-            : '<span class="bc-cf-badge gold">Cash Flow</span>';
+            ? '<span class="bccf-badge brand">Accrual</span>'
+            : '<span class="bccf-badge neutral">Cash Flow</span>';
 
         let lineCountBadge = '';
         if (safeLines.length > 0) {
-            lineCountBadge = `<span class="bc-cf-badge green">${safeLines.length} line${safeLines.length !== 1 ? 's' : ''}</span>`;
+            lineCountBadge = `<span class="bccf-badge success">${safeLines.length} line${safeLines.length !== 1 ? 's' : ''}</span>`;
         }
 
         const kpiHtml = renderKpiBar({
@@ -1008,11 +490,11 @@ ${addRowHtml}`;
         });
 
         return `
-<div class="bc-cf-section" id="${sid}_section"
+<div class="bccf-section" id="${sid}_section"
      data-section-id="${sid}"
      data-source-amount="${amt}"
      data-timing-type="${esc(timingType || '')}">
-    <div class="bc-cf-section-title">
+    <div class="bccf-section-title">
         ${esc(title)} ${typeBadge} ${lineCountBadge}
     </div>
     <div id="${sid}_kpi">${kpiHtml}</div>
@@ -1073,18 +555,18 @@ ${addRowHtml}`;
         });
 
         const saveBarHtml = (editable !== false) ? `
-<div class="bc-cf-save-bar">
-    <div class="bc-cf-save-status" id="${saveStatusId}">
-        <span style="color:${BRAND.GREY_DARK};">Ready</span>
+<div class="bccf-save-bar">
+    <div class="bccf-save-status" id="${saveStatusId}">
+        <span class="dot"></span> Ready
     </div>
-    <div class="bc-cf-save-actions">
-        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
+    <div class="bccf-save-actions">
+        <button type="button" class="bccf-btn" onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
             Review Cash Flow
         </button>
-        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
+        <button type="button" class="bccf-btn" onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
             Review Accrual
         </button>
-        <button type="button" class="bc-cf-btn" id="${saveBtnId}"
+        <button type="button" class="bccf-btn bccf-btn-pri" id="${saveBtnId}"
                 onclick="bcTiming.save('${esc(String(transactionId || ''))}', '${esc(transactionType || '')}', '${esc(rootId)}', '${esc(cfSectionId)}', '${esc(acSectionId)}', '${esc(saveBtnId)}', '${esc(saveStatusId)}')">
             ${ICONS.save} Save Schedules
         </button>
@@ -1092,8 +574,8 @@ ${addRowHtml}`;
 </div>` : '';
 
         return `
-<style>${getBaseStyles()}</style>
-<div class="bc-cf-container"
+${getBaseStyles()}
+<div class="bccf-container"
      id="${rootId}"
      data-transaction-id="${esc(String(transactionId || ''))}"
      data-transaction-type="${esc(transactionType || '')}"
@@ -1105,12 +587,12 @@ ${addRowHtml}`;
      data-change-order-id="${esc(String(changeOrderId || ''))}">
 
     <!-- Header -->
-    <div class="bc-cf-header">
-        <div class="bc-cf-header-title">
+    <div class="bccf-header">
+        <div class="bccf-header-title">
             ${ICONS.cashFlow}
             Cash Flow &amp; Accrual Timing
         </div>
-        <div class="bc-cf-header-meta">
+        <div class="bccf-header-meta">
             <span><strong>Transaction:</strong> ${esc(transactionName || transactionType || '')}</span>
             <span><strong>Entity:</strong> ${esc(entityName || '')}</span>
             ${projectName ? `<span><strong>Project:</strong> ${esc(projectName)}</span>` : ''}
@@ -1119,15 +601,15 @@ ${addRowHtml}`;
     </div>
 
     <!-- Tab Navigation -->
-    <div class="bc-cf-tab-nav" id="${tabNavId}">
-        <button type="button" class="active" data-tab="${esc(cfSectionId)}"
+    <div class="bccf-tabs" id="${tabNavId}">
+        <a class="active cashflow" data-tab="${esc(cfSectionId)}"
                 onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
             ${ICONS.chart} Cash Flow
-        </button>
-        <button type="button" data-tab="${esc(acSectionId)}"
+        </a>
+        <a data-tab="${esc(acSectionId)}"
                 onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
             ${ICONS.chart} Accrual
-        </button>
+        </a>
     </div>
 
     <!-- Sections -->
@@ -1187,20 +669,20 @@ if (document.readyState !== 'loading') {
             }).join('');
 
             filtersHtml = `
-<div class="bc-cf-report-filters">
+<div style="display:flex;gap:16px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);flex-wrap:wrap;align-items:flex-end;">
     ${filterItems}
     <div class="filter-group" style="align-self:flex-end;">
-        <button type="submit" class="bc-cf-btn">Apply Filters</button>
+        <button type="submit" class="bccf-btn bccf-btn-pri">Apply Filters</button>
     </div>
 </div>`;
         }
 
         return `
-<style>${getBaseStyles()}</style>
-<div class="bc-cf-container">
-    <div class="bc-cf-report-header">
-        <h1>${esc(title || 'Cash Flow Report')}</h1>
-        ${projectName ? `<div class="subtitle">Project: ${esc(projectName)}</div>` : ''}
+${getBaseStyles()}
+<div class="bccf-container">
+    <div class="bccf-panel-header">
+        <h1 style="font-size:var(--bccf-text-xl);font-weight:700;margin:0;color:var(--bccf-ink-900);">${esc(title || 'Cash Flow Report')}</h1>
+        ${projectName ? `<div style="font-size:var(--bccf-text-sm);color:var(--bccf-ink-500);">Project: ${esc(projectName)}</div>` : ''}
     </div>
     ${filtersHtml}
 </div>`;
@@ -1343,12 +825,12 @@ if (document.readyState !== 'loading') {
      * Show a toast notification.
      */
     function showToast(message, type) {
-        var existing = document.querySelectorAll('.bc-cf-toast');
+        var existing = document.querySelectorAll('.bccf-toast');
         for (var i = 0; i < existing.length; i++) {
             existing[i].remove();
         }
         var toast = document.createElement('div');
-        toast.className = 'bc-cf-toast ' + (type || 'success');
+        toast.className = 'bccf-toast ' + (type || 'info');
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(function() {
@@ -1366,15 +848,17 @@ if (document.readyState !== 'loading') {
      * @param {string} [navId]    - Tab nav container ID (defaults to 'bc_cf_tab_nav' for backward compat)
      */
     bcTiming.switchTab = function(tabId, navId) {
-        // Update tab buttons — scope to the specific nav container
+        // Update tab links — scope to the specific nav container
         var nav = document.getElementById(navId || 'bc_cf_tab_nav');
         if (nav) {
-            var buttons = nav.querySelectorAll('button');
-            for (var i = 0; i < buttons.length; i++) {
-                if (buttons[i].getAttribute('data-tab') === tabId) {
-                    buttons[i].classList.add('active');
+            var tabs = nav.querySelectorAll('a[data-tab]');
+            for (var i = 0; i < tabs.length; i++) {
+                if (tabs[i].getAttribute('data-tab') === tabId) {
+                    tabs[i].classList.add('active');
+                    tabs[i].classList.add('cashflow');
                 } else {
-                    buttons[i].classList.remove('active');
+                    tabs[i].classList.remove('active');
+                    tabs[i].classList.remove('cashflow');
                 }
             }
         }
@@ -1383,7 +867,7 @@ if (document.readyState !== 'loading') {
         if (nav) {
             var container = nav.parentElement;
             if (container) {
-                var sections = container.querySelectorAll('.bc-cf-section');
+                var sections = container.querySelectorAll('.bccf-section');
                 for (var j = 0; j < sections.length; j++) {
                     var sectionEl = sections[j];
                     var sId = sectionEl.getAttribute('data-section-id');
@@ -1524,7 +1008,7 @@ if (document.readyState !== 'loading') {
         var label = line.label || 'Period ' + rowNum;
 
         var row = '<tr data-section="' + esc(sectionId) + '" data-index="' + idx + '">';
-        row += '<td class="center" style="color:#6B7280;font-size:12px;font-weight:600;">' + rowNum + '</td>';
+        row += '<td class="center rownum">' + rowNum + '</td>';
 
         if (showCostCode) {
             row += '<td><input type="text" value="' + esc(line.costCode || '') + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="costCode" placeholder="Cost Code"></td>';
@@ -1535,9 +1019,9 @@ if (document.readyState !== 'loading') {
         row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label"></td>';
         row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
         row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.select()" onblur="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" onchange="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" style="text-align:right;"></td>';
-        row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatPercent(cumPct) + '</td>';
-        row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatCurrency(cumAmt) + '</td>';
-        row += '<td class="center"><button type="button" class="bc-cf-btn-danger" title="Remove line" onclick="bcTiming.removeRow(\\'' + esc(sectionId) + '\\', ' + idx + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
+        row += '<td class="right cum">' + bcTiming.formatPercent(cumPct) + '</td>';
+        row += '<td class="right cum">' + bcTiming.formatCurrency(cumAmt) + '</td>';
+        row += '<td class="center"><button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line" onclick="bcTiming.removeRow(\\'' + esc(sectionId) + '\\', ' + idx + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
         row += '</tr>';
         return row;
     }
@@ -1565,9 +1049,9 @@ if (document.readyState !== 'loading') {
         if (validationEl) {
             var isValid = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - sourceAmount) < 0.01;
             if (isValid) {
-                validationEl.innerHTML = '<span class="bc-cf-validation valid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Balanced (100%)</span>';
+                validationEl.innerHTML = '<span class="bccf-validation valid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Balanced (100%)</span>';
             } else {
-                validationEl.innerHTML = '<span class="bc-cf-validation invalid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' + bcTiming.formatPercent(totalPct) + ' allocated</span>';
+                validationEl.innerHTML = '<span class="bccf-validation invalid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' + bcTiming.formatPercent(totalPct) + ' allocated</span>';
             }
         }
     }
@@ -1590,11 +1074,11 @@ if (document.readyState !== 'loading') {
         var pctClass = isPctComplete ? 'green' : '';
         var remClass = remainingAmt <= 0 ? 'green' : (remainingPct > 50 ? 'red' : 'gold');
 
-        kpiContainer.innerHTML = '<div class="bc-cf-kpi-bar">'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value">' + bcTiming.formatCurrency(sourceAmount) + '</div><div class="bc-cf-kpi-label">Total Amount</div></div>'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value ' + pctClass + '">' + bcTiming.formatCurrency(scheduledAmt) + '</div><div class="bc-cf-kpi-label">Scheduled (' + bcTiming.formatPercent(scheduledPct) + ')</div></div>'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value ' + remClass + '">' + bcTiming.formatCurrency(remainingAmt) + '</div><div class="bc-cf-kpi-label">Remaining (' + bcTiming.formatPercent(remainingPct) + ')</div></div>'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value" style="font-size:18px;"><div style="background:#F5F7FA;border-radius:20px;height:8px;overflow:hidden;margin-bottom:8px;"><div style="height:100%;width:' + Math.min(scheduledPct, 100) + '%;background:' + (isPctComplete ? '#10B981' : '#FFB703') + ';border-radius:20px;transition:width 0.5s ease;"></div></div>' + bcTiming.formatPercent(scheduledPct) + '</div><div class="bc-cf-kpi-label">Completion</div></div>'
+        kpiContainer.innerHTML = '<div style="display:flex;gap:12px;padding:16px 18px;overflow-x:auto;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">'
+            + '<div class="bccf-kpi"><div class="bccf-k">Total Amount</div><div class="bccf-v">' + bcTiming.formatCurrency(sourceAmount) + '</div></div>'
+            + '<div class="bccf-kpi"><div class="bccf-k">Scheduled</div><div class="bccf-v' + (pctClass ? ' accent' : '') + '">' + bcTiming.formatCurrency(scheduledAmt) + '</div><div class="bccf-sub">' + bcTiming.formatPercent(scheduledPct) + '</div></div>'
+            + '<div class="bccf-kpi"><div class="bccf-k">Remaining</div><div class="bccf-v">' + bcTiming.formatCurrency(remainingAmt) + '</div><div class="bccf-sub">' + bcTiming.formatPercent(remainingPct) + '</div></div>'
+            + '<div class="bccf-kpi"><div class="bccf-k">Completion</div><div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;"><div style="height:100%;width:' + Math.min(scheduledPct, 100) + '%;background:' + (isPctComplete ? 'var(--bccf-success-500)' : 'var(--bccf-brand-500)') + ';border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div></div><div class="bccf-sub" style="margin-top:4px;">' + bcTiming.formatPercent(scheduledPct) + '</div></div>'
             + '</div>';
     }
 
@@ -1672,7 +1156,7 @@ if (document.readyState !== 'loading') {
                 inputs[j].setAttribute('data-index', i);
             }
             // Update remove button onclick
-            var removeBtn = rows[i].querySelector('.bc-cf-btn-danger');
+            var removeBtn = rows[i].querySelector('.bccf-btn-danger-ghost');
             if (removeBtn) {
                 removeBtn.setAttribute('onclick', "bcTiming.removeRow('" + sectionId + "', " + i + ")");
             }
@@ -1745,7 +1229,7 @@ if (document.readyState !== 'loading') {
                 var tdCount = allTds.length;
                 // Cumulative % is at tdCount - 3, Cumulative Amt at tdCount - 2 (if action cell exists)
                 // or tdCount - 2 and tdCount - 1 (if no action cell)
-                var hasActionCell = rows[m].querySelector('.bc-cf-btn-danger');
+                var hasActionCell = rows[m].querySelector('.bccf-btn-danger-ghost');
                 var cumPctIdx = hasActionCell ? tdCount - 3 : tdCount - 2;
                 var cumAmtIdx = hasActionCell ? tdCount - 2 : tdCount - 1;
                 if (allTds[cumPctIdx]) allTds[cumPctIdx].textContent = bcTiming.formatPercent(runPct);
@@ -1841,14 +1325,14 @@ if (document.readyState !== 'loading') {
         // Update KPI cards
         var section = document.getElementById(sectionId + '_section');
         if (section) {
-            var kpis = section.querySelectorAll('.bc-cf-kpi-value');
+            var kpis = section.querySelectorAll('.bccf-kpi .bccf-v');
             if (kpis.length >= 3) {
-                var pctLabel = section.querySelectorAll('.bc-cf-kpi-label');
+                var subLabels = section.querySelectorAll('.bccf-kpi .bccf-sub');
                 kpis[1].textContent = bcTiming.formatCurrency(totalAmt);
-                if (pctLabel[1]) pctLabel[1].textContent = 'SCHEDULED (' + totalPct.toFixed(1) + '%)';
+                if (subLabels[0]) subLabels[0].textContent = totalPct.toFixed(1) + '%';
                 var rem = sourceAmount - totalAmt;
                 kpis[2].textContent = bcTiming.formatCurrency(rem);
-                if (pctLabel[2]) pctLabel[2].textContent = 'REMAINING (' + (100 - totalPct).toFixed(1) + '%)';
+                if (subLabels[1]) subLabels[1].textContent = (100 - totalPct).toFixed(1) + '%';
             }
         }
     };
@@ -1943,7 +1427,7 @@ if (document.readyState !== 'loading') {
         var saveBtn = document.getElementById(_saveBtnId);
         var statusEl = document.getElementById(_saveStatusId);
         if (saveBtn) saveBtn.disabled = true;
-        if (statusEl) statusEl.innerHTML = '<span class="bc-cf-spinner"></span> Saving...';
+        if (statusEl) statusEl.innerHTML = '<span class="bccf-skel" style="width:16px;height:16px;border-radius:50%;display:inline-block;"></span> Saving...';
 
         var completed = 0;
         var failed = false;

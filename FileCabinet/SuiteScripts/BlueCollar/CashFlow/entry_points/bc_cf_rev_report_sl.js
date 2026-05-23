@@ -53,60 +53,6 @@ define([
         return { rows: results, periods: Array.from(periodSet).sort() };
     };
 
-    /** Revenue actuals — independent queries so one failure doesn't kill the other. */
-    const fetchRevenueActuals = (projectId) => {
-        const allRows = [];
-        const periodSet = new Set();
-
-        // Query 1: Customer Invoices (Invoiced)
-        try {
-            const invSql = `
-                SELECT
-                    'Invoiced' AS cost_group,
-                    TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-                    SUM(-tl.foreignamount) AS amount
-                FROM transaction t
-                JOIN transactionline tl ON tl.transaction = t.id
-                WHERE t.type = 'CustInvc'
-                  AND tl.cseg_bc_project = ?
-                  AND tl.mainline = 'F'
-                  AND tl.taxline = 'F'
-                GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')
-            `;
-            const rows = query.runSuiteQL({ query: invSql, params: [projectId] }).asMappedResults() || [];
-            rows.forEach((r) => { allRows.push(r); periodSet.add(r.period); });
-        } catch (e) {
-            log.error({ title: MODULE + '.fetchRevenueActuals.invoiced', details: e.message });
-        }
-
-        // Query 2: Customer Payments (Collected)
-        try {
-            const pmtSql = `
-                SELECT
-                    'Collected' AS cost_group,
-                    TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-                    SUM(-pmt.foreigntotal) AS amount
-                FROM transaction pmt
-                WHERE pmt.type = 'CustPymt'
-                  AND EXISTS (
-                    SELECT 1 FROM transactionline pmtl
-                    JOIN transactionline invl ON invl.transaction = pmtl.createdfrom
-                    WHERE pmtl.transaction = pmt.id
-                      AND pmtl.mainline = 'F'
-                      AND invl.cseg_bc_project = ?
-                      AND invl.mainline = 'F'
-                  )
-                GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
-            `;
-            const rows = query.runSuiteQL({ query: pmtSql, params: [projectId] }).asMappedResults() || [];
-            rows.forEach((r) => { allRows.push(r); periodSet.add(r.period); });
-        } catch (e) {
-            log.error({ title: MODULE + '.fetchRevenueActuals.collected', details: e.message });
-        }
-
-        return { rows: allRows, periods: Array.from(periodSet).sort() };
-    };
-
     // ─── Entry Point ────────────────────────────────────────────────────────────
 
     const onRequest = (context) => {
@@ -123,8 +69,7 @@ define([
             log.debug({ title: MODULE, details: `project=${projectId}, timingType=${timingTypeId}` });
 
             const data = fetchRevenueData(Number(projectId), timingTypeId);
-            const actData = fetchRevenueActuals(Number(projectId));
-            const periods = Array.from(new Set([...data.periods, ...actData.periods])).sort();
+            const periods = data.periods;
 
             // Empty state
             if (!data.rows.length) {
@@ -140,33 +85,16 @@ define([
                 return a.localeCompare(b);
             });
 
-            // Pivot actuals
-            const hasActuals = actData.rows.length > 0;
-            const apv = hasActuals ? utils.pivot(actData.rows, periods) : null;
-            const actualGroupOrder = apv ? Object.keys(apv.groups).sort() : [];
-
             // KPI calculations
             const curMonth = utils.currentYYYYMM();
-            let receivedToDate = 0;
-            if (apv && apv.groups['Collected']) {
-                receivedToDate = Object.values(apv.groups['Collected']).reduce((s, v) => s + Math.abs(v), 0);
-            }
-            let invoicedToDate = 0;
-            if (apv && apv.groups['Invoiced']) {
-                invoicedToDate = Object.values(apv.groups['Invoiced']).reduce((s, v) => s + Math.abs(v), 0);
-            }
             const expectedThisMonth = pv.totals[curMonth] || 0;
 
             // Build KPI cards
             const pctBadge = (val) => pv.grandTotal > 0 ? Math.round((val / pv.grandTotal) * 100) + '%' : '';
             const kpiItems = [
                 { label: 'Total Revenue Forecast', value: pv.grandTotal, hero: true, accent: BRAND.GOLD },
-                { label: 'Received to Date', value: receivedToDate, accent: BRAND.GREEN, badge: pctBadge(receivedToDate), badgeColor: '#D1FAE5' },
                 { label: 'Expected This Month', value: expectedThisMonth, badge: pctBadge(expectedThisMonth), badgeColor: BRAND.GREY_LIGHT }
             ];
-            const actualsKpi = hasActuals && invoicedToDate > 0
-                ? [{ label: 'Actual Invoiced', value: invoicedToDate, accent: BRAND.GOLD }]
-                : null;
 
             // Build chart
             const chartHtml = utils.buildChart({
@@ -191,13 +119,7 @@ define([
                 groupTotals: pv.groupTotals,
                 totals: pv.totals,
                 grandTotal: pv.grandTotal,
-                groupSourceMap: pv.groupSourceMap,
-                actuals: hasActuals ? {
-                    sectionLabel: 'Revenue Actuals',
-                    groups: apv.groups,
-                    groupOrder: actualGroupOrder,
-                    groupTotals: apv.groupTotals
-                } : null
+                groupSourceMap: pv.groupSourceMap
             });
 
             // Build CSV rows
@@ -211,7 +133,7 @@ define([
             const exportHtml = utils.buildExportBar({ filename: 'revenue_cashflow_report', csvRows: csvData });
 
             // Assemble page
-            const bodyContent = utils.buildKPICards(kpiItems, actualsKpi) + chartHtml + tableHtml + exportHtml;
+            const bodyContent = utils.buildKPICards(kpiItems) + chartHtml + tableHtml + exportHtml;
             const html = utils.buildPageShell({ title: 'Revenue Cash Flow', projectName: 'Project ' + projectId, timingType: timingTypeId, bodyContent });
             response.write(html);
 

@@ -270,3 +270,64 @@ describe('bc_cf_cost_report_sl — shell structure', () => {
         });
     });
 });
+
+describe('bc_cf_cost_report_sl — date range picker (E1)', () => {
+
+    it('passes startPeriod and endPeriod through to data SL URL', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({
+            request: GET({ projectId: '1807', startPeriod: '2026-03', endPeriod: '2026-08' }),
+            response: res
+        });
+        const body = res.getBody();
+        expect(body).toMatch(/startPeriod=2026-03/);
+        expect(body).toMatch(/endPeriod=2026-08/);
+        // Still threaded under action=cost
+        expect(body).toMatch(/action=cost/);
+    });
+
+    it('renders picker pill with default rolling window', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toContain('class="bccf-daterange"');
+        expect(body).toContain('class="bccf-daterange-trigger"');
+        expect(body).toMatch(/startPeriod=\d{4}-\d{2}/);
+        expect(body).toMatch(/endPeriod=\d{4}-\d{2}/);
+    });
+
+    it('renders 4 preset chips', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toContain('data-preset="8"');
+        expect(body).toContain('data-preset="12"');
+        expect(body).toContain('data-preset="18"');
+        expect(body).toContain('data-preset="24"');
+    });
+
+    it('wires open/close/apply/preset handlers', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toMatch(/open-daterange/);
+        expect(body).toMatch(/apply-daterange/);
+        expect(body).toMatch(/data-preset/);
+        expect(body).toMatch(/Escape|keydown/);
+    });
+
+    it('renderKpis accepts projectTotals', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toMatch(/function renderKpis\(kpis,\s*projectTotals\)/);
+        expect(body).toMatch(/renderKpis\(data\.kpis,\s*data\.projectTotals\)/);
+    });
+
+    it('clamps availableBounds onto inputs after fetch', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toMatch(/availableBounds/);
+    });
+});

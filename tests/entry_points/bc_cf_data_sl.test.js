@@ -53,3 +53,27 @@ describe('bc_cf_data_sl', () => {
         expect(body.kpis.totalRevenue).toBe(42000);
     });
 });
+
+describe('bc_cf_data_sl combined action shape', () => {
+    it('returns periods + categories + kpis structure', () => {
+        // Real SuiteQL not testable from node; assert shape with a mock
+        jest.spyOn(Suitelet, '_loadCombined').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            categories: {
+                revenue: { lines: [], total: [0, 0], grandTotal: 0 },
+                cost: { lines: [], total: [0, 0], grandTotal: 0 },
+            },
+            kpis: { totalRevenue: 0, totalCost: 0, netCashFlow: 0, margin: 0 },
+        });
+        const req = { method: 'GET', parameters: { action: 'combined', projectId: '1807' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(true);
+        expect(body.periods).toBeDefined();
+        expect(body.categories.revenue).toBeDefined();
+        expect(body.categories.cost).toBeDefined();
+        expect(body.kpis).toHaveProperty('totalRevenue');
+        expect(body.kpis).toHaveProperty('netCashFlow');
+    });
+});

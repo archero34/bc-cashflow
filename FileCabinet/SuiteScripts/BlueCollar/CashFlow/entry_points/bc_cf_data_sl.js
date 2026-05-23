@@ -439,9 +439,12 @@ define(['N/log', 'N/query'], function (log, query) {
             if (mode !== 'cash' && mode !== 'accrual') return sendError(res, `Invalid mode: ${mode}`);
 
             let data;
-            if (action === 'combined')      data = module.exports._loadCombined(projectId, mode);
-            else if (action === 'cost')     data = module.exports._loadCost(projectId, mode);
-            else if (action === 'revenue')  data = module.exports._loadRevenue(projectId, mode);
+            // Dispatch through `api` so Jest spies on the returned object intercept the call
+            // (referencing closure-scoped functions directly would bypass the spy).
+            // `module.exports` is undefined in NetSuite's AMD runtime — never reference it here.
+            if (action === 'combined')      data = api._loadCombined(projectId, mode);
+            else if (action === 'cost')     data = api._loadCost(projectId, mode);
+            else if (action === 'revenue')  data = api._loadRevenue(projectId, mode);
             else return sendError(res, `Unknown action: ${action}`);
 
             sendJSON(res, Object.assign({ ok: true, mode }, data));
@@ -451,8 +454,9 @@ define(['N/log', 'N/query'], function (log, query) {
         }
     };
 
-    // Export as both AMD module and node-style for the test runner to spy on _load*
-    const moduleExports = { onRequest, _loadCombined, _loadCost, _loadRevenue };
-    if (typeof module !== 'undefined') module.exports = moduleExports;
-    return moduleExports;
+    // Single exports object — `onRequest` dispatches through it so Jest spies work in tests
+    // AND NetSuite's AMD runtime loads it cleanly (no `module.exports` reference needed).
+    const api = { _loadCombined, _loadCost, _loadRevenue };
+    api.onRequest = onRequest;
+    return api;
 });

@@ -223,6 +223,27 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
           AND rtl.custrecord_bc_rtl_timing_type = ?
     `;
 
+    /**
+     * Pre-range cumulative net for combined action.
+     * Returns one row with rev_total and cost_total — both summed across
+     * periods STRICTLY BEFORE the supplied startPeriod. Caller computes
+     * net = rev_total - cost_total. Spec §3.5.
+     */
+    const CUMULATIVE_BEFORE_SQL = `
+        SELECT
+            (SELECT NVL(SUM(rtl.custrecord_bc_rtl_amount), 0)
+               FROM customrecord_bc_revenue_timing_line rtl
+              WHERE rtl.custrecord_bc_rtl_project = ?
+                AND rtl.custrecord_bc_rtl_timing_type = ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') < ?) AS rev_total,
+            (SELECT NVL(SUM(ctl.custrecord_bc_ctl_amount), 0)
+               FROM customrecord_bc_cost_timing_line ctl
+              WHERE ctl.custrecord_bc_ctl_project = ?
+                AND ctl.custrecord_bc_ctl_timing_type = ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') < ?) AS cost_total
+        FROM dual
+    `;
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     // ── Date range helpers ────────────────────────────────────────────────────
@@ -459,6 +480,22 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             cost:    Number(costTotalRow.total_amount) || 0
         };
 
+        // cumulativeBefore — net flow accumulated in periods strictly before startPeriod
+        let cumRow;
+        try {
+            cumRow = query.runSuiteQL({
+                query: CUMULATIVE_BEFORE_SQL,
+                params: [
+                    projectId, timingType, startPeriod,  // revenue subquery
+                    projectId, timingType, startPeriod   // cost subquery
+                ]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (cumBefore)', details: e.message + '\n' + (e.stack || '') });
+            cumRow = {};
+        }
+        const cumulativeBefore = (Number(cumRow.rev_total) || 0) - (Number(cumRow.cost_total) || 0);
+
         // ── Existing in-range pivot below ──
         const periodsSet = new Set();
         rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
@@ -483,7 +520,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             kpis: { totalRevenue, totalCost, netCashFlow, margin },
             range: { startPeriod, endPeriod },
             availableBounds,
-            projectTotals
+            projectTotals,
+            cumulativeBefore
         };
     };
     /**

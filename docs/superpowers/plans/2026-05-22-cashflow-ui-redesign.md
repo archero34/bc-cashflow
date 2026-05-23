@@ -1647,7 +1647,7 @@ This is the biggest single rewrite of the phase. Detailed because there's no tes
 
 - [ ] **Step 1: Read the spec sections that govern this surface**
 
-Re-read: spec §3.4 (Vertical Flow layout), §3.5 (in-iframe nav tabs), §3.6 (Combined KPIs), §3.7 (Navy + Slate encoding), §3.8 (Combined paired-bar chart), §3.9 (loading), §3.16 (skeleton).
+Re-read: spec §3.4 (Vertical Flow layout), §3.5 (parent/child subtab structure — **no in-iframe nav tabs**), §3.6 (Combined KPIs), §3.7 (Navy + Slate encoding), §3.8 (Combined paired-bar chart), §3.9 (loading), §3.16 (skeleton).
 
 - [ ] **Step 2: Replace the entire file with the shell-only version**
 
@@ -1679,10 +1679,7 @@ define([
         });
     };
 
-    const navTabs = (active, projectId) => {
-        const t = (slug, label) => `<a href="#" data-nav="${slug}" class="${active === slug ? 'active brand' : ''}">${label}</a>`;
-        return `<div class="bccf-tabs">${t('combined', 'Combined')}${t('cost', 'Cost')}${t('revenue', 'Revenue')}</div>`;
-    };
+    // (No in-iframe nav tabs — parent/child subtabs on the BC Project record handle navigation per spec §3.5.)
 
     const headerHtml = (projectId, projectName, customerName, soNumber, mode) => {
         return `<div class="bccf-panel-header">
@@ -1711,7 +1708,6 @@ ${Styles.getStyles()}
 <div id="bccf-toast-host"></div>
 <div style="padding:16px;max-width:1400px;margin:0 auto">
     <div class="bccf-panel">
-        ${navTabs('combined', projectId)}
         ${headerHtml(projectId, projectName, customerName, soNumber, mode)}
     </div>
     <div id="bccf-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px">
@@ -1764,7 +1760,7 @@ ${getClientScript()}
             .catch(e => renderError(e.message));
     };
 
-    // Event delegation for retry, mode toggle, nav tabs, export buttons
+    // Event delegation for retry, mode toggle, export buttons
     document.addEventListener('click', (e) => {
         const retry = e.target.closest('[data-action="retry"]');
         if (retry) { fetchData(); return; }
@@ -1926,50 +1922,15 @@ Same pattern as Task 16, mirrored for revenue:
 
 ---
 
-### Task 18: Verify in-iframe nav tabs work across all 3 surfaces
+### Task 18: ~~Verify in-iframe nav tabs~~ — **OBSOLETE per spec §3.5 amendment 2026-05-23**
 
-**Files:**
-- Modify: client JS sections of all 3 report SLs if nav-tab href construction needs adjustment.
+This task is no longer applicable. Native parent/child subtabs on the BC Project record handle Combined/Cost/Revenue navigation. The in-iframe nav-tab strip is dropped from the design; T15–T17 shell SLs render no nav tabs.
 
-- [ ] **Step 1: Open the Combined report iframe in the project record.**
+**Manual NetSuite UI setup (one-time, owned by the user):** Configure the BC Project record's `Cash Flow` subtab as a parent, with `Combined` / `Cost` / `Revenue` child subtabs, and move each `custrecord_bc_cf_*_html` field to its corresponding child subtab. See spec §3.5 for the click-path.
 
-Click the **Cost** nav tab. Confirm:
-- The iframe navigates to the Cost report Suitelet URL.
-- The `script=` and `deploy=` query params from NetSuite's iframe URL are **preserved** (otherwise the Suitelet 404s with "missing required parameter").
+- [ ] **Step 1: Skip** — this task is closed.
 
-- [ ] **Step 2: Implement `buildAppHref(otherSlug)` helper if Step 1 fails**
-
-In each shell SL's client JS, the nav-tab click handler must build the target URL by:
-1. Reading `window.location.search` and parsing out `script=` and `deploy=` params (these are NetSuite-managed).
-2. Building the new URL: replace `script=<combined_sl>` with `script=<cost_sl>` and `deploy=<combined_deploy>` with `deploy=<cost_deploy>` while preserving everything else.
-
-Add server-resolved tab URLs to `<body>` attributes (e.g. `data-combined-url`, `data-cost-url`, `data-revenue-url`) so the client doesn't have to compute script IDs:
-```js
-const targetUrls = {
-    combined: url.resolveScript({ scriptId: 'customscript_bc_cf_combined_sl', deploymentId: 'customdeploy_bc_cf_combined_sl', returnExternalUrl: true, params: { projectId, mode } }),
-    cost: url.resolveScript({ scriptId: 'customscript_bc_cf_cost_report_sl', deploymentId: 'customdeploy_bc_cf_cost_report_sl', returnExternalUrl: true, params: { projectId, mode } }),
-    revenue: url.resolveScript({ scriptId: 'customscript_bc_cf_rev_report_sl', deploymentId: 'customdeploy_bc_cf_rev_report_sl', returnExternalUrl: true, params: { projectId, mode } }),
-};
-// Stamp each onto <body data-<slug>-url="...">
-```
-
-Client JS reads `document.body.dataset.combinedUrl` etc. and navigates.
-
-- [ ] **Step 3: Deploy + smoke test all 3 tabs from all 3 starting points (9 navigations total).**
-
-Each one must end on the correct report.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add -u && git commit -m "fix: in-iframe nav tabs preserve NS hosting params via server-resolved URLs
-
-Spec §3.5.
-
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
-```
-
-**Phase 4 exit:** all 3 reports shell-only, skeleton + fetch loading, nav tabs working, mode toggle live. Customer-visible improvement.
+**Phase 4 exit:** all 3 reports shell-only, skeleton + fetch loading, mode toggle live. Customer-visible improvement.
 
 ---
 

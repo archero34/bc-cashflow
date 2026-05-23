@@ -83,11 +83,10 @@ All four of the following:
 
 ### 3.4 Report layout — Option A (Vertical Flow)
 
-Each report is a vertical stack:
+Each report is a vertical stack (no in-iframe nav tabs; native parent/child subtabs handle navigation per §3.5):
 
 ```
-┌─ Panel: nav tabs (Combined · Cost · Revenue) ─────────┐
-│  ─── header ───────────────────────────────────────── │
+┌─ Panel: header ───────────────────────────────────────┐
 │  Title (h1) + Cash-basis pill | Cash/Accrual toggle   │
 │  Meta line (project · customer · SO#)   CSV / PDF btns│
 └───────────────────────────────────────────────────────┘
@@ -111,9 +110,29 @@ Each report is a vertical stack:
 
 **Rejected alternatives:** B (KPI sidebar rail) — squeezes table width; C (data-forward compact with inline-header KPIs) — too dense for the demo audience.
 
-### 3.5 In-iframe nav tabs
+### 3.5 Report subtab structure — parent/child subtabs (amended 2026-05-23)
 
-Each report iframe includes `Combined · Cost · Revenue` tabs at the top of the panel, active tab underlined in brand-500. Lets users jump between reports without scrolling the parent NetSuite page through 3 stacked iframes. Tab clicks navigate the iframe via `buildAppHref` (preserves `script=` / `deploy=` params).
+**Decision:** The BC Project record's `Cash Flow` subtab becomes a **parent subtab** with three **child subtabs**:
+- `Combined` (child) — single full-width INLINEHTML field stamped with the Combined report iframe
+- `Cost` (child) — single full-width INLINEHTML field stamped with the Cost report iframe
+- `Revenue` (child) — single full-width INLINEHTML field stamped with the Revenue report iframe
+
+Native NetSuite parent/child subtab navigation handles report-to-report switching — clicking a child subtab swaps the visible iframe. No in-iframe nav tabs are needed; the previous design's "Combined · Cost · Revenue" tab strip inside each report panel is dropped.
+
+**Why this changed:** The original spec assumed 3 stacked INLINEHTML fields on one subtab and added in-iframe nav tabs as a workaround for the scrolling problem. Parent/child subtabs are the native NetSuite mechanism for this UX and provide a cleaner click-through tabbing experience without any client-side nav code.
+
+**Manual NetSuite UI configuration required** (not SDF-deployable, follows the existing pattern from PROJECT_STATUS.md "Manual Setup" section):
+
+1. Customization → Lists, Records, & Fields → Record Types → BC Project → Subtabs.
+2. Edit the existing `Cash Flow` subtab; ensure it has no `Parent Subtab` set (so it acts as a parent).
+3. Create three child subtabs with `Cash Flow` as their `Parent Subtab`: `Combined`, `Cost`, `Revenue`.
+4. Edit the three INLINEHTML fields and move each to its corresponding child subtab:
+   - `custrecord_bc_cf_combined_html` → `Combined` child subtab
+   - `custrecord_bc_cf_cost_html` → `Cost` child subtab
+   - `custrecord_bc_cf_revenue_html` → `Revenue` child subtab
+5. With one field per child subtab, each iframe renders full-width.
+
+**Iframe stamping (UE) is unchanged:** `bc_cf_project_ue.js` still beforeLoad-stamps each INLINEHTML field with its iframe. The UE doesn't care which subtab the field is on — the parent/child structure is a form-layout concern, not a UE concern.
 
 ### 3.6 KPIs per report (4 each, forecast-driven)
 

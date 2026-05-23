@@ -74,7 +74,7 @@ define([
 
             // 1. Fetch forecast
             const data = fetchCostData(Number(projectId), timingTypeId);
-            const allPeriods = [...data.periods];
+            const periods = data.periods;
 
             // 2. Empty state
             if (!data.rows.length) {
@@ -83,7 +83,7 @@ define([
             }
 
             // 3. Pivot
-            const forecast = utils.pivot(data.rows, allPeriods, 'Other');
+            const forecast = utils.pivot(data.rows, periods, 'Other');
 
             // 4. KPI calculations
             const curMonth = utils.currentYYYYMM();
@@ -101,7 +101,7 @@ define([
             const chartHtml = utils.buildChart({
                 mode: 'single',
                 series: [{ values: forecast.totals, color: BRAND.NAVY, gradientFrom: BRAND.NAVY, gradientTo: BRAND.NAVY_LIGHT, label: 'Cost' }],
-                periods: allPeriods,
+                periods: periods,
                 title: 'Monthly Cost Outflow'
             });
 
@@ -109,7 +109,7 @@ define([
             const forecastGroups = Object.keys(forecast.groups).sort();
             const tableHtml = utils.buildTable({
                 columnHeader: 'Cost Group',
-                periods: allPeriods,
+                periods: periods,
                 groups: forecast.groups,
                 groupOrder: forecastGroups,
                 groupTotals: forecast.groupTotals,
@@ -119,12 +119,12 @@ define([
             });
 
             // 8. Build CSV + export bar
-            const csvHeader = ['Cost Group', ...allPeriods.map(utils.periodLabel), 'Total'];
+            const csvHeader = ['Cost Group', ...periods.map(utils.periodLabel), 'Total'];
             const csvData = [csvHeader];
             forecastGroups.forEach((g) => {
-                csvData.push([g, ...allPeriods.map((p) => forecast.groups[g][p] || 0), forecast.groupTotals[g]]);
+                csvData.push([g, ...periods.map((p) => forecast.groups[g][p] || 0), forecast.groupTotals[g]]);
             });
-            csvData.push(['Total', ...allPeriods.map((p) => forecast.totals[p] || 0), forecast.grandTotal]);
+            csvData.push(['Total', ...periods.map((p) => forecast.totals[p] || 0), forecast.grandTotal]);
             const exportHtml = utils.buildExportBar({ filename: 'cost_cashflow_report', csvRows: csvData });
 
             // 9. Compose page

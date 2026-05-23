@@ -103,27 +103,27 @@ define([
         </div>`;
     };
 
-    /** Chart panel with skeleton bars */
+    /** Chart panel with skeleton bars — #bccf-chart wraps the whole panel (Bug 1 fix) */
     const buildSkeletonChart = () => {
-        return UI.panel({
+        return `<div id="bccf-chart">${UI.panel({
             header: `<span style="font-size:var(--bccf-text-base);font-weight:600;color:var(--bccf-ink-900)">Monthly Cost Outflow</span>`,
-            body: `<div id="bccf-chart">${UI.skeletonChart(6)}</div>`
-        });
+            body: UI.skeletonChart(6)
+        })}</div>`;
     };
 
-    /** Table panel with skeleton rows */
+    /** Table panel with skeleton rows — #bccf-table wraps the whole panel (Bug 1 fix) */
     const buildSkeletonTable = () => {
         // thead: Source + 6 period cols + Total = 8 cols
         const headerRow = '<tr><th>Source</th>' + Array(6).fill('<th></th>').join('') + '<th>Total</th></tr>';
         const skelRows = UI.skeletonRows(8, 5);
-        return UI.panel({
-            body: `<div id="bccf-table" style="overflow-x:auto">
+        return `<div id="bccf-table">${UI.panel({
+            body: `<div style="overflow-x:auto">
                 <table style="width:100%;border-collapse:collapse;font-size:var(--bccf-text-sm)">
                     <thead>${headerRow}</thead>
                     <tbody>${skelRows}</tbody>
                 </table>
             </div>`
-        });
+        })}</div>`;
     };
 
     // ─── Client-side JS (inlined in <script>) ─────────────────────────────────
@@ -256,8 +256,8 @@ define([
             + '</div>'
         ];
 
-        return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">'
-            + cards.join('') + '</div>';
+        // Return only inner cards — the outer #bccf-kpis wrapper stays in the DOM (Bug 1 fix)
+        return cards.join('');
     }
 
     // ── Render Chart ─────────────────────────────────────────────────────────
@@ -437,8 +437,58 @@ define([
 
     var _lastDataUrl = null;
 
+    // Skeleton HTML strings for re-painting regions on refresh (Bug 2 fix)
+    var SKEL_KPIS = (function() {
+        var cards = '';
+        ['Total Cost','Current Month','Peak Month','Remaining'].forEach(function(label) {
+            cards += '<div class="bccf-kpi">'
+                + '<div class="bccf-k">' + esc(label) + '</div>'
+                + '<div class="bccf-v"><span class="bccf-skel" style="display:block;width:140px;height:24px;margin-top:4px"></span></div>'
+                + '<div class="bccf-sub"><span class="bccf-skel" style="display:block;width:100px;height:11px;margin-top:6px"></span></div>'
+                + '</div>';
+        });
+        return cards;
+    }());
+
+    var SKEL_CHART = (function() {
+        var heights = [40, 70, 100, 90, 60, 30];
+        var bars = heights.map(function(h) {
+            return '<div class="bccf-skel bar-skel" style="flex:1;height:' + h + 'px;margin:0 3px;border-radius:3px 3px 0 0"></div>';
+        }).join('');
+        return '<div class="bccf-panel" style="margin-bottom:16px">'
+            + '<div class="bccf-panel-header"><span style="font-size:var(--bccf-text-base);font-weight:600;color:var(--bccf-ink-900)">Monthly Cost Outflow</span></div>'
+            + '<div class="bccf-panel-body"><div style="display:flex;align-items:flex-end;height:120px;padding:14px 18px">' + bars + '</div></div>'
+            + '</div>';
+    }());
+
+    var SKEL_TABLE = (function() {
+        var widths = [80, 60, 70, 65, 75, 55, 90];
+        var rows = '';
+        for (var r = 0; r < 5; r++) {
+            rows += '<tr>';
+            for (var c = 0; c < 8; c++) {
+                var w = widths[(r + c) % widths.length];
+                rows += '<td><span class="bccf-skel" style="display:inline-block;width:' + w + 'px;height:12px"></span></td>';
+            }
+            rows += '</tr>';
+        }
+        return '<div class="bccf-panel">'
+            + '<div class="bccf-panel-body" style="padding:0;overflow-x:auto">'
+            + '<table style="width:100%;border-collapse:collapse"><tbody>' + rows + '</tbody></table>'
+            + '</div></div>';
+    }());
+
     function loadData(dataUrl) {
         _lastDataUrl = dataUrl;
+
+        // Bug 2: repaint skeletons immediately so user sees loading state on refresh
+        var kpiElSkel = document.getElementById('bccf-kpis');
+        if (kpiElSkel) kpiElSkel.innerHTML = SKEL_KPIS;
+        var chartElSkel = document.getElementById('bccf-chart');
+        if (chartElSkel) chartElSkel.innerHTML = SKEL_CHART;
+        var tableElSkel = document.getElementById('bccf-table');
+        if (tableElSkel) tableElSkel.innerHTML = SKEL_TABLE;
+
         fetch(dataUrl)
             .then(function(res) {
                 if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -447,53 +497,27 @@ define([
             .then(function(data) {
                 if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
 
-                // Swap KPI region
+                // Bug 1: use innerHTML on stable wrapper divs (IDs never destroyed)
                 var kpiEl = document.getElementById('bccf-kpis');
-                if (kpiEl) {
-                    kpiEl.outerHTML = renderKpis(data.kpis);
-                }
+                if (kpiEl) kpiEl.innerHTML = renderKpis(data.kpis);
 
-                // Swap chart region (inside panel)
                 var chartEl = document.getElementById('bccf-chart');
-                if (chartEl) {
-                    var chartPanel = chartEl.closest('.bccf-panel');
-                    if (chartPanel) {
-                        var tmp = document.createElement('div');
-                        tmp.innerHTML = renderChart(data.periods, data.categories);
-                        chartPanel.parentNode.replaceChild(tmp.firstChild, chartPanel);
-                    } else {
-                        chartEl.innerHTML = renderChart(data.periods, data.categories);
-                    }
-                }
+                if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.categories);
 
-                // Swap table region (inside panel)
                 var tableEl = document.getElementById('bccf-table');
-                if (tableEl) {
-                    var tablePanel = tableEl.closest('.bccf-panel');
-                    if (tablePanel) {
-                        var tmp2 = document.createElement('div');
-                        tmp2.innerHTML = renderTable(data.periods, data.categories);
-                        tablePanel.parentNode.replaceChild(tmp2.firstChild, tablePanel);
-                    } else {
-                        tableEl.innerHTML = renderTable(data.periods, data.categories);
-                    }
-                }
+                if (tableEl) tableEl.innerHTML = renderTable(data.periods, data.categories);
             })
             .catch(function(err) {
                 var errHtml = renderError(err.message || String(err));
-                var chartEl = document.getElementById('bccf-chart');
-                var tableEl = document.getElementById('bccf-table');
-
-                var chartPanel = chartEl && chartEl.closest('.bccf-panel');
-                var tablePanel = tableEl && tableEl.closest('.bccf-panel');
-
-                if (chartPanel) chartPanel.outerHTML = errHtml;
-                if (tablePanel && tablePanel !== chartPanel) tablePanel.outerHTML = errHtml;
 
                 var kpiEl = document.getElementById('bccf-kpis');
                 if (kpiEl) {
-                    kpiEl.innerHTML = '<div class="bccf-error-card" style="grid-column:1/-1"><h4>Couldn\\'t load report data</h4><pre>' + esc(err.message || 'Unknown error') + '</pre><button type="button" class="bccf-btn" data-action="retry">Retry</button></div>';
+                    kpiEl.innerHTML = '<div class="bccf-error-card" style="grid-column:1/-1"><h4>Couldn\\u2019t load report data</h4><pre>' + esc(err.message || 'Unknown error') + '</pre><button type="button" class="bccf-btn" data-action="retry">Retry</button></div>';
                 }
+                var chartEl = document.getElementById('bccf-chart');
+                if (chartEl) chartEl.innerHTML = errHtml;
+                var tableEl = document.getElementById('bccf-table');
+                if (tableEl) tableEl.innerHTML = errHtml;
             });
     }
 

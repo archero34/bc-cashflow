@@ -32,7 +32,7 @@ define(['N/log', 'N/query'], function (log, query) {
                 WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                     THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
                 WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
-                    THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
+                    THEN NVL(t.tranid, NVL(e.entitytitle, 'Vendor'))
                 ELSE 'Other Cost'
             END AS cost_group,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') AS period,
@@ -55,7 +55,7 @@ define(['N/log', 'N/query'], function (log, query) {
             CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
                  WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
-                 THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
+                 THEN NVL(t.tranid, NVL(e.entitytitle, 'Vendor'))
                  ELSE 'Other Cost' END,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
         ORDER BY cost_group, period
@@ -70,7 +70,7 @@ define(['N/log', 'N/query'], function (log, query) {
             CASE
                 WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                     THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
-                ELSE 'Base Bid'
+                ELSE NVL(t.tranid, 'Base Bid')
             END AS cost_group,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') AS period,
             SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount,
@@ -83,6 +83,7 @@ define(['N/log', 'N/query'], function (log, query) {
                 ELSE 'so'
             END AS source_type
         FROM customrecord_bc_revenue_timing_line rtl
+        LEFT JOIN transaction t ON t.id = rtl.custrecord_bc_rtl_transaction
         LEFT JOIN customrecord_bc_change_req cr
             ON cr.id = rtl.custrecord_bc_rtl_change_order
         WHERE rtl.custrecord_bc_rtl_project = ?
@@ -90,7 +91,7 @@ define(['N/log', 'N/query'], function (log, query) {
         GROUP BY
             CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
-                 ELSE 'Base Bid' END,
+                 ELSE NVL(t.tranid, 'Base Bid') END,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
         ORDER BY cost_group, period
     `;
@@ -105,7 +106,7 @@ define(['N/log', 'N/query'], function (log, query) {
             CASE
                 WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                     THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
-                ELSE 'Base Bid'
+                ELSE NVL(t_rev.tranid, 'Base Bid')
             END AS cost_group,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') AS period,
             SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount,
@@ -118,6 +119,7 @@ define(['N/log', 'N/query'], function (log, query) {
                 ELSE 'so'
             END AS source_type
         FROM customrecord_bc_revenue_timing_line rtl
+        LEFT JOIN transaction t_rev ON t_rev.id = rtl.custrecord_bc_rtl_transaction
         LEFT JOIN customrecord_bc_change_req cr
             ON cr.id = rtl.custrecord_bc_rtl_change_order
         WHERE rtl.custrecord_bc_rtl_project = ?
@@ -125,7 +127,7 @@ define(['N/log', 'N/query'], function (log, query) {
         GROUP BY
             CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
-                 ELSE 'Base Bid' END,
+                 ELSE NVL(t_rev.tranid, 'Base Bid') END,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
 
         UNION ALL
@@ -136,7 +138,7 @@ define(['N/log', 'N/query'], function (log, query) {
                 WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                     THEN 'CO: ' || NVL(cr2.custrecord_bc_change_order_number, 'Change Order')
                 WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
-                    THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
+                    THEN NVL(t.tranid, NVL(e.entitytitle, 'Vendor'))
                 ELSE 'Other Cost'
             END AS cost_group,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') AS period,
@@ -162,7 +164,7 @@ define(['N/log', 'N/query'], function (log, query) {
             CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr2.custrecord_bc_change_order_number, 'Change Order')
                  WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
-                 THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
+                 THEN NVL(t.tranid, NVL(e.entitytitle, 'Vendor'))
                  ELSE 'Other Cost' END,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
 
@@ -285,9 +287,9 @@ define(['N/log', 'N/query'], function (log, query) {
         const revRows  = rows.filter((r) => r.flow_direction === 'Revenue');
         const costRows = rows.filter((r) => r.flow_direction === 'Cost');
 
+        // 'Base Bid' hoist key is a fallback for rows where SO tranid was NULL; normally tranid labels sort alphabetically.
         const revenue = _pivotDirection(revRows,  periods, 'Base Bid');
-        // Cost side: no hoist — let alphabetical place CO/vendor lines naturally
-        // (hoisting 'Other Cost' would put the catch-all bucket first; mockup §3.6 shows vendor lines lead)
+        // Cost side: no hoist — tranid/CO labels sort alphabetically (PO1234 before PO5678 etc.)
         const cost    = _pivotDirection(costRows, periods, null);
 
         const totalRevenue = revenue.grandTotal;
@@ -400,14 +402,17 @@ define(['N/log', 'N/query'], function (log, query) {
         rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
         const periods = Array.from(periodsSet).sort();
 
-        // Hoist 'Base Bid' first (spec §3.6 revenue mockup — Base Contract leads, CO rows follow)
+        // No hoist key — SO tranid labels vary; alphabetical order puts SOs before COs naturally.
+        // 'Base Bid' hoist kept as fallback for rows where tranid was NULL.
         const revenue = _pivotDirection(rows, periods, 'Base Bid');
 
         // KPIs
         const totalRevenue = revenue.grandTotal;
 
-        const baseLine = revenue.lines.find((l) => l.id === 'Base Bid');
-        const baseContract = baseLine ? baseLine.total : 0;
+        // baseContract = sum of all non-CO lines (SO tranid labels, or 'Base Bid' fallback)
+        const baseContract = revenue.lines
+            .filter((l) => !l.id.startsWith('CO: '))
+            .reduce((sum, l) => sum + l.total, 0);
 
         const changeOrders = revenue.lines
             .filter((l) => l.id.startsWith('CO: '))

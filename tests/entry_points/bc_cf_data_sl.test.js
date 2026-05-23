@@ -122,6 +122,29 @@ describe('bc_cf_data_sl combined action shape', () => {
         expect(body.kpis).toHaveProperty('totalRevenue');
         expect(body.kpis).toHaveProperty('netCashFlow');
     });
+
+    it('returns range, availableBounds, and projectTotals (both sides) on combined action', () => {
+        jest.spyOn(Suitelet, '_loadCombined').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            categories: {
+                revenue: { lines: [], total: [0, 0], grandTotal: 0 },
+                cost:    { lines: [], total: [0, 0], grandTotal: 0 }
+            },
+            kpis: { totalRevenue: 0, totalCost: 0, netCashFlow: 0, margin: 0 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-05' },
+            availableBounds: { minPeriod: '2026-01', maxPeriod: '2027-12' },
+            projectTotals: { revenue: 42000, cost: 33000 }
+        });
+        const req = { method: 'GET', parameters: { action: 'combined', projectId: '1807', startPeriod: '2026-04', endPeriod: '2026-05' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(true);
+        expect(body.range).toEqual({ startPeriod: '2026-04', endPeriod: '2026-05' });
+        expect(body.availableBounds).toEqual({ minPeriod: '2026-01', maxPeriod: '2027-12' });
+        expect(body.projectTotals.revenue).toBe(42000);
+        expect(body.projectTotals.cost).toBe(33000);
+    });
 });
 
 describe('bc_cf_data_sl cost action shape', () => {

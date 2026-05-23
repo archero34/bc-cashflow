@@ -130,6 +130,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             ON cr.id = rtl.custrecord_bc_rtl_change_order
         WHERE rtl.custrecord_bc_rtl_project = ?
           AND rtl.custrecord_bc_rtl_timing_type = ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') <= ?
         GROUP BY
             CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
@@ -166,6 +168,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             ON cr2.id = ctl.custrecord_bc_ctl_change_order
         WHERE ctl.custrecord_bc_ctl_project = ?
           AND ctl.custrecord_bc_ctl_timing_type = ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') <= ?
         GROUP BY
             CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr2.custrecord_bc_change_order_number, 'Change Order')
@@ -386,19 +390,76 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      */
     const _loadCombined = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
+        const { startPeriod, endPeriod } = range;
 
         let rows;
         try {
             rows = query.runSuiteQL({
                 query: COMBINED_SQL,
-                params: [projectId, timingType, projectId, timingType]
+                params: [
+                    projectId, timingType, startPeriod, endPeriod,  // revenue leg
+                    projectId, timingType, startPeriod, endPeriod   // cost leg
+                ]
             }).asMappedResults();
         } catch (e) {
             log.error({ title: MODULE + '._loadCombined', details: e.message + '\n' + (e.stack || '') });
             rows = [];
         }
 
-        // Collect sorted unique periods across both directions
+        // availableBounds — union of revenue + cost bounds (no date filter)
+        let revBoundsRow, costBoundsRow;
+        try {
+            revBoundsRow = query.runSuiteQL({
+                query: REVENUE_BOUNDS_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (rev bounds)', details: e.message + '\n' + (e.stack || '') });
+            revBoundsRow = {};
+        }
+        try {
+            costBoundsRow = query.runSuiteQL({
+                query: COST_BOUNDS_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (cost bounds)', details: e.message + '\n' + (e.stack || '') });
+            costBoundsRow = {};
+        }
+        const _curYYYYMM = (new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0');
+        const allMins = [revBoundsRow.min_period, costBoundsRow.min_period].filter(Boolean);
+        const allMaxs = [revBoundsRow.max_period, costBoundsRow.max_period].filter(Boolean);
+        const availableBounds = {
+            minPeriod: allMins.length ? allMins.sort()[0] : _curYYYYMM,
+            maxPeriod: allMaxs.length ? allMaxs.sort()[allMaxs.length - 1] : _curYYYYMM
+        };
+
+        // projectTotals — both revenue + cost (no date filter)
+        let revTotalRow, costTotalRow;
+        try {
+            revTotalRow = query.runSuiteQL({
+                query: REVENUE_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (rev total)', details: e.message + '\n' + (e.stack || '') });
+            revTotalRow = {};
+        }
+        try {
+            costTotalRow = query.runSuiteQL({
+                query: COST_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (cost total)', details: e.message + '\n' + (e.stack || '') });
+            costTotalRow = {};
+        }
+        const projectTotals = {
+            revenue: Number(revTotalRow.total_amount) || 0,
+            cost:    Number(costTotalRow.total_amount) || 0
+        };
+
+        // ── Existing in-range pivot below ──
         const periodsSet = new Set();
         rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
         const periods = Array.from(periodsSet).sort();
@@ -406,9 +467,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         const revRows  = rows.filter((r) => r.flow_direction === 'Revenue');
         const costRows = rows.filter((r) => r.flow_direction === 'Cost');
 
-        // 'Base Bid' hoist key is a fallback for rows where SO tranid was NULL; normally tranid labels sort alphabetically.
         const revenue = _pivotDirection(revRows,  periods, 'Base Bid');
-        // Cost side: no hoist — tranid/CO labels sort alphabetically (PO1234 before PO5678 etc.)
         const cost    = _pivotDirection(costRows, periods, null);
 
         const totalRevenue = revenue.grandTotal;
@@ -421,7 +480,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         return {
             periods: periods.map(_periodLabel),
             categories: { revenue, cost },
-            kpis: { totalRevenue, totalCost, netCashFlow, margin }
+            kpis: { totalRevenue, totalCost, netCashFlow, margin },
+            range: { startPeriod, endPeriod },
+            availableBounds,
+            projectTotals
         };
     };
     /**

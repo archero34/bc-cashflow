@@ -62,10 +62,6 @@ define(['N/log', 'N/query'], function (log, query) {
     `;
 
     /**
-     * Forecast-only combined query: revenue timing lines UNION cost timing lines.
-     * No VendBill / VendPmt / CustInvc / CustPymt joins — forecast data only.
-     */
-    /**
      * Forecast-only revenue query: revenue timing lines only.
      * No CustInvc / CustPymt joins — forecast data only.
      */

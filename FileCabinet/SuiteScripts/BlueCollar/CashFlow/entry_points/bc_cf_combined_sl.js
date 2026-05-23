@@ -297,7 +297,7 @@ define([
             var revH  = barH(rev);
             var costH = barH(cost);
 
-            return '<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:48px;' + haloStyle + '">'
+            return '<div class="' + (isNow ? 'now' : '') + '" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:48px;' + haloStyle + '">'
                 // Net amount label above bars
                 + '<div style="font-size:11px;font-weight:600;color:' + netColor + ';margin-bottom:4px;white-space:nowrap;font-variant-numeric:tabular-nums">'
                     + esc(netLabel)
@@ -499,6 +499,11 @@ define([
 
                 if (chartPanel) chartPanel.outerHTML = errHtml;
                 if (tablePanel && tablePanel !== chartPanel) tablePanel.outerHTML = errHtml;
+
+                var kpiEl = document.getElementById('bccf-kpis');
+                if (kpiEl) {
+                    kpiEl.innerHTML = '<div class="bccf-error-card" style="grid-column:1/-1"><h4>Couldn’t load report data</h4><pre>' + esc(err.message || 'Unknown error') + '</pre><button type="button" class="bccf-btn" data-action="retry">Retry</button></div>';
+                }
             });
     }
 
@@ -519,6 +524,7 @@ define([
 
         // Mode toggle
         if (btn.closest('[data-toggle-id="mode"]')) {
+            if (btn.classList.contains('active')) return;  // already in this mode — no-op
             var newMode = btn.dataset.value;
             if (!newMode || !_lastDataUrl) return;
             // Update active class
@@ -604,9 +610,6 @@ define([
         table tbody tr:hover { background: var(--bccf-bg-50); }
         /* KPI accent override — let JS color the value via inline style */
         .bccf-kpi.accent .bccf-v { color: inherit; }
-        /* Bar hover — CSS-only per spec §3.8 */
-        .bccf-bar { cursor: default; transition: opacity 120ms; }
-        .bccf-bar:hover { opacity: .85; }
     </style>
 </head>
 <body data-data-url="${UI.esc(dataUrl)}">

@@ -128,6 +128,12 @@ define([], function () {
         .bccf-error-card h4 { font-size: var(--bccf-text-base); color: var(--bccf-danger-500); margin: 0 0 6px; font-weight: 600; }
         .bccf-error-card pre { font-size: 12px; color: var(--bccf-ink-700); white-space: pre-wrap; margin: 6px 0; }
 
+        /* Chart bar (used by report shell SLs to render KPI chart bars) */
+        .bccf-bar { width: 100%; border-radius: 3px 3px 0 0; transition: opacity var(--bccf-t-fast); cursor: default; }
+        .bccf-bar:hover { opacity: .85; }
+        .bccf-bar.revenue { background: var(--bccf-brand-500); }
+        .bccf-bar.cost { background: var(--bccf-ink-500); }
+
         /* Title pill */
         .bccf-title-pill { display: inline-flex; align-items: center; background: var(--bccf-brand-50); color: var(--bccf-brand-500); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--bccf-r-full); }
     `;

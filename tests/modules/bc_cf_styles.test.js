@@ -47,6 +47,11 @@ describe('bc_cf_styles', () => {
             expect(out).toMatch(/\.bccf-modal\b/);
         });
 
+        it('defines bccf-bar primitive', () => {
+            const out = Styles.getStyles();
+            expect(out).toMatch(/\.bccf-bar\b/);
+        });
+
         it('namespaces every class with bccf- prefix', () => {
             const out = Styles.getStyles();
             // Match only top-level class selectors: a dot preceded by whitespace, comma, or { (not chained

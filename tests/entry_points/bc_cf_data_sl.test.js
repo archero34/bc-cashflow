@@ -141,6 +141,25 @@ describe('bc_cf_data_sl cost action shape', () => {
         expect(body.kpis).toHaveProperty('peakMonth');
         expect(body.kpis).toHaveProperty('remaining');
     });
+
+    it('returns range, availableBounds, and projectTotals on cost action', () => {
+        jest.spyOn(Suitelet, '_loadCost').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            categories: { cost: { lines: [], total: [0, 0], grandTotal: 0 } },
+            kpis: { totalCost: 0, currentMonth: 0, peakMonth: 0, remaining: 0 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-05' },
+            availableBounds: { minPeriod: '2026-01', maxPeriod: '2027-12' },
+            projectTotals: { cost: 33000 }
+        });
+        const req = { method: 'GET', parameters: { action: 'cost', projectId: '1807', startPeriod: '2026-04', endPeriod: '2026-05' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(true);
+        expect(body.range).toEqual({ startPeriod: '2026-04', endPeriod: '2026-05' });
+        expect(body.availableBounds).toEqual({ minPeriod: '2026-01', maxPeriod: '2027-12' });
+        expect(body.projectTotals.cost).toBe(33000);
+    });
 });
 
 describe('bc_cf_data_sl revenue action shape', () => {

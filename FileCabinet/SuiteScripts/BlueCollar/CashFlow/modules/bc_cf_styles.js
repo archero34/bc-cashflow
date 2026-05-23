@@ -30,6 +30,9 @@ define([], function () {
             --bccf-warn-50: #fdf4e3;
             --bccf-danger-500: #c2361d;
             --bccf-danger-50: #fbeceb;
+            /* Cost identity */
+            --bccf-cost-500: #f97316;
+            --bccf-cost-50:  #fff7ed;
             /* Type scale */
             --bccf-text-xs: 12px;
             --bccf-text-sm: 13px;
@@ -132,7 +135,7 @@ define([], function () {
         .bccf-bar { width: 100%; border-radius: 3px 3px 0 0; transition: opacity var(--bccf-t-fast); cursor: default; }
         .bccf-bar:hover { opacity: .85; }
         .bccf-bar.revenue { background: var(--bccf-brand-500); }
-        .bccf-bar.cost { background: var(--bccf-ink-500); }
+        .bccf-bar.cost { background: var(--bccf-cost-500); }
 
         /* Title pill */
         .bccf-title-pill { display: inline-flex; align-items: center; background: var(--bccf-brand-50); color: var(--bccf-brand-500); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--bccf-r-full); }

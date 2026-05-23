@@ -52,6 +52,11 @@ describe('bc_cf_styles', () => {
             expect(out).toMatch(/\.bccf-bar\b/);
         });
 
+        it('defines --bccf-cost-500 coral token', () => {
+            const out = Styles.getStyles();
+            expect(out).toContain('--bccf-cost-500: #f97316');
+        });
+
         it('namespaces every class with bccf- prefix', () => {
             const out = Styles.getStyles();
             // Match only top-level class selectors: a dot preceded by whitespace, comma, or { (not chained

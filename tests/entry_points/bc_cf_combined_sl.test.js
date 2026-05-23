@@ -138,12 +138,18 @@ describe('bc_cf_combined_sl — shell structure', () => {
 
         // ── Event delegation + no inline event handlers ───────────────────────
         it('uses data-action attributes for event delegation, not inline handlers', () => {
-            // Toolbar buttons must have data-action
-            expect(body).toContain('data-action="export-csv"');
-            expect(body).toContain('data-action="export-pdf"');
+            // Refresh button present; export buttons removed
+            expect(body).toContain('data-action="refresh"');
+            expect(body).not.toContain('data-action="export-csv"');
+            expect(body).not.toContain('data-action="export-pdf"');
             // No inline onclick/onmouseover/onmouseout on any element
             const inlineHandlers = body.match(/\bon(click|mouseover|mouseout|mouseenter|mouseleave)\s*=/g) || [];
             expect(inlineHandlers).toHaveLength(0);
+        });
+
+        // ── Toggle fix: toggle handler uses closest('[data-toggle-id="mode"] button') ─
+        it('toggle click handler checks for toggle button via data-toggle-id wrapper', () => {
+            expect(body).toContain('[data-toggle-id="mode"] button');
         });
 
         // ── Double-evaluation guard ──────────────────────────────────────────

@@ -79,8 +79,9 @@ define([
         const headerRight = `
             <div style="display:flex;align-items:center;gap:8px">
                 ${toggle}
-                <button type="button" class="bccf-btn bccf-btn-sm" data-action="export-csv">Export CSV</button>
-                <button type="button" class="bccf-btn bccf-btn-sm bccf-btn-pri" data-action="export-pdf">Export PDF</button>
+                <button type="button" class="bccf-btn" data-action="refresh" title="Refresh">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                </button>
             </div>`;
 
         return UI.panel({ header: headerLeft + headerRight });
@@ -226,10 +227,10 @@ define([
         var remPct     = totalCost ? fmtPct((remaining    / totalCost) * 100) : '0.0%';
 
         var cards = [
-            // 1. Total Cost — accent class, slate value per §3.6 + §3.7
+            // 1. Total Cost — accent class, coral value per §3.6 + §3.7 (cost identity color)
             '<div class="bccf-kpi accent">'
                 + '<div class="bccf-k">Total Cost</div>'
-                + '<div class="bccf-v" style="color:var(--bccf-ink-500)">' + esc(fmtCurrency(totalCost)) + '</div>'
+                + '<div class="bccf-v" style="color:var(--bccf-cost-500)">' + esc(fmtCurrency(totalCost)) + '</div>'
                 + '<div class="bccf-sub">Forecast</div>'
             + '</div>',
 
@@ -349,6 +350,23 @@ define([
             + '</tr>';
         }
 
+        // ── helper: build drillable href from source metadata ──
+        function buildSourceHref(source) {
+            if (!source || !source.id) return null;
+            var id = encodeURIComponent(source.id);
+            if (source.type === 'so') return '/app/accounting/transactions/salesord.nl?id=' + id;
+            if (source.type === 'po') return '/app/accounting/transactions/purchord.nl?id=' + id;
+            if (source.type === 'cr') return '/app/common/custom/custrecordentry.nl?rectype=customrecord_bc_change_req&id=' + id;
+            return null;
+        }
+
+        function labelCell(line) {
+            var href = buildSourceHref(line.source);
+            var safeLabel = esc(line.label);
+            if (!href) return safeLabel;
+            return '<a href="' + href + '" target="_top" style="color:var(--bccf-brand-500);text-decoration:none">' + safeLabel + '</a>';
+        }
+
         // ── helper: sub-row per line ──
         function lineRow(line) {
             var cells = line.amounts.map(function(v) {
@@ -356,7 +374,7 @@ define([
                     + esc(fmtCurrency(v)) + '</td>';
             }).join('');
             return '<tr>'
-                + '<td style="padding:6px 12px 6px 24px;font-size:var(--bccf-text-sm);color:var(--bccf-ink-500)">' + esc(line.label) + '</td>'
+                + '<td style="padding:6px 12px 6px 24px;font-size:var(--bccf-text-sm);color:var(--bccf-ink-500)">' + labelCell(line) + '</td>'
                 + cells
                 + '<td style="padding:6px 12px;text-align:right;font-size:var(--bccf-text-sm);color:var(--bccf-ink-500);font-variant-numeric:tabular-nums">' + esc(fmtCurrency(line.total)) + '</td>'
             + '</tr>';
@@ -379,9 +397,9 @@ define([
         var costRows = cost.lines.map(lineRow).join('');
 
         var tbody = '<tbody>'
-            + catRow('Cost Forecast', 'var(--bccf-ink-700)')
+            + catRow('Cost Forecast', 'var(--bccf-cost-500)')
             + costRows
-            + totalRow('Total', cost.total, cost.grandTotal, 'var(--bccf-ink-700)')
+            + totalRow('Total', cost.total, cost.grandTotal, 'var(--bccf-cost-500)')
         + '</tbody>';
 
         // ── tfoot: Grand Total — no Net row for cost-only ──
@@ -490,17 +508,15 @@ define([
     // ── Event delegation ─────────────────────────────────────────────────────
 
     document.addEventListener('click', function(e) {
-        var btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        var action = btn.dataset.action;
-
-        // Mode toggle
-        if (btn.closest('[data-toggle-id="mode"]')) {
-            if (btn.classList.contains('active')) return;  // already in this mode — no-op
-            var newMode = btn.dataset.value;
+        // Mode toggle — check BEFORE [data-action] guard because toggle buttons
+        // only carry data-value, not data-action.
+        var toggleBtn = e.target.closest('[data-toggle-id="mode"] button');
+        if (toggleBtn) {
+            if (toggleBtn.classList.contains('active')) return;  // already in this mode — no-op
+            var newMode = toggleBtn.dataset.value;
             if (!newMode || !_lastDataUrl) return;
             // Update active class
-            btn.closest('.bccf-toggle').querySelectorAll('button').forEach(function(b) {
+            toggleBtn.closest('.bccf-toggle').querySelectorAll('button').forEach(function(b) {
                 b.classList.toggle('active', b.dataset.value === newMode);
             });
             var newUrl = swapModeUrl(_lastDataUrl, newMode);
@@ -508,15 +524,12 @@ define([
             return;
         }
 
-        if (action === 'export-csv') {
-            toast('info', 'Export coming soon');
-            console.log('CSV export not implemented');
-            return;
-        }
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        var action = btn.dataset.action;
 
-        if (action === 'export-pdf') {
-            toast('info', 'Export coming soon');
-            console.log('PDF export not implemented');
+        if (action === 'refresh') {
+            loadData(_lastDataUrl);
             return;
         }
 

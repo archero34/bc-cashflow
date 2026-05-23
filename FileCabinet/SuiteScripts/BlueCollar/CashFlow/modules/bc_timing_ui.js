@@ -166,6 +166,10 @@ define([
 @keyframes bccf-rebalanced-fade { from { background-color: #d1fae5; } to { background-color: transparent; } }
 .bccf-rebalanced td { animation: bccf-rebalanced-fade 1.5s ease forwards; }
 
+/* Skeleton shimmer rows — shown during save AJAX */
+@keyframes bccf-skel-shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+.bccf-skel { display: inline-block; border-radius: 4px; background: linear-gradient(90deg, var(--bccf-bg-100) 25%, var(--bccf-bg-50) 50%, var(--bccf-bg-100) 75%); background-size: 400px 100%; animation: bccf-skel-shimmer 1.2s ease-in-out infinite; }
+
 /* Field block (calculator + filter inputs) */
 .bccf-field { display: flex; flex-direction: column; gap: 4px; }
 .bccf-field label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; }
@@ -2086,6 +2090,66 @@ ${getBaseStyles()}
             if (savingTextEl) savingTextEl.textContent = 'Saving...';
         }
 
+        // Skeleton: find the active (visible) section tbody and replace its rows with
+        // shimmer placeholders so the user has an immediate in-grid visual signal.
+        // We skeleton all rows (dirty tracking is boolean per section, not per row).
+        var _skelWidths = [60, 80, 70, 90, 65, 75, 55, 85];
+        var _skelTbodies = {}; // keyed by sectionId -> { el, backup, lines, sourceAmount }
+
+        function _buildSkelTbody(sectionId, linesForSection) {
+            var el = document.getElementById(sectionId + '_tbody');
+            if (!el) return;
+            var rowCount = el.children.length;
+            if (rowCount === 0) return;
+            var colCount = el.firstElementChild ? el.firstElementChild.children.length : 8;
+            var backup = el.innerHTML;
+            _skelTbodies[sectionId] = {
+                el: el,
+                backup: backup,
+                lines: linesForSection,
+                sourceAmount: getSourceAmount(sectionId)
+            };
+            var skelHTML = '';
+            for (var sr = 0; sr < rowCount; sr++) {
+                skelHTML += '<tr>';
+                for (var sc = 0; sc < colCount; sc++) {
+                    var w = _skelWidths[(sr + sc) % _skelWidths.length];
+                    skelHTML += '<td><span class="bccf-skel" style="width:' + w + 'px;height:12px"></span></td>';
+                }
+                skelHTML += '</tr>';
+            }
+            el.innerHTML = skelHTML;
+        }
+
+        // Apply skeleton to whichever section(s) we are saving.
+        // Prefer only the visible (active) section; if both are saving, cover both.
+        if (cashFlowLines.length > 0 && accrualLines.length > 0) {
+            _buildSkelTbody(_cfId, cashFlowLines);
+            _buildSkelTbody(_acId, accrualLines);
+        } else if (cashFlowLines.length > 0) {
+            _buildSkelTbody(_cfId, cashFlowLines);
+        } else if (accrualLines.length > 0) {
+            _buildSkelTbody(_acId, accrualLines);
+        }
+
+        function _restoreFromSkel(success) {
+            var ids = Object.keys(_skelTbodies);
+            for (var si = 0; si < ids.length; si++) {
+                var sid = ids[si];
+                var info = _skelTbodies[sid];
+                if (!info || !info.el) continue;
+                if (success) {
+                    // Restore from the collected lines so typed values reappear,
+                    // then recalculate to refresh cumulative/tfoot/badge.
+                    populateGrid(sid, info.lines, info.sourceAmount);
+                    bcTiming.recalculate(sid);
+                } else {
+                    // On failure restore backup HTML so the user does not lose their edits.
+                    info.el.innerHTML = info.backup;
+                }
+            }
+        }
+
         var completed = 0;
         var failed = false;
 
@@ -2095,7 +2159,9 @@ ${getBaseStyles()}
 
             if (completed < requests.length) return;
 
-            // All requests finished
+            // All requests finished — restore grid rows first, then update status.
+            _restoreFromSkel(!failed);
+
             if (saveBtn) saveBtn.disabled = false;
 
             if (!failed) {

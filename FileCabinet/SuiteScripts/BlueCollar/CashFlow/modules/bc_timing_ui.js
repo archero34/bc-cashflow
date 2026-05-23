@@ -208,7 +208,7 @@ define([
         const remClass = remainingAmount <= 0 ? 'green' : (remainingPct > 50 ? 'red' : 'gold');
 
         return `
-<div style="display:flex;gap:12px;padding:16px 18px;overflow-x:auto;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
     <div class="bccf-kpi">
         <div class="bccf-k">${esc(label || 'Total Amount')}</div>
         <div class="bccf-v">${esc(fmtCurrency(totalAmount))}</div>
@@ -1074,7 +1074,7 @@ ${getBaseStyles()}
         var pctClass = isPctComplete ? 'green' : '';
         var remClass = remainingAmt <= 0 ? 'green' : (remainingPct > 50 ? 'red' : 'gold');
 
-        kpiContainer.innerHTML = '<div style="display:flex;gap:12px;padding:16px 18px;overflow-x:auto;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">'
+        kpiContainer.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">'
             + '<div class="bccf-kpi"><div class="bccf-k">Total Amount</div><div class="bccf-v">' + bcTiming.formatCurrency(sourceAmount) + '</div></div>'
             + '<div class="bccf-kpi"><div class="bccf-k">Scheduled</div><div class="bccf-v' + (pctClass ? ' accent' : '') + '">' + bcTiming.formatCurrency(scheduledAmt) + '</div><div class="bccf-sub">' + bcTiming.formatPercent(scheduledPct) + '</div></div>'
             + '<div class="bccf-kpi"><div class="bccf-k">Remaining</div><div class="bccf-v">' + bcTiming.formatCurrency(remainingAmt) + '</div><div class="bccf-sub">' + bcTiming.formatPercent(remainingPct) + '</div></div>'

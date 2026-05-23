@@ -175,6 +175,51 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    // ── Date range helpers ────────────────────────────────────────────────────
+
+    const _YYYYMM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+    /** Strict YYYY-MM format check. */
+    const _validateYYYYMM = (s) => typeof s === 'string' && _YYYYMM_RE.test(s);
+
+    /**
+     * Add N months (positive or negative) to a YYYY-MM string.
+     * Uses UTC Date math to avoid timezone drift on month boundaries.
+     */
+    const _addMonths = (yyyymm, n) => {
+        const parts = yyyymm.split('-');
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = new Date(Date.UTC(y, (m - 1) + n, 1));
+        const ny = d.getUTCFullYear();
+        const nm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        return ny + '-' + nm;
+    };
+
+    /**
+     * Inclusive month count between two YYYY-MM strings (start <= end assumed).
+     * monthsBetween('2026-01', '2026-12') → 12
+     * monthsBetween('2026-05', '2026-05') → 1
+     */
+    const _monthsBetween = (start, end) => {
+        const [sy, sm] = start.split('-').map(Number);
+        const [ey, em] = end.split('-').map(Number);
+        return (ey - sy) * 12 + (em - sm) + 1;
+    };
+
+    /**
+     * Default rolling window per spec D1: current month -3 → current month +8 = 12 months inclusive.
+     * Example: today May 2026 → { startPeriod: '2026-02', endPeriod: '2027-01' }.
+     */
+    const _defaultRange = () => {
+        const now = new Date();
+        const curYYYYMM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        return {
+            startPeriod: _addMonths(curYYYYMM, -3),
+            endPeriod:   _addMonths(curYYYYMM, 8)
+        };
+    };
+
     /** 'YYYY-MM' → 'Apr 2026' */
     const _periodLabel = (yyyymm) => {
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -463,7 +508,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
 
     // Single exports object — `onRequest` dispatches through it so Jest spies work in tests
     // AND NetSuite's AMD runtime loads it cleanly (no `module.exports` reference needed).
-    const api = { _loadCombined, _loadCost, _loadRevenue };
+    const api = {
+        _loadCombined, _loadCost, _loadRevenue,
+        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange
+    };
     api.onRequest = onRequest;
     return api;
 });

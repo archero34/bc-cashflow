@@ -124,3 +124,41 @@ describe('bc_cf_data_sl revenue action shape', () => {
         expect(body.kpis).toHaveProperty('peakMonth');
     });
 });
+
+describe('bc_cf_data_sl YYYY-MM helpers', () => {
+    it('_validateYYYYMM accepts well-formed', () => {
+        expect(Suitelet._validateYYYYMM('2026-01')).toBe(true);
+        expect(Suitelet._validateYYYYMM('2026-12')).toBe(true);
+    });
+    it('_validateYYYYMM rejects malformed', () => {
+        expect(Suitelet._validateYYYYMM('2026-13')).toBe(false);
+        expect(Suitelet._validateYYYYMM('2026-00')).toBe(false);
+        expect(Suitelet._validateYYYYMM('26-01')).toBe(false);
+        expect(Suitelet._validateYYYYMM('2026-1')).toBe(false);
+        expect(Suitelet._validateYYYYMM('2026/01')).toBe(false);
+        expect(Suitelet._validateYYYYMM('')).toBe(false);
+        expect(Suitelet._validateYYYYMM(null)).toBe(false);
+        expect(Suitelet._validateYYYYMM(undefined)).toBe(false);
+    });
+    it('_addMonths handles forward and backward rollover', () => {
+        expect(Suitelet._addMonths('2026-05', 0)).toBe('2026-05');
+        expect(Suitelet._addMonths('2026-05', 1)).toBe('2026-06');
+        expect(Suitelet._addMonths('2026-05', -3)).toBe('2026-02');
+        expect(Suitelet._addMonths('2026-05', 11)).toBe('2027-04');
+        expect(Suitelet._addMonths('2026-01', -1)).toBe('2025-12');
+        expect(Suitelet._addMonths('2026-12', 1)).toBe('2027-01');
+    });
+    it('_monthsBetween is inclusive', () => {
+        expect(Suitelet._monthsBetween('2026-05', '2026-05')).toBe(1);
+        expect(Suitelet._monthsBetween('2026-01', '2026-12')).toBe(12);
+        expect(Suitelet._monthsBetween('2026-02', '2027-01')).toBe(12);
+        expect(Suitelet._monthsBetween('2026-01', '2027-12')).toBe(24);
+        expect(Suitelet._monthsBetween('2026-01', '2028-01')).toBe(25);
+    });
+    it('_defaultRange returns 12-month window centered −3 / +8 around current month', () => {
+        const r = Suitelet._defaultRange();
+        expect(r.startPeriod).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/);
+        expect(r.endPeriod).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/);
+        expect(Suitelet._monthsBetween(r.startPeriod, r.endPeriod)).toBe(12);
+    });
+});

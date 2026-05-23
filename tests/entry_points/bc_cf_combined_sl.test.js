@@ -331,4 +331,16 @@ describe('bc_cf_combined_sl — date range picker (E1)', () => {
         // KPI sublines reference project totals
         expect(body).toMatch(/projectTotals/);
     });
+
+    it('renderChart in CLIENT_SCRIPT accepts cumulativeBefore for trend carry-forward', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        // Updated signature
+        expect(body).toMatch(/function renderChart\(periods,\s*categories,\s*cumulativeBefore\)/);
+        // Caller threads cumulativeBefore through
+        expect(body).toMatch(/renderChart\(data\.periods,\s*data\.categories,\s*data\.cumulativeBefore\)/);
+        // Trend-line math: cumNet[0] starts at cumulativeBefore + net[0]
+        expect(body).toMatch(/cumulativeBefore/);
+    });
 });

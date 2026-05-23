@@ -359,7 +359,7 @@ define([
      * Heights normalized to largest single-bar amount in the dataset.
      * Spec §3.8.
      */
-    function renderChart(periods, categories) {
+    function renderChart(periods, categories, cumulativeBefore) {
         var revTotal = categories.revenue.total;
         var costTotal = categories.cost.total;
         var BAR_MAX_H = 140; // px
@@ -411,7 +411,12 @@ define([
 
         // ── Cumulative net trend line ────────────────────────────────────────
         var net = periods.map(function(_, i) { return (revTotal[i] || 0) - (costTotal[i] || 0); });
-        var cumNet = net.reduce(function(acc, n) { acc.push((acc[acc.length - 1] || 0) + n); return acc; }, []);
+        var carry = Number(cumulativeBefore) || 0;
+        var cumNet = net.reduce(function(acc, n) {
+            var prev = acc.length === 0 ? carry : acc[acc.length - 1];
+            acc.push(prev + n);
+            return acc;
+        }, []);
         var cumMax = Math.max(0, Math.max.apply(null, cumNet));
         var cumMin = Math.min(0, Math.min.apply(null, cumNet));
         var cumRange = (cumMax - cumMin) || 1;
@@ -649,7 +654,7 @@ define([
                 if (kpiEl) kpiEl.innerHTML = renderKpis(data.kpis, data.projectTotals);
 
                 var chartEl = document.getElementById('bccf-chart');
-                if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.categories);
+                if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.categories, data.cumulativeBefore);
 
                 var tableEl = document.getElementById('bccf-table');
                 if (tableEl) tableEl.innerHTML = renderTable(data.periods, data.categories);

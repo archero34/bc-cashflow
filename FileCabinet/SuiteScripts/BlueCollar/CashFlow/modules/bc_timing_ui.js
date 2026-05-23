@@ -963,12 +963,12 @@ ${getBaseStyles()}
             var cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
             cancelBtn.className = 'bccf-btn';
-            cancelBtn.textContent = 'Cancel';
+            cancelBtn.textContent = opts.cancelLabel || 'Cancel';
 
             var confirmBtn = document.createElement('button');
             confirmBtn.type = 'button';
             confirmBtn.className = 'bccf-btn bccf-btn-pri';
-            confirmBtn.textContent = 'Confirm';
+            confirmBtn.textContent = opts.confirmLabel || 'Confirm';
 
             actions.appendChild(cancelBtn);
             actions.appendChild(confirmBtn);
@@ -1999,7 +1999,7 @@ ${getBaseStyles()}
     /**
      * Collect all line data from both sections and POST to the Suitelet endpoint.
      */
-    bcTiming.save = function(transactionId, transactionType, rootId, cfSectionId, acSectionId, saveBtnId, saveStatusId) {
+    bcTiming.save = async function(transactionId, transactionType, rootId, cfSectionId, acSectionId, saveBtnId, saveStatusId) {
         // Support scoped IDs for multi-pane layouts (CO pages).
         // Fall back to legacy hardcoded IDs for backward compatibility.
         var _rootId = rootId || 'bc_cf_root';
@@ -2035,16 +2035,24 @@ ${getBaseStyles()}
             acPctTotal += (accrualLines[j].percentage || 0);
         }
 
-        // Warn if not balanced, but allow save
+        // Warn if not balanced, but allow save — use the project's confirmDialog modal, not native confirm()
         if (cashFlowLines.length > 0 && Math.abs(cfPctTotal - 100) > 0.1) {
-            if (!confirm('Cash Flow schedule is not balanced (' + bcTiming.formatPercent(cfPctTotal) + '). Save anyway?')) {
-                return;
-            }
+            var cfOk = await confirmDialog({
+                headline: 'Cash Flow schedule is not balanced',
+                body: 'The Cash Flow schedule totals ' + bcTiming.formatPercent(cfPctTotal) + ' (should be 100%). Save anyway?',
+                confirmLabel: 'Save anyway',
+                cancelLabel: 'Cancel'
+            });
+            if (!cfOk) return;
         }
         if (accrualLines.length > 0 && Math.abs(acPctTotal - 100) > 0.1) {
-            if (!confirm('Accrual schedule is not balanced (' + bcTiming.formatPercent(acPctTotal) + '). Save anyway?')) {
-                return;
-            }
+            var acOk = await confirmDialog({
+                headline: 'Accrual schedule is not balanced',
+                body: 'The Accrual schedule totals ' + bcTiming.formatPercent(acPctTotal) + ' (should be 100%). Save anyway?',
+                confirmLabel: 'Save anyway',
+                cancelLabel: 'Cancel'
+            });
+            if (!acOk) return;
         }
 
         // Build individual save requests per timing type (matches Suitelet 'save' action)

@@ -513,7 +513,7 @@ function switchView(val) {
         const src = sourceMap && sourceMap[name];
         if (!src || !src.source_id) return esc(name);
         const url = src.source_type === 'cr'
-            ? '/app/common/custom/custrecordentry.nl?rectype=495&id=' + src.source_id
+            ? '/app/common/custom/custrecordentry.nl?rectype=customrecord_bc_change_req&id=' + src.source_id
             : '/app/accounting/transactions/transaction.nl?id=' + src.source_id;
         return `<a class="drill" href="${url}" target="_top">${esc(name)}</a>`;
     };

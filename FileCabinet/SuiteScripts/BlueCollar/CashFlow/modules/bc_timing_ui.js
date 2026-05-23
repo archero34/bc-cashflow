@@ -2065,7 +2065,7 @@ ${getBaseStyles()}
                 transactionId: transactionId,
                 projectId: projectId,
                 lines: cashFlowLines,
-                timingType: 1,
+                timingType: ${TIMING_TYPE.CASH_FLOW.id},
                 sourceGroup: Number(sourceGroup) || 0,
                 changeOrderId: changeOrderId || null
             });
@@ -2077,7 +2077,7 @@ ${getBaseStyles()}
                 transactionId: transactionId,
                 projectId: projectId,
                 lines: accrualLines,
-                timingType: 2,
+                timingType: ${TIMING_TYPE.ACCRUAL.id},
                 sourceGroup: Number(sourceGroup) || 0,
                 changeOrderId: changeOrderId || null
             });

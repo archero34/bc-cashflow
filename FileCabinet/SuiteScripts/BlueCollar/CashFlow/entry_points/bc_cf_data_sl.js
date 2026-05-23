@@ -9,7 +9,7 @@
  * Returns `{ ok: true, periods, categories, kpis, ... }` or `{ ok: false, error }`.
  * Spec §3.1 architecture; §3.16 loading.
  */
-define(['N/log', 'N/query'], function (log, query) {
+define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, query, Constants) {
 
     const MODULE = 'bc_cf_data_sl';
 
@@ -20,7 +20,9 @@ define(['N/log', 'N/query'], function (log, query) {
      *   'cash'    → 1  (TIMING_TYPE.CASH_FLOW.id)
      *   'accrual' → 2  (TIMING_TYPE.ACCRUAL.id)
      */
-    const modeToTimingType = (mode) => (mode === 'accrual' ? 2 : 1);
+    const modeToTimingType = (mode) => (
+        mode === 'accrual' ? Constants.TIMING_TYPE.ACCRUAL.id : Constants.TIMING_TYPE.CASH_FLOW.id
+    );
 
     /**
      * Forecast-only cost query: cost timing lines only.

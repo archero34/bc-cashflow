@@ -785,7 +785,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     // AND NetSuite's AMD runtime loads it cleanly (no `module.exports` reference needed).
     const api = {
         _loadCombined, _loadCost, _loadRevenue,
-        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange
+        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange,
+        _pivotDirection
     };
     api.onRequest = onRequest;
     return api;

@@ -345,3 +345,13 @@ describe('bc_cf_data_sl YYYY-MM helpers', () => {
         expect(r.ok).toBe(true);
     });
 });
+
+describe('bc_cf_data_sl _pivotDirection', () => {
+    it('is exported on api', () => {
+        expect(typeof Suitelet._pivotDirection).toBe('function');
+    });
+    it('returns the expected shape with no rows', () => {
+        const result = Suitelet._pivotDirection([], ['2026-04', '2026-05'], null);
+        expect(result).toEqual({ lines: [], total: [0, 0], grandTotal: 0 });
+    });
+});

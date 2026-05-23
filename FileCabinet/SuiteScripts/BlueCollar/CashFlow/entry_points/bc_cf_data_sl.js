@@ -496,10 +496,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         }
         const cumulativeBefore = (Number(cumRow.rev_total) || 0) - (Number(cumRow.cost_total) || 0);
 
-        // ── Existing in-range pivot below ──
-        const periodsSet = new Set();
-        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
-        const periods = Array.from(periodsSet).sort();
+        // Build full period list from the range so months with no data still render as $0 columns.
+        const periods = [];
+        let _p = startPeriod;
+        while (_p <= endPeriod) { periods.push(_p); _p = _addMonths(_p, 1); }
 
         const revRows  = rows.filter((r) => r.flow_direction === 'Revenue');
         const costRows = rows.filter((r) => r.flow_direction === 'Cost');
@@ -583,10 +583,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         }
         const projectTotals = { cost: Number(totalRow.total_amount) || 0 };
 
-        // ── Existing in-range pivot below ──
-        const periodsSet = new Set();
-        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
-        const periods = Array.from(periodsSet).sort();
+        // Build full period list from the range so months with no data still render as $0 columns.
+        const periods = [];
+        let _p = startPeriod;
+        while (_p <= endPeriod) { periods.push(_p); _p = _addMonths(_p, 1); }
 
         const cost = _pivotDirection(rows, periods, null);
 
@@ -679,10 +679,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         }
         const projectTotals = { revenue: Number(totalRow.total_amount) || 0 };
 
-        // ── Existing in-range pivot below ──
-        const periodsSet = new Set();
-        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
-        const periods = Array.from(periodsSet).sort();
+        // Build full period list from the range so months with no data still render as $0 columns.
+        const periods = [];
+        let _p = startPeriod;
+        while (_p <= endPeriod) { periods.push(_p); _p = _addMonths(_p, 1); }
 
         const revenue = _pivotDirection(rows, periods, 'Base Bid');
 

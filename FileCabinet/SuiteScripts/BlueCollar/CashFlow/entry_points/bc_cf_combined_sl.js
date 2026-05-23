@@ -393,8 +393,8 @@ define([
             var costH = barH(cost);
 
             return '<div class="' + (isNow ? 'now' : '') + '" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:48px;' + haloStyle + '">'
-                // Net amount label above bars
-                + '<div style="font-size:11px;font-weight:600;color:' + netColor + ';margin-bottom:4px;white-space:nowrap;font-variant-numeric:tabular-nums">'
+                // Net amount label above bars — background + z-index so the trend line/dot don't bisect the text.
+                + '<div style="font-size:11px;font-weight:600;color:' + netColor + ';margin-bottom:4px;white-space:nowrap;font-variant-numeric:tabular-nums;position:relative;z-index:2;background:var(--bccf-surface);padding:1px 4px;border-radius:3px">'
                     + esc(netLabel)
                 + '</div>'
                 // Paired bars — hover via .bccf-bar:hover CSS rule (spec §3.8: CSS-only, no JS)
@@ -443,10 +443,10 @@ define([
             + '<span style="display:inline-flex;align-items:center;gap:6px"><svg width="18" height="6" viewBox="0 0 18 6" style="display:block"><line x1="0" y1="3" x2="18" y2="3" stroke="var(--bccf-success-500)" stroke-width="2" /><circle cx="9" cy="3" r="1.6" fill="var(--bccf-success-500)" /></svg>Cumulative Net</span>'
         + '</div>';
 
-        var headerHtml = '<div style="display:flex;align-items:center;justify-content:space-between">'
-            + '<div style="font-weight:600">Monthly cash flow</div>'
-            + legend
-        + '</div>';
+        // .bccf-panel-header is already display:flex / justify-content:space-between, so just emit
+        // the title and legend as siblings — wrapping them in an inner flex container shrinks to
+        // content width and crowds them together.
+        var headerHtml = '<div style="font-weight:600">Monthly cash flow</div>' + legend;
 
         var barsHtml = '<div style="position:relative">'
             + '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">'
@@ -855,6 +855,13 @@ define([
             });
             var newUrl = swapModeUrl(_lastDataUrl, newMode);
             loadData(newUrl);
+            // Sync the iframe's own URL bar so the picker's Apply (which reads window.location.href)
+            // preserves the active mode across the reload.
+            try {
+                var iframeUrl = new URL(window.location.href);
+                iframeUrl.searchParams.set('mode', newMode);
+                history.replaceState(null, '', iframeUrl.toString());
+            } catch (err) { /* iframe history may be restricted; non-fatal */ }
             return;
         }
 

@@ -382,9 +382,8 @@ define([
             var haloStyle = isNow
                 ? 'background:var(--bccf-brand-50);border-radius:6px;padding:4px 6px 6px;'
                 : '';
-            var monthLabel = isNow
-                ? '<span style="font-weight:700;color:var(--bccf-brand-500)">&#9650; ' + esc(label) + '</span>'
-                : '<span>' + esc(label) + '</span>';
+            // Current-month signal is the brand-50 halo behind the column; no caret/bold needed.
+            var monthLabel = '<span>' + esc(label) + '</span>';
 
             var revH  = barH(rev);
             var costH = barH(cost);
@@ -421,7 +420,7 @@ define([
         // Native title attribute is unreliable inside NetSuite iframes; CSS hover is immediate.
         var dotsHtml = trendPoints.map(function(p) {
             var color = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-            var tip = p.label + ': ' + fmtCurrency(p.value) + ' cumulative';
+            var tip = fmtCurrency(p.value);
             return '<span class="bccf-trend-dot" data-tip="' + esc(tip) + '" style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);"></span>';
         }).join('');
         // Final-period cumulative label removed — Net Cash Flow KPI already surfaces this value.

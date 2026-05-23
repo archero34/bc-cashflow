@@ -97,7 +97,7 @@ define([
                 const suiteletUrl = resolveSuiteletUrl(
                     report.scriptId,
                     report.deploymentId,
-                    { projectId, timingType: 1 }
+                    { projectId, mode: 'cash' }
                 );
 
                 field.defaultValue = buildReportIframe(suiteletUrl, report.title);

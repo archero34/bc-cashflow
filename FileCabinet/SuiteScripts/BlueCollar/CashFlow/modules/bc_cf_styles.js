@@ -1,0 +1,150 @@
+/**
+ * @NApiVersion 2.1
+ * @NModuleScope Public
+ *
+ * Shared design tokens + primitive CSS for all BC Cash Flow surfaces.
+ * Imported by every report Suitelet shell and the schedule editor.
+ * Spec: docs/superpowers/specs/2026-05-22-cashflow-ui-redesign-design.md §3.1 / §3.15
+ */
+define([], function () {
+
+    const TOKENS = `
+        :root {
+            /* Backgrounds */
+            --bccf-bg-50: #f7f8fa;
+            --bccf-bg-100: #eef0f4;
+            --bccf-surface: #ffffff;
+            --bccf-border: #e2e6ec;
+            /* Ink */
+            --bccf-ink-500: #5b6472;
+            --bccf-ink-700: #2f3742;
+            --bccf-ink-900: #121821;
+            /* Brand */
+            --bccf-brand-500: #1f3b5e;
+            --bccf-brand-600: #16304d;
+            --bccf-brand-50: #eaeef4;
+            /* Status */
+            --bccf-success-500: #1f9d55;
+            --bccf-success-50: #e7f6ec;
+            --bccf-warn-500: #c97a0b;
+            --bccf-warn-50: #fdf4e3;
+            --bccf-danger-500: #c2361d;
+            --bccf-danger-50: #fbeceb;
+            /* Cost identity */
+            --bccf-cost-500: #f97316;
+            --bccf-cost-50:  #fff7ed;
+            /* Type scale */
+            --bccf-text-xs: 12px;
+            --bccf-text-sm: 13px;
+            --bccf-text-base: 14px;
+            --bccf-text-lg: 16px;
+            --bccf-text-xl: 20px;
+            --bccf-text-2xl: 26px;
+            /* Spacing */
+            --bccf-s-1: 4px;  --bccf-s-2: 8px;  --bccf-s-3: 12px;
+            --bccf-s-4: 16px; --bccf-s-5: 20px; --bccf-s-6: 24px; --bccf-s-8: 32px;
+            /* Radius */
+            --bccf-r-sm: 4px; --bccf-r-md: 6px; --bccf-r-lg: 10px; --bccf-r-full: 999px;
+            /* Shadow + motion */
+            --bccf-shadow-1: 0 1px 2px rgba(18,24,33,.04), 0 1px 1px rgba(18,24,33,.02);
+            --bccf-shadow-2: 0 -4px 12px rgba(18,24,33,.04);
+            --bccf-t-fast: 120ms;
+        }
+        body { font-family: "Inter", "Inter Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; color: var(--bccf-ink-900); background: var(--bccf-bg-50); color-scheme: light; }
+    `;
+
+    const PRIMITIVES = `
+        /* Panel */
+        .bccf-panel { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); box-shadow: var(--bccf-shadow-1); }
+        .bccf-panel-header { padding: 14px 18px; border-bottom: 1px solid var(--bccf-border); display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+        .bccf-panel-body { padding: 14px 18px; }
+        .bccf-panel-footer { padding: 12px 18px; background: var(--bccf-bg-50); border-top: 1px solid var(--bccf-border); display: flex; justify-content: flex-end; gap: 8px; }
+
+        /* Buttons */
+        .bccf-btn { font-size: var(--bccf-text-sm); background: var(--bccf-surface); border: 1px solid var(--bccf-border); padding: 7px 14px; border-radius: var(--bccf-r-md); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; transition: box-shadow var(--bccf-t-fast); }
+        .bccf-btn:hover { box-shadow: var(--bccf-shadow-1); }
+        .bccf-btn-pri { background: var(--bccf-brand-500); color: #fff; border-color: var(--bccf-brand-500); }
+        .bccf-btn-pri:hover { background: var(--bccf-brand-600); }
+        .bccf-btn-ghost { background: transparent; border-color: transparent; color: var(--bccf-brand-500); }
+        .bccf-btn-danger-ghost { background: transparent; border-color: transparent; color: var(--bccf-danger-500); padding: 4px 8px; min-height: 0; }
+        .bccf-btn-sm { min-height: 28px; padding: 4px 10px; font-size: var(--bccf-text-xs); }
+        .bccf-add-row-btn { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: transparent; border: 1px dashed var(--bccf-border); color: var(--bccf-ink-500); border-radius: var(--bccf-r-md); font-size: var(--bccf-text-sm); font-weight: 500; cursor: pointer; }
+        .bccf-add-row-btn:hover { background: var(--bccf-bg-50); color: var(--bccf-brand-500); border-color: var(--bccf-brand-500); }
+
+        /* Toggle / segmented control */
+        .bccf-toggle { background: var(--bccf-bg-50); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-full); padding: 3px; display: inline-flex; gap: 2px; }
+        .bccf-toggle button { font-size: var(--bccf-text-xs); padding: 4px 12px; border-radius: var(--bccf-r-full); color: var(--bccf-ink-500); border: 0; background: transparent; font-weight: 500; cursor: pointer; }
+        .bccf-toggle button.active { background: var(--bccf-brand-500); color: #fff; }
+        .bccf-pane-toggle { display: inline-flex; padding: 3px; background: var(--bccf-bg-100); border-radius: var(--bccf-r-full); }
+        .bccf-pane-toggle button { font-size: var(--bccf-text-sm); padding: 6px 16px; border-radius: var(--bccf-r-full); background: transparent; border: 0; color: var(--bccf-ink-500); font-weight: 500; cursor: pointer; }
+        .bccf-pane-toggle button.active.contract { background: var(--bccf-brand-500); color: #fff; }
+        .bccf-pane-toggle button.active.estimate { background: var(--bccf-ink-700); color: #fff; }
+
+        /* Tabs (underline) */
+        .bccf-tabs { display: flex; gap: 4px; padding: 0 18px; border-bottom: 1px solid var(--bccf-border); background: var(--bccf-surface); }
+        .bccf-tabs a { padding: 12px 14px; font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; cursor: pointer; }
+        .bccf-tabs a.active.cashflow, .bccf-tabs a.active.brand { color: var(--bccf-brand-500); border-bottom-color: var(--bccf-brand-500); }
+        .bccf-tabs a.active.accrual { color: var(--bccf-ink-700); border-bottom-color: var(--bccf-ink-500); }
+
+        /* KPI card */
+        .bccf-kpi { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 14px 16px; }
+        .bccf-kpi .bccf-k { font-size: var(--bccf-text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-ink-500); font-weight: 500; }
+        .bccf-kpi .bccf-v { font-size: var(--bccf-text-2xl); font-weight: 600; color: var(--bccf-ink-900); letter-spacing: -0.01em; margin-top: 4px; line-height: 1; }
+        .bccf-kpi .bccf-sub { font-size: var(--bccf-text-xs); color: var(--bccf-ink-500); margin-top: 6px; }
+        .bccf-kpi.accent .bccf-v { color: var(--bccf-brand-500); }
+
+        /* Badge */
+        .bccf-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: var(--bccf-r-full); }
+        .bccf-badge.success { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+        .bccf-badge.warn { background: var(--bccf-warn-50); color: var(--bccf-warn-500); }
+        .bccf-badge.danger { background: var(--bccf-danger-50); color: var(--bccf-danger-500); }
+        .bccf-badge.brand { background: var(--bccf-brand-50); color: var(--bccf-brand-500); }
+        .bccf-badge.neutral { background: var(--bccf-bg-100); color: var(--bccf-ink-700); }
+
+        /* Inputs */
+        .bccf-input, .bccf-select, .bccf-date { font-size: var(--bccf-text-sm); padding: 7px 10px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); font-family: inherit; }
+        .bccf-input:focus, .bccf-select:focus, .bccf-date:focus { outline: 2px solid var(--bccf-brand-500); outline-offset: -1px; border-color: var(--bccf-brand-500); }
+        .bccf-input[readonly], .bccf-date[readonly] { background: var(--bccf-bg-100); color: var(--bccf-ink-700); cursor: default; }
+
+        /* Skeleton shimmer */
+        .bccf-skel { background: linear-gradient(90deg, #eef0f4 0%, #f7f8fa 50%, #eef0f4 100%); background-size: 200%; animation: bccf-shimmer 1.2s ease-in-out infinite; border-radius: var(--bccf-r-sm); display: inline-block; }
+        @keyframes bccf-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* Toast */
+        #bccf-toast-host { position: fixed; top: 16px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
+        .bccf-toast { background: var(--bccf-surface); border: 1px solid var(--bccf-border); box-shadow: var(--bccf-shadow-1); border-radius: var(--bccf-r-md); padding: 10px 14px; min-width: 320px; max-width: 440px; font-size: var(--bccf-text-sm); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; animation: bccf-toast-in 200ms ease-out; }
+        .bccf-toast.info { border-left: 4px solid var(--bccf-brand-500); }
+        .bccf-toast.warn { border-left: 4px solid var(--bccf-warn-500); }
+        .bccf-toast.danger { border-left: 4px solid var(--bccf-danger-500); }
+        .bccf-toast-close { background: transparent; border: 0; color: var(--bccf-ink-500); cursor: pointer; font-size: 14px; }
+        @keyframes bccf-toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* Modal / confirm */
+        .bccf-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,38,.55); display: flex; justify-content: center; padding-top: 60px; z-index: 100; }
+        .bccf-modal { background: var(--bccf-surface); border-radius: var(--bccf-r-lg); box-shadow: 0 16px 48px rgba(0,0,0,.18); max-width: 480px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+        .bccf-modal-headline-warn { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-warn-500); font-weight: 600; }
+        .bccf-modal-headline-danger { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-danger-500); font-weight: 600; }
+        .bccf-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* Error card */
+        .bccf-error-card { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-left: 4px solid var(--bccf-danger-500); border-radius: var(--bccf-r-md); padding: 14px 16px; margin: 12px 0; }
+        .bccf-error-card h4 { font-size: var(--bccf-text-base); color: var(--bccf-danger-500); margin: 0 0 6px; font-weight: 600; }
+        .bccf-error-card pre { font-size: 12px; color: var(--bccf-ink-700); white-space: pre-wrap; margin: 6px 0; }
+
+        /* Chart bar (used by report shell SLs to render KPI chart bars) */
+        .bccf-bar { width: 100%; border-radius: 3px 3px 0 0; transition: opacity var(--bccf-t-fast); cursor: default; }
+        .bccf-bar:hover { opacity: .85; }
+        .bccf-bar.revenue { background: var(--bccf-brand-500); }
+        .bccf-bar.cost { background: var(--bccf-cost-500); }
+
+        /* Title pill */
+        .bccf-title-pill { display: inline-flex; align-items: center; background: var(--bccf-brand-50); color: var(--bccf-brand-500); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--bccf-r-full); }
+    `;
+
+    /**
+     * @returns {string} A `<style>` block containing all BC Cash Flow tokens + primitives.
+     */
+    const getStyles = () => `<style>${TOKENS}${PRIMITIVES}</style>`;
+
+    return { getStyles };
+});

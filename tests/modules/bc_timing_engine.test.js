@@ -7,97 +7,6 @@ beforeEach(() => jest.clearAllMocks());
 
 describe('bc_timing_engine', () => {
 
-    // ─── applyTemplate ────────────────────────────────────────────────────────
-
-    describe('applyTemplate', () => {
-        it('generates correct lines for even_3 template', () => {
-            const lines = Engine.applyTemplate({
-                templateId: 'even_3',
-                startDate: new Date(2026, 3, 1),  // Apr 1, 2026
-                sourceAmount: 30000,
-                timingType: 1
-            });
-
-            expect(lines).toHaveLength(3);
-            expect(lines[0].periodDate.getMonth()).toBe(3);  // April
-            expect(lines[1].periodDate.getMonth()).toBe(4);  // May
-            expect(lines[2].periodDate.getMonth()).toBe(5);  // June
-        });
-
-        it('amounts sum to exactly sourceAmount (no rounding drift)', () => {
-            const lines = Engine.applyTemplate({
-                templateId: 'even_3',
-                startDate: new Date(2026, 0, 1),
-                sourceAmount: 10000,
-                timingType: 1
-            });
-
-            const totalAmt = lines.reduce((sum, l) => sum + l.amount, 0);
-            expect(totalAmt).toBe(10000);
-        });
-
-        it('handles odd amounts without drift', () => {
-            const lines = Engine.applyTemplate({
-                templateId: 'even_3',
-                startDate: new Date(2026, 0, 1),
-                sourceAmount: 99.99,
-                timingType: 1
-            });
-
-            const totalAmt = lines.reduce((sum, l) => sum + l.amount, 0);
-            expect(Math.round(totalAmt * 100) / 100).toBe(99.99);
-        });
-
-        it('sets source to Template (1)', () => {
-            const lines = Engine.applyTemplate({
-                templateId: 'milestone_2',
-                startDate: new Date(2026, 0, 1),
-                sourceAmount: 50000,
-                timingType: 1
-            });
-
-            lines.forEach(line => {
-                expect(line.source).toBe(1);
-            });
-        });
-
-        it('throws on unknown template', () => {
-            expect(() => {
-                Engine.applyTemplate({
-                    templateId: 'nonexistent',
-                    startDate: new Date(),
-                    sourceAmount: 1000,
-                    timingType: 1
-                });
-            }).toThrow('not found');
-        });
-
-        it('front_loaded_6 has decreasing amounts', () => {
-            const lines = Engine.applyTemplate({
-                templateId: 'front_loaded_6',
-                startDate: new Date(2026, 0, 1),
-                sourceAmount: 100000,
-                timingType: 1
-            });
-
-            expect(lines).toHaveLength(6);
-            expect(lines[0].amount).toBeGreaterThan(lines[5].amount);
-        });
-
-        it('milestone_deposit produces 25/75 split', () => {
-            const lines = Engine.applyTemplate({
-                templateId: 'milestone_deposit',
-                startDate: new Date(2026, 0, 1),
-                sourceAmount: 80000,
-                timingType: 1
-            });
-
-            expect(lines).toHaveLength(2);
-            expect(lines[0].amount).toBe(20000);
-            expect(lines[1].amount).toBe(60000);
-        });
-    });
-
     // ─── generateCustomSpread ─────────────────────────────────────────────────
 
     describe('generateCustomSpread', () => {
@@ -352,6 +261,56 @@ describe('bc_timing_engine', () => {
             expect(totalRevenue).toBe(42000);
             expect(totalCost).toBe(33000);
             expect(totalRevenue - totalCost).toBe(9000);
+        });
+    });
+
+    // ─── Math truth: onAmountChange must flow through recalculate ────────────
+    //
+    // The client-side `bcTiming.onAmountChange` was formerly an optimization that
+    // skipped `recalculate` and updated cumulatives + tfoot directly (git cf9382c).
+    // That caused tfoot and the validation badge to lag behind $ edits.
+    //
+    // The fix (T25-T27) routes ALL math-affecting events through a single canonical
+    // recalculate(sid) call.  The server-rendered HTML and the client buildRowHtml
+    // both wire the $ input to onAmountChange, which back-calculates %, then calls
+    // recalculate — never skipping it.
+    //
+    // This block asserts the ENGINE-side contract that backs the client math:
+    //   recalculateAmounts + recalculateCumulatives together produce the same
+    //   totalPct/totalAmt whether you started from % or from $ (the client
+    //   always syncs one from the other before calling recalculate).
+
+    describe('math truth — % and $ paths converge after recalculate', () => {
+        it('back-calculating % from $ then recalculating amounts matches direct % input', () => {
+            const sourceAmount = 15000;
+            // Simulates user typing $3000, $4500, $7500 (= 20/30/50% of $15K)
+            const amountEntries = [3000, 4500, 7500];
+            const linesFromAmt = amountEntries.map((amt) => ({
+                percentage: Math.round((amt / sourceAmount) * 100 * 100) / 100,
+                amount: amt,
+                cumulativePct: 0,
+                cumulativeAmt: 0
+            }));
+
+            // Simulates user typing 20%, 30%, 50% directly
+            const linesFromPct = [
+                { percentage: 20, amount: 0, cumulativePct: 0, cumulativeAmt: 0 },
+                { percentage: 30, amount: 0, cumulativePct: 0, cumulativeAmt: 0 },
+                { percentage: 50, amount: 0, cumulativePct: 0, cumulativeAmt: 0 }
+            ];
+            Engine.recalculateAmounts(linesFromPct, sourceAmount);
+
+            // After recalculateAmounts, both paths must produce identical totals
+            const totalAmtFromAmt = linesFromAmt.reduce((s, l) => s + l.amount, 0);
+            const totalAmtFromPct = linesFromPct.reduce((s, l) => s + l.amount, 0);
+            expect(totalAmtFromAmt).toBe(totalAmtFromPct);
+            expect(totalAmtFromAmt).toBe(sourceAmount);
+
+            // Cumulatives must also match
+            Engine.recalculateCumulatives(linesFromAmt);
+            Engine.recalculateCumulatives(linesFromPct);
+            expect(linesFromAmt[2].cumulativePct).toBe(linesFromPct[2].cumulativePct);
+            expect(linesFromAmt[2].cumulativeAmt).toBe(linesFromPct[2].cumulativeAmt);
         });
     });
 });

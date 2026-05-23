@@ -7,7 +7,7 @@
  */
 define(['N/log', './bc_timing_constants'], (log, Constants) => {
 
-    const { BUILT_IN_TEMPLATES, SOURCE, PERIOD_INTERVAL } = Constants;
+    const { SOURCE, PERIOD_INTERVAL } = Constants;
 
     const LOG_TITLE = 'BC_TimingEngine';
 
@@ -121,35 +121,6 @@ define(['N/log', './bc_timing_constants'], (log, Constants) => {
     // ─── Core Public API ────────────────────────────────────────────────────────
 
     /**
-     * Apply a built-in template to produce timing lines.
-     *
-     * @param {Object} options
-     * @param {string} options.templateId   - e.g. 'even_6', 'front_loaded_6'
-     * @param {Date}   options.startDate    - first period date
-     * @param {number} options.sourceAmount - total dollars to spread
-     * @param {number} options.timingType   - 1 (Cash Flow) or 2 (Accrual)
-     * @returns {Object[]} timing line array
-     * @throws {Error} if templateId is not found
-     */
-    const applyTemplate = ({ templateId, startDate, sourceAmount, timingType }) => {
-        const template = BUILT_IN_TEMPLATES.find((t) => t.id === templateId);
-        if (!template) {
-            throw new Error(`${LOG_TITLE} | applyTemplate: template "${templateId}" not found`);
-        }
-
-        log.debug(LOG_TITLE, `Applying template "${template.name}" | amount=${sourceAmount} | type=${timingType}`);
-
-        return buildLines({
-            periods:      template.periods,
-            startDate,
-            sourceAmount,
-            intervalId:   template.interval,
-            sourceId:     SOURCE.TEMPLATE.id,
-            templateName: template.name
-        });
-    };
-
-    /**
      * Generate timing lines from a manual array of percentages.
      *
      * @param {Object}   options
@@ -232,7 +203,6 @@ define(['N/log', './bc_timing_constants'], (log, Constants) => {
     // ─── Module Return ──────────────────────────────────────────────────────────
 
     return {
-        applyTemplate,
         generateCustomSpread,
         validateTimingLines,
         recalculateAmounts,

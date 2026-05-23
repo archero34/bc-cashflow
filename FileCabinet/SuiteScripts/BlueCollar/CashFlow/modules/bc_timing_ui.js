@@ -5,9 +5,13 @@
  *              Generates inline HTML/CSS/JS for injection into NetSuite
  *              record subtabs via UserEvent scripts.
  */
-define(['./bc_timing_constants'], (Constants) => {
+define([
+    './bc_timing_constants',
+    './bc_cf_styles',
+    './bc_cf_ui',
+], (Constants, Styles, UI) => {
 
-    const { BRAND, BUILT_IN_TEMPLATES, TIMING_TYPE, PERIOD_INTERVAL } = Constants;
+    const { BRAND, TIMING_TYPE, PERIOD_INTERVAL } = Constants;
 
     // =========================================================================
     //  Utility Helpers
@@ -85,607 +89,132 @@ define(['./bc_timing_constants'], (Constants) => {
      * @returns {string}
      */
     const getBaseStyles = () => {
-        return /* css */`
-/* ── BlueCollar Cash Flow Timing ── Google Fonts Import ──────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        return Styles.getStyles().replace('</style>', `
 
-/* ── Reset & Container ───────────────────────────────────────────────── */
-.bc-cf-container {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 14px;
-    line-height: 1.5;
-    color: ${BRAND.NAVY};
-    background: ${BRAND.WHITE};
-    border-radius: ${BRAND.BORDER_RADIUS};
-    box-shadow: ${BRAND.BOX_SHADOW};
-    overflow: hidden;
-    position: relative;
-}
-.bc-cf-container *, .bc-cf-container *::before, .bc-cf-container *::after {
-    box-sizing: border-box;
-}
+/* ====================================================================
+   Schedule editor -- surface-specific additions (extends bc_cf_styles)
+   ==================================================================== */
 
-/* ── Header ──────────────────────────────────────────────────────────── */
-.bc-cf-header {
-    background: linear-gradient(135deg, ${BRAND.NAVY} 0%, ${BRAND.NAVY_LIGHT} 100%);
-    color: ${BRAND.WHITE};
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-.bc-cf-header-title {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.bc-cf-header-title svg {
-    flex-shrink: 0;
-}
-.bc-cf-header-meta {
-    font-size: 12px;
-    opacity: 0.8;
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-.bc-cf-header-meta span {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-.bc-cf-header-meta strong {
-    font-weight: 600;
-    opacity: 1;
-}
+/* Container + box-sizing reset */
+.bccf-container { overflow: hidden; position: relative; }
+.bccf-container *, .bccf-container *::before, .bccf-container *::after { box-sizing: border-box; }
 
-/* ── Tab Navigation ──────────────────────────────────────────────────── */
-.bc-cf-tab-nav {
-    display: flex;
-    background: ${BRAND.GREY_LIGHT};
-    border-bottom: 2px solid ${BRAND.GREY_MID};
-    padding: 0 24px;
-    gap: 0;
-}
-.bc-cf-tab-nav button {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 12px 24px;
-    border: none;
-    background: transparent;
-    color: ${BRAND.GREY_DARK};
-    cursor: pointer;
-    position: relative;
-    transition: color 0.2s ease, background 0.2s ease;
-    border-bottom: 3px solid transparent;
-    margin-bottom: -2px;
-}
-.bc-cf-tab-nav button:hover {
-    color: ${BRAND.NAVY};
-    background: rgba(4, 35, 61, 0.04);
-}
-.bc-cf-tab-nav button.active {
-    color: ${BRAND.NAVY};
-    border-bottom-color: ${BRAND.GOLD};
-    background: ${BRAND.WHITE};
-}
-.bc-cf-tab-nav button.active::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: ${BRAND.GOLD};
-    border-radius: 3px 3px 0 0;
-}
+/* Header: gradient banner */
+.bccf-header { background: linear-gradient(135deg, var(--bccf-brand-500) 0%, #2a5080 100%); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.bccf-header-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+.bccf-header-title svg { flex-shrink: 0; }
+.bccf-header-meta { font-size: 12px; opacity: 0.8; display: flex; gap: 20px; flex-wrap: wrap; }
+.bccf-header-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.bccf-header-meta strong { font-weight: 600; opacity: 1; }
 
-/* ── KPI Bar ─────────────────────────────────────────────────────────── */
-.bc-cf-kpi-bar {
-    display: flex;
-    gap: 16px;
-    padding: 20px 24px;
-    overflow-x: auto;
-    background: ${BRAND.GREY_LIGHT};
-    border-bottom: 1px solid ${BRAND.GREY_MID};
-}
-.bc-cf-kpi-card {
-    background: ${BRAND.WHITE};
-    border-radius: ${BRAND.BORDER_RADIUS};
-    box-shadow: ${BRAND.BOX_SHADOW};
-    padding: 16px 20px;
-    min-width: 140px;
-    flex: 1;
-    text-align: center;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    border: 1px solid rgba(0,0,0,0.04);
-}
-.bc-cf-kpi-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.bc-cf-kpi-value {
-    font-size: 24px;
-    font-weight: 700;
-    color: ${BRAND.NAVY};
-    line-height: 1.2;
-    margin-bottom: 4px;
-}
-.bc-cf-kpi-value.green { color: ${BRAND.GREEN}; }
-.bc-cf-kpi-value.gold  { color: ${BRAND.GOLD}; }
-.bc-cf-kpi-value.red   { color: ${BRAND.RED}; }
-.bc-cf-kpi-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: ${BRAND.GREY_DARK};
-}
+/* Section: tab-driven show/hide */
+.bccf-section { margin: 20px 24px; padding-left: 20px; display: none; }
+.bccf-section.active { display: block; }
+.bccf-section-title { font-size: 16px; font-weight: 700; color: var(--bccf-ink-900); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.bccf-section-title .bccf-badge { margin-left: 6px; }
 
-/* ── Section ─────────────────────────────────────────────────────────── */
-.bc-cf-section {
-    border-left: 3px solid ${BRAND.GOLD};
-    margin: 20px 24px;
-    padding-left: 20px;
-    display: none;
-}
-.bc-cf-section.active {
-    display: block;
-}
-.bc-cf-section-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: ${BRAND.NAVY};
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.bc-cf-section-title .bc-cf-badge {
-    margin-left: 6px;
-}
+/* Toolbar (template selector row) */
+.bccf-toolbar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bccf-bg-50); border-radius: var(--bccf-r-lg); margin-bottom: 16px; flex-wrap: wrap; border: 1px solid var(--bccf-border); }
+.bccf-toolbar label { font-size: 12px; font-weight: 600; color: var(--bccf-ink-500); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.bccf-toolbar select, .bccf-toolbar input[type="date"] { font-size: var(--bccf-text-sm); padding: 8px 12px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); outline: none; min-width: 0; }
+.bccf-toolbar select { min-width: 200px; max-width: 320px; flex: 1; }
+.bccf-toolbar select:focus, .bccf-toolbar input[type="date"]:focus { border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); }
 
-/* ── Toolbar ─────────────────────────────────────────────────────────── */
-.bc-cf-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    background: ${BRAND.GREY_LIGHT};
-    border-radius: ${BRAND.BORDER_RADIUS};
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    border: 1px solid ${BRAND.GREY_MID};
-}
-.bc-cf-toolbar label {
-    font-size: 12px;
-    font-weight: 600;
-    color: ${BRAND.GREY_DARK};
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-}
-.bc-cf-toolbar select,
-.bc-cf-toolbar input[type="date"] {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    padding: 8px 12px;
-    border: 1px solid ${BRAND.GREY_MID};
-    border-radius: 4px;
-    background: ${BRAND.WHITE};
-    color: ${BRAND.NAVY};
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    min-width: 0;
-}
-.bc-cf-toolbar select {
-    min-width: 200px;
-    max-width: 320px;
-    flex: 1;
-}
-.bc-cf-toolbar select:focus,
-.bc-cf-toolbar input[type="date"]:focus {
-    border-color: ${BRAND.GOLD};
-    box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.15);
-}
+/* Grid wrapper */
+.bccf-grid-wrapper { overflow-x: auto; border-radius: var(--bccf-r-lg); border: 1px solid var(--bccf-border); margin-bottom: 12px; }
 
-/* ── Grid (Table) ────────────────────────────────────────────────────── */
-.bc-cf-grid-wrapper {
-    overflow-x: auto;
-    border-radius: ${BRAND.BORDER_RADIUS};
-    border: 1px solid ${BRAND.GREY_MID};
-    margin-bottom: 12px;
-}
-.bc-cf-grid {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.bc-cf-grid th {
-    background: ${BRAND.NAVY};
-    color: ${BRAND.WHITE};
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 10px 12px;
-    text-align: left;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    white-space: nowrap;
-    border-bottom: 2px solid ${BRAND.GOLD};
-}
-.bc-cf-grid th:first-child {
-    border-top-left-radius: 5px;
-}
-.bc-cf-grid th:last-child {
-    border-top-right-radius: 5px;
-}
-.bc-cf-grid th.right,
-.bc-cf-grid td.right {
-    text-align: right;
-}
-.bc-cf-grid th.center,
-.bc-cf-grid td.center {
-    text-align: center;
-}
-.bc-cf-grid td {
-    padding: 8px 12px;
-    border-bottom: 1px solid ${BRAND.GREY_LIGHT};
-    color: ${BRAND.NAVY};
-    vertical-align: middle;
-    transition: background 0.1s ease;
-}
-.bc-cf-grid tbody tr:hover td {
-    background: ${BRAND.GOLD_LIGHT}22;
-}
-.bc-cf-grid tbody tr:last-child td {
-    border-bottom: none;
-}
-.bc-cf-grid input {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    color: ${BRAND.NAVY};
-    padding: 6px 8px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    width: 100%;
-    outline: none;
-    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-.bc-cf-grid input:hover {
-    background: ${BRAND.GREY_LIGHT};
-    border-color: ${BRAND.GREY_MID};
-}
-.bc-cf-grid input:focus {
-    background: ${BRAND.WHITE};
-    border-color: ${BRAND.GOLD};
-    box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.15);
-}
-.bc-cf-grid input[type="date"] {
-    min-width: 130px;
-}
-.bc-cf-grid input[type="number"] {
-    text-align: right;
-    min-width: 90px;
-    -moz-appearance: textfield;
-}
-.bc-cf-grid input[type="number"]::-webkit-outer-spin-button,
-.bc-cf-grid input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
+/* Grid input variant: transparent at rest, hover reveals, focus ring */
+.bccf-grid { width: 100%; border-collapse: collapse; font-size: var(--bccf-text-sm); color: var(--bccf-ink-900); }
+.bccf-grid th, .bccf-grid td { padding: 8px 10px; border-bottom: 1px solid var(--bccf-bg-100); text-align: left; color: var(--bccf-ink-900); vertical-align: middle; }
+.bccf-grid th { background: var(--bccf-bg-50); color: var(--bccf-ink-500); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+.bccf-grid th.right, .bccf-grid td.right { text-align: right; }
+.bccf-grid th.center, .bccf-grid td.center { text-align: center; }
+.bccf-grid input { width: 100%; padding: 4px 6px; font-size: var(--bccf-text-sm); border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--bccf-ink-900); font-family: inherit; }
+.bccf-grid input:hover { background: var(--bccf-bg-50); border-color: var(--bccf-border); }
+.bccf-grid input:focus { outline: none; background: var(--bccf-surface); border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); }
+.bccf-grid input.right { text-align: right; }
+.bccf-grid input[type="date"] { min-width: 130px; }
+.bccf-grid input[type="number"] { text-align: right; min-width: 90px; -moz-appearance: textfield; }
+.bccf-grid input[type="number"]::-webkit-outer-spin-button, .bccf-grid input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bccf-grid .rownum { color: var(--bccf-ink-500); font-size: 11px; font-weight: 600; }
+.bccf-grid .cum { color: var(--bccf-ink-500); font-size: 12px; }
+.bccf-grid tfoot td { background: var(--bccf-bg-50); font-weight: 600; border-top: 1px solid var(--bccf-border); border-bottom: 0; }
+.bccf-grid tr:hover td { background: #fafbfc; }
 
-/* ── Total Row ───────────────────────────────────────────────────────── */
-.bc-cf-total-row td {
-    background: ${BRAND.NAVY}0D !important;
-    font-weight: 700;
-    color: ${BRAND.NAVY};
-    border-top: 2px solid ${BRAND.NAVY};
-    font-size: 13px;
-}
+/* Validation badge in tfoot (spec §3.15.7) */
+.bccf-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 12px; transition: background 0.2s ease, color 0.2s ease; white-space: nowrap; }
+.bccf-badge.success { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+.bccf-badge.warn    { background: var(--bccf-warn-50);    color: var(--bccf-warn-500);    }
+/* Legacy validation classes (kept for backward compat in server-render path) */
+.bccf-validation { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; transition: all 0.3s ease; }
+.bccf-validation.valid { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+.bccf-validation.invalid { background: var(--bccf-danger-50); color: var(--bccf-danger-500); }
 
-/* ── Buttons ─────────────────────────────────────────────────────────── */
-.bc-cf-btn {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    font-weight: 600;
-    padding: 9px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    text-decoration: none;
-    background: ${BRAND.GOLD};
-    color: ${BRAND.NAVY};
-}
-.bc-cf-btn:hover {
-    background: #E5A503;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(255, 183, 3, 0.3);
-}
-.bc-cf-btn:active {
-    transform: translateY(0);
-    box-shadow: none;
-}
-.bc-cf-btn-secondary {
-    background: transparent;
-    color: ${BRAND.NAVY};
-    border: 2px solid ${BRAND.NAVY};
-}
-.bc-cf-btn-secondary:hover {
-    background: ${BRAND.NAVY};
-    color: ${BRAND.WHITE};
-    box-shadow: 0 4px 12px rgba(4, 35, 61, 0.2);
-}
-.bc-cf-btn-danger {
-    background: transparent;
-    color: ${BRAND.RED};
-    border: none;
-    padding: 4px 8px;
-    font-size: 12px;
-}
-.bc-cf-btn-danger:hover {
-    background: ${BRAND.RED_LIGHT};
-    box-shadow: none;
-    transform: none;
-}
-.bc-cf-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
+/* Save bar: sticky bottom, pulse on dirty */
+.bccf-save-bar { position: sticky; bottom: 0; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 12px 18px; box-shadow: var(--bccf-shadow-2); display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 10px; }
+.bccf-save-status { font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); display: inline-flex; align-items: center; gap: 6px; }
+.bccf-save-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bccf-ink-500); }
+.bccf-save-status.dirty-balanced .dot { background: var(--bccf-ink-500); animation: bccf-pulse 1.5s ease-in-out infinite; }
+.bccf-save-status.dirty-warn { color: var(--bccf-warn-500); }
+.bccf-save-status.dirty-warn .dot { background: var(--bccf-warn-500); animation: bccf-pulse 1.5s ease-in-out infinite; }
+.bccf-save-status.saved { color: var(--bccf-success-500); }
+.bccf-save-status.saved .dot { background: var(--bccf-success-500); }
+@keyframes bccf-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.4 } }
+.bccf-save-actions { display: flex; gap: 8px; align-items: center; }
+.bccf-btn-rebalance { background: var(--bccf-warn-50); border-color: var(--bccf-warn-500); color: var(--bccf-warn-500); font-weight: 600; }
+/* Rebalance row flash — added by handleRebalance, removed after animation */
+@keyframes bccf-rebalanced-fade { from { background-color: #d1fae5; } to { background-color: transparent; } }
+.bccf-rebalanced td { animation: bccf-rebalanced-fade 1.5s ease forwards; }
 
-/* ── Validation Badge ────────────────────────────────────────────────── */
-.bc-cf-validation {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 20px;
-    transition: all 0.3s ease;
-}
-.bc-cf-validation.valid {
-    background: ${BRAND.GREEN_LIGHT};
-    color: ${BRAND.GREEN};
-}
-.bc-cf-validation.invalid {
-    background: ${BRAND.RED_LIGHT};
-    color: ${BRAND.RED};
-}
+/* Skeleton shimmer rows — shown during save AJAX */
+@keyframes bccf-skel-shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+.bccf-skel { display: inline-block; border-radius: 4px; background: linear-gradient(90deg, var(--bccf-bg-100) 25%, var(--bccf-bg-50) 50%, var(--bccf-bg-100) 75%); background-size: 400px 100%; animation: bccf-skel-shimmer 1.2s ease-in-out infinite; }
 
-/* ── Badge (generic pill) ────────────────────────────────────────────── */
-.bc-cf-badge {
-    display: inline-flex;
-    align-items: center;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 3px 8px;
-    border-radius: 20px;
-    white-space: nowrap;
-}
-.bc-cf-badge.navy   { background: ${BRAND.NAVY}15; color: ${BRAND.NAVY}; }
-.bc-cf-badge.gold   { background: ${BRAND.GOLD}30; color: #9A6F00; }
-.bc-cf-badge.green  { background: ${BRAND.GREEN_LIGHT}; color: ${BRAND.GREEN}; }
-.bc-cf-badge.red    { background: ${BRAND.RED_LIGHT}; color: ${BRAND.RED}; }
+/* Field block (calculator + filter inputs) */
+.bccf-field { display: flex; flex-direction: column; gap: 4px; }
+.bccf-field label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; }
 
-/* ── Add Row Link ────────────────────────────────────────────────────── */
-.bc-cf-add-row {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    font-weight: 600;
-    color: ${BRAND.NAVY_LIGHT};
-    cursor: pointer;
-    padding: 8px 0;
-    border: none;
-    background: none;
-    font-family: ${BRAND.FONT_FAMILY};
-    transition: color 0.2s ease;
-}
-.bc-cf-add-row:hover {
-    color: ${BRAND.GOLD};
-}
-.bc-cf-add-row svg {
-    width: 16px;
-    height: 16px;
-}
+/* Empty state */
+.bccf-empty-state { text-align: center; padding: 40px 24px; color: var(--bccf-ink-500); }
+.bccf-empty-state p { font-size: var(--bccf-text-base); margin: 0 0 6px; font-weight: 600; color: var(--bccf-ink-700); }
+.bccf-empty-state span { font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); }
 
-/* ── Save Bar ────────────────────────────────────────────────────────── */
-.bc-cf-save-bar {
-    position: sticky;
-    bottom: 0;
-    background: ${BRAND.WHITE};
-    border-top: 2px solid ${BRAND.GREY_MID};
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    z-index: 10;
-    box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
-}
-.bc-cf-save-bar .bc-cf-save-status {
-    font-size: 13px;
-    color: ${BRAND.GREY_DARK};
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.bc-cf-save-bar .bc-cf-save-actions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
+/* Calculator toolbar additions */
+.bccf-toolbar input[type="number"] { font-size: var(--bccf-text-sm); padding: 8px 10px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); width: 70px; -moz-appearance: textfield; }
+.bccf-toolbar input[type="number"]::-webkit-outer-spin-button, .bccf-toolbar input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bccf-toolbar input[type="number"]:focus { border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); outline: none; }
+.bccf-toolbar input[readonly] { background: var(--bccf-bg-50); color: var(--bccf-ink-500); cursor: default; }
+.bccf-toolbar input[type="date"] { min-width: 140px; }
 
-/* ── Empty State ─────────────────────────────────────────────────────── */
-.bc-cf-empty-state {
-    text-align: center;
-    padding: 48px 24px;
-    color: ${BRAND.GREY_DARK};
-}
-.bc-cf-empty-state svg {
-    margin-bottom: 16px;
-    opacity: 0.4;
-}
-.bc-cf-empty-state p {
-    font-size: 15px;
-    margin: 0 0 8px;
-    font-weight: 600;
-    color: ${BRAND.NAVY};
-}
-.bc-cf-empty-state span {
-    font-size: 13px;
-    color: ${BRAND.GREY_DARK};
-}
+/* Calculator preview panel */
+.bccf-calc-preview { background: var(--bccf-bg-50); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 12px 16px; margin-bottom: 16px; display: none; }
+.bccf-calc-preview.visible { display: block; }
+.bccf-calc-preview-meta { font-size: 12px; font-weight: 600; color: var(--bccf-ink-700); margin-bottom: 10px; }
+.bccf-calc-preview-bars { display: flex; align-items: flex-end; gap: 4px; height: 48px; margin-bottom: 10px; }
+.bccf-calc-preview-bars .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+.bccf-calc-preview-bars .bar-lbl { font-size: 9px; color: var(--bccf-ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+.bccf-calc-preview-bars .bar { width: 100%; background: var(--bccf-brand-500); border-radius: 2px 2px 0 0; min-height: 2px; }
+.bccf-calc-preview table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bccf-calc-preview th { color: var(--bccf-ink-500); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; padding: 3px 6px; border-bottom: 1px solid var(--bccf-border); text-align: left; }
+.bccf-calc-preview td { padding: 3px 6px; color: var(--bccf-ink-700); border-bottom: 1px solid var(--bccf-bg-100); }
+.bccf-calc-preview td.right, .bccf-calc-preview th.right { text-align: right; }
+.bccf-calc-preview .more-rows { font-size: 11px; color: var(--bccf-ink-500); padding: 4px 6px; text-align: center; }
 
-/* ── Report Header ───────────────────────────────────────────────────── */
-.bc-cf-report-header {
-    background: linear-gradient(135deg, ${BRAND.NAVY} 0%, ${BRAND.NAVY_LIGHT} 100%);
-    color: ${BRAND.WHITE};
-    padding: 24px 32px;
-    border-radius: ${BRAND.BORDER_RADIUS} ${BRAND.BORDER_RADIUS} 0 0;
-}
-.bc-cf-report-header h1 {
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0 0 4px;
-    letter-spacing: -0.02em;
-}
-.bc-cf-report-header .subtitle {
-    font-size: 13px;
-    opacity: 0.8;
-}
-.bc-cf-report-filters {
-    display: flex;
-    gap: 16px;
-    padding: 16px 32px;
-    background: ${BRAND.GREY_LIGHT};
-    border-bottom: 1px solid ${BRAND.GREY_MID};
-    flex-wrap: wrap;
-    align-items: flex-end;
-}
-.bc-cf-report-filters .filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.bc-cf-report-filters label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: ${BRAND.GREY_DARK};
-}
-.bc-cf-report-filters select,
-.bc-cf-report-filters input {
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 13px;
-    padding: 8px 12px;
-    border: 1px solid ${BRAND.GREY_MID};
-    border-radius: 4px;
-    background: ${BRAND.WHITE};
-    color: ${BRAND.NAVY};
-    outline: none;
-    transition: border-color 0.2s ease;
-}
-.bc-cf-report-filters select:focus,
-.bc-cf-report-filters input:focus {
-    border-color: ${BRAND.GOLD};
-    box-shadow: 0 0 0 3px rgba(255,183,3,0.15);
-}
+/* Toast host */
+#bccf-toast-host { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.bccf-toast { background: var(--bccf-ink-900); color: #fff; padding: 10px 16px; border-radius: var(--bccf-r-md); font-size: var(--bccf-text-sm); font-weight: 500; box-shadow: var(--bccf-shadow-2); pointer-events: auto; transition: opacity 0.3s ease, transform 0.3s ease; opacity: 1; transform: translateY(0); }
+.bccf-toast.success { background: var(--bccf-success-500); }
+.bccf-toast.error { background: var(--bccf-danger-500); }
+.bccf-toast.warn { background: var(--bccf-warn-500); color: var(--bccf-ink-900); }
 
-/* ── Spinner ─────────────────────────────────────────────────────────── */
-.bc-cf-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid ${BRAND.GREY_MID};
-    border-top-color: ${BRAND.GOLD};
-    border-radius: 50%;
-    animation: bc-spin 0.6s linear infinite;
-}
-@keyframes bc-spin {
-    to { transform: rotate(360deg); }
-}
+/* Modal */
+.bccf-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 10000; display: flex; align-items: center; justify-content: center; }
+.bccf-modal { background: var(--bccf-surface); border-radius: var(--bccf-r-lg); padding: 24px 28px; min-width: 320px; max-width: 440px; box-shadow: var(--bccf-shadow-2); }
+.bccf-modal-headline { font-size: 16px; font-weight: 700; color: var(--bccf-ink-900); margin-bottom: 8px; }
+.bccf-modal-body { font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); margin-bottom: 20px; }
+.bccf-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
-/* ── Toast Notification ──────────────────────────────────────────────── */
-.bc-cf-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10000;
-    padding: 14px 24px;
-    border-radius: ${BRAND.BORDER_RADIUS};
-    font-family: ${BRAND.FONT_FAMILY};
-    font-size: 14px;
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    animation: bc-toast-in 0.3s ease;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-.bc-cf-toast.success {
-    background: ${BRAND.GREEN};
-    color: ${BRAND.WHITE};
-}
-.bc-cf-toast.error {
-    background: ${BRAND.RED};
-    color: ${BRAND.WHITE};
-}
-@keyframes bc-toast-in {
-    from { opacity: 0; transform: translateY(-12px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Responsive ──────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    .bc-cf-kpi-bar {
-        flex-direction: column;
-    }
-    .bc-cf-kpi-card {
-        min-width: auto;
-    }
-    .bc-cf-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .bc-cf-toolbar select {
-        min-width: auto;
-        max-width: none;
-    }
-    .bc-cf-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .bc-cf-save-bar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .bc-cf-save-bar .bc-cf-save-actions {
-        justify-content: flex-end;
-    }
-}
-`;
+</style>`);
     };
 
     // =========================================================================
@@ -725,66 +254,124 @@ define(['./bc_timing_constants'], (Constants) => {
         const remClass = remainingAmount <= 0 ? 'green' : (remainingPct > 50 ? 'red' : 'gold');
 
         return `
-<div class="bc-cf-kpi-bar">
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value">${esc(fmtCurrency(totalAmount))}</div>
-        <div class="bc-cf-kpi-label">${esc(label || 'Total Amount')}</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
+    <div class="bccf-kpi">
+        <div class="bccf-k">${esc(label || 'Total Amount')}</div>
+        <div class="bccf-v">${esc(fmtCurrency(totalAmount))}</div>
     </div>
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value ${pctClass}">${esc(fmtCurrency(scheduledAmount))}</div>
-        <div class="bc-cf-kpi-label">Scheduled (${esc(fmtPercent(scheduledPct))})</div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Scheduled</div>
+        <div class="bccf-v${pctClass ? ' accent' : ''}">${esc(fmtCurrency(scheduledAmount))}</div>
+        <div class="bccf-sub">${esc(fmtPercent(scheduledPct))}</div>
     </div>
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value ${remClass}">${esc(fmtCurrency(remainingAmount))}</div>
-        <div class="bc-cf-kpi-label">Remaining (${esc(fmtPercent(remainingPct))})</div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Remaining</div>
+        <div class="bccf-v">${esc(fmtCurrency(remainingAmount))}</div>
+        <div class="bccf-sub">${esc(fmtPercent(remainingPct))}</div>
     </div>
-    <div class="bc-cf-kpi-card">
-        <div class="bc-cf-kpi-value" style="font-size:18px;">
-            <div style="background:${BRAND.GREY_LIGHT};border-radius:20px;height:8px;overflow:hidden;margin-bottom:8px;">
-                <div style="height:100%;width:${Math.min(scheduledPct, 100)}%;background:${isPctComplete ? BRAND.GREEN : BRAND.GOLD};border-radius:20px;transition:width 0.5s ease;"></div>
-            </div>
-            ${esc(fmtPercent(scheduledPct))}
+    <div class="bccf-kpi">
+        <div class="bccf-k">Completion</div>
+        <div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;">
+            <div style="height:100%;width:${Math.min(scheduledPct, 100)}%;background:${isPctComplete ? 'var(--bccf-success-500)' : 'var(--bccf-brand-500)'};border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div>
         </div>
-        <div class="bc-cf-kpi-label">Completion</div>
+        <div class="bccf-sub" style="margin-top:4px;">${esc(fmtPercent(scheduledPct))}</div>
     </div>
 </div>`;
     };
 
     // =========================================================================
-    //  3. renderTemplateSelector(options)
+    //  3. renderCalculatorToolbar(options)  [was: renderTemplateSelector]
     // =========================================================================
 
     /**
-     * Renders the template selector toolbar.
+     * Renders the schedule calculator toolbar + live preview region.
+     * Replaces the old stamp-only template selector.
      * @param {Object} options
      * @param {string} options.sectionId
-     * @param {Object[]} options.templates
      * @returns {string}
      */
-    const renderTemplateSelector = ({ sectionId, templates }) => {
-        const selId = `${esc(sectionId)}_template_select`;
-        const dateId = `${esc(sectionId)}_start_date`;
-        const btnId = `${esc(sectionId)}_apply_btn`;
-
-        let templateOptions = '<option value="">-- Choose a Template --</option>';
-        (templates || BUILT_IN_TEMPLATES).forEach((t) => {
-            templateOptions += `<option value="${esc(t.id)}">${esc(t.name)}</option>`;
-        });
+    const renderCalculatorToolbar = ({ sectionId }) => {
+        const sid = esc(sectionId);
+        const distId  = `${sid}_calc_dist`;
+        const perdsId = `${sid}_calc_periods`;
+        const intId   = `${sid}_calc_interval`;
+        const startId = `${sid}_calc_start`;
+        const endId   = `${sid}_calc_end`;
+        const genId   = `${sid}_calc_generate`;
+        const clrId   = `${sid}_calc_clear`;
+        const prevId  = `${sid}_calc_preview`;
+        const today   = fmtDateInput(new Date());
 
         return `
-<div class="bc-cf-toolbar">
-    <label for="${selId}">Template</label>
-    <select id="${selId}" data-section="${esc(sectionId)}">
-        ${templateOptions}
-    </select>
-    <label for="${dateId}">${ICONS.calendar} Start Date</label>
-    <input type="date" id="${dateId}" data-section="${esc(sectionId)}" value="${fmtDateInput(new Date())}">
-    <button type="button" class="bc-cf-btn" id="${btnId}"
-            onclick="bcTiming.applyTemplate('${esc(sectionId)}')">
-        Apply Template
-    </button>
+<div class="bccf-toolbar" id="${sid}_calc_toolbar">
+    <div class="bccf-field">
+        <label for="${distId}">Distribution</label>
+        <select id="${distId}" data-section="${sid}" data-calc="dist"
+                onchange="bcTiming.calcPreview('${sid}')">
+            <option value="s_curve" selected>S-curve</option>
+            <option value="linear">Linear</option>
+            <option value="front_loaded">Front-loaded</option>
+            <option value="back_loaded">Back-loaded</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="${perdsId}">Periods</label>
+        <input type="number" id="${perdsId}" data-section="${sid}" data-calc="periods"
+               value="6" min="1" max="36"
+               oninput="bcTiming.calcPreview('${sid}')">
+    </div>
+    <div class="bccf-field">
+        <label for="${intId}">Interval</label>
+        <select id="${intId}" data-section="${sid}" data-calc="interval"
+                onchange="bcTiming.calcPreview('${sid}')">
+            <option value="monthly" selected>Monthly</option>
+            <option value="bi_weekly">Bi-weekly</option>
+            <option value="weekly">Weekly</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="${startId}">${ICONS.calendar} Start date</label>
+        <input type="date" id="${startId}" data-section="${sid}" data-calc="start"
+               value="${today}"
+               oninput="bcTiming.calcPreview('${sid}')">
+    </div>
+    <div class="bccf-field">
+        <label for="${endId}">End date</label>
+        <input type="date" id="${endId}" readonly tabindex="-1">
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:2px;">
+        <button type="button" class="bccf-btn bccf-btn-pri" id="${genId}"
+                onclick="bcTiming.calcGenerate('${sid}')">
+            Generate
+        </button>
+        <button type="button" class="bccf-btn" id="${clrId}"
+                onclick="bcTiming.calcClearAll('${sid}')">
+            Clear all
+        </button>
+    </div>
+</div>
+<div class="bccf-calc-preview" id="${prevId}">
+    <div class="bccf-calc-preview-meta" id="${prevId}_meta"></div>
+    <div class="bccf-calc-preview-bars" id="${prevId}_bars"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Label</th>
+                <th class="right">%</th>
+                <th class="right">Amount</th>
+                <th class="right">Total %</th>
+                <th class="right">Total Amt</th>
+            </tr>
+        </thead>
+        <tbody id="${prevId}_rows"></tbody>
+    </table>
+    <div class="more-rows" id="${prevId}_more"></div>
 </div>`;
     };
+
+    // Keep old name as alias for backward compatibility in callers
+    const renderTemplateSelector = ({ sectionId }) => renderCalculatorToolbar({ sectionId });
 
     // =========================================================================
     //  4. renderTimingGrid(options)
@@ -811,8 +398,7 @@ define(['./bc_timing_constants'], (Constants) => {
         // Empty state
         if (safeLines.length === 0 && !editable) {
             return `
-<div class="bc-cf-empty-state">
-    ${ICONS.empty}
+<div class="bccf-panel-body bccf-empty-state">
     <p>No Timing Lines</p>
     <span>Apply a template or add lines manually to define the payment schedule.</span>
 </div>`;
@@ -829,8 +415,8 @@ define(['./bc_timing_constants'], (Constants) => {
         colHeaders += '<th>Label</th>';
         colHeaders += '<th class="right">Percentage</th>';
         colHeaders += '<th class="right">Amount</th>';
-        colHeaders += '<th class="right">Cumulative %</th>';
-        colHeaders += '<th class="right">Cumulative Amount</th>';
+        colHeaders += '<th class="right">Total %</th>';
+        colHeaders += '<th class="right">Total Amount</th>';
         if (editable) {
             colHeaders += '<th class="center" style="width:50px;"></th>';
         }
@@ -853,16 +439,17 @@ define(['./bc_timing_constants'], (Constants) => {
         totalAmt = Math.round(totalAmt * 100) / 100;
         const isValid = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - (sourceAmount || 0)) < 0.01;
 
+        // Validation badge per spec §3.15.7 (bccf-badge.success / .warn)
         const validationHtml = isValid
-            ? `<span class="bc-cf-validation valid">${ICONS.check} Balanced (100%)</span>`
-            : `<span class="bc-cf-validation invalid">${ICONS.warning} ${fmtPercent(totalPct)} allocated</span>`;
+            ? `<span class="bccf-badge success">&#10003; Balanced</span>`
+            : `<span class="bccf-badge warn">&#9888; ${fmtPercent(totalPct)} allocated</span>`;
 
         const costCodeCols = showCostCode ? 2 : 0;
         const baseCols = 6; // #, date, label, pct, amt, cum%, cumAmt
         const actionCol = editable ? 1 : 0;
         const totalCols = baseCols + costCodeCols + actionCol;
 
-        let totalRow = `<tr class="bc-cf-total-row" id="${totalRowId}">`;
+        let totalRow = `<tr id="${totalRowId}">`;
         totalRow += `<td colspan="${1 + costCodeCols}"></td>`;
         totalRow += `<td colspan="2" style="text-align:right;">Total</td>`;
         totalRow += `<td class="right" data-field="total_pct">${esc(fmtPercent(totalPct))}</td>`;
@@ -872,14 +459,14 @@ define(['./bc_timing_constants'], (Constants) => {
 
         // Add row button
         const addRowHtml = editable
-            ? `<button type="button" class="bc-cf-add-row" onclick="bcTiming.addRow('${sid}')">
+            ? `<button type="button" class="bccf-add-row-btn" onclick="bcTiming.addRow('${sid}')">
                    ${ICONS.plus} Add Line
                </button>`
             : '';
 
         return `
-<div class="bc-cf-grid-wrapper">
-    <table class="bc-cf-grid" id="${gridId}">
+<div class="bccf-grid-wrapper">
+    <table class="bccf-grid" id="${gridId}">
         <thead>${colHeaders}</thead>
         <tbody id="${tbodyId}">
             ${rows}
@@ -908,7 +495,7 @@ ${addRowHtml}`;
         const costType = line.costType || '';
 
         let row = `<tr data-section="${sid}" data-index="${idx}">`;
-        row += `<td class="center" style="color:${BRAND.GREY_DARK};font-size:12px;font-weight:600;">${rowNum}</td>`;
+        row += `<td class="center rownum">${rowNum}</td>`;
 
         if (showCostCode) {
             row += `<td>${editable
@@ -922,7 +509,7 @@ ${addRowHtml}`;
         if (editable) {
             row += `<td><input type="date" value="${esc(dateVal)}" data-section="${sid}" data-index="${idx}" data-field="periodDate"></td>`;
             row += `<td><input type="text" value="${esc(label)}" data-section="${sid}" data-index="${idx}" data-field="label" placeholder="Period label"></td>`;
-            row += `<td class="right"><input type="number" value="${pct}" step="0.01" min="0" max="100" data-section="${sid}" data-index="${idx}" data-field="percentage" onchange="bcTiming.recalculate('${sid}')"></td>`;
+            row += `<td class="right"><input type="number" value="${pct}" step="0.01" min="0" max="100" data-section="${sid}" data-index="${idx}" data-field="percentage" onchange="if(!window.__bccfLastEditedIndex)window.__bccfLastEditedIndex={};window.__bccfLastEditedIndex['${sid}']=${idx};bcTiming.recalculate('${sid}')"></td>`;
             row += `<td class="right"><input type="text" value="${fmtCurrency(amt)}" data-section="${sid}" data-index="${idx}" data-field="amount" onfocus="this.select()" onblur="bcTiming.onAmountChange('${sid}',${idx})" onchange="bcTiming.onAmountChange('${sid}',${idx})" style="text-align:right;"></td>`;
         } else {
             row += `<td>${esc(dateDisplay)}</td>`;
@@ -931,12 +518,12 @@ ${addRowHtml}`;
             row += `<td class="right">${esc(fmtCurrency(amt))}</td>`;
         }
 
-        row += `<td class="right" style="color:${BRAND.GREY_DARK};font-size:12px;">${esc(fmtPercent(cumPct))}</td>`;
-        row += `<td class="right" style="color:${BRAND.GREY_DARK};font-size:12px;">${esc(fmtCurrency(cumAmt))}</td>`;
+        row += `<td class="right cum">${esc(fmtPercent(cumPct))}</td>`;
+        row += `<td class="right cum">${esc(fmtCurrency(cumAmt))}</td>`;
 
         if (editable) {
             row += `<td class="center">
-                <button type="button" class="bc-cf-btn-danger" title="Remove line"
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"
                         onclick="bcTiming.removeRow('${sid}', ${idx})">
                     ${ICONS.trash}
                 </button>
@@ -978,12 +565,12 @@ ${addRowHtml}`;
         const remainingPct = amt > 0 ? Math.round((remainingAmt / amt) * 10000) / 100 : 0;
 
         const typeBadge = timingType === 'accrual'
-            ? '<span class="bc-cf-badge navy">Accrual</span>'
-            : '<span class="bc-cf-badge gold">Cash Flow</span>';
+            ? '<span class="bccf-badge brand">Accrual</span>'
+            : '<span class="bccf-badge neutral">Cash Flow</span>';
 
         let lineCountBadge = '';
         if (safeLines.length > 0) {
-            lineCountBadge = `<span class="bc-cf-badge green">${safeLines.length} line${safeLines.length !== 1 ? 's' : ''}</span>`;
+            lineCountBadge = `<span class="bccf-badge success">${safeLines.length} line${safeLines.length !== 1 ? 's' : ''}</span>`;
         }
 
         const kpiHtml = renderKpiBar({
@@ -996,7 +583,7 @@ ${addRowHtml}`;
         });
 
         const toolbarHtml = editable
-            ? renderTemplateSelector({ sectionId: sid, templates: templates || BUILT_IN_TEMPLATES })
+            ? renderCalculatorToolbar({ sectionId: sid })
             : '';
 
         const gridHtml = renderTimingGrid({
@@ -1008,11 +595,11 @@ ${addRowHtml}`;
         });
 
         return `
-<div class="bc-cf-section" id="${sid}_section"
+<div class="bccf-section" id="${sid}_section"
      data-section-id="${sid}"
      data-source-amount="${amt}"
      data-timing-type="${esc(timingType || '')}">
-    <div class="bc-cf-section-title">
+    <div class="bccf-section-title">
         ${esc(title)} ${typeBadge} ${lineCountBadge}
     </div>
     <div id="${sid}_kpi">${kpiHtml}</div>
@@ -1033,10 +620,9 @@ ${addRowHtml}`;
     const renderScheduleSubtab = ({
         transactionType, transactionId, transactionName, entityName, totalAmount,
         projectId, projectName, cashFlowLines, accrualLines, editable,
-        showCostCode, templates, suiteletUrl, recordType, sourceGroup, changeOrderId,
+        showCostCode, suiteletUrl, recordType, sourceGroup, changeOrderId,
         sectionPrefix
     }) => {
-        const safeTemplates = templates || BUILT_IN_TEMPLATES;
         const amt = Number(totalAmount) || 0;
 
         // sectionPrefix allows multiple renderScheduleSubtab calls on the same page
@@ -1057,7 +643,6 @@ ${addRowHtml}`;
             lines: cashFlowLines || [],
             editable: editable !== false,
             showCostCode: showCostCode || false,
-            templates: safeTemplates,
             timingType: 'cashflow'
         });
 
@@ -1068,32 +653,26 @@ ${addRowHtml}`;
             lines: accrualLines || [],
             editable: editable !== false,
             showCostCode: showCostCode || false,
-            templates: safeTemplates,
             timingType: 'accrual'
         });
 
         const saveBarHtml = (editable !== false) ? `
-<div class="bc-cf-save-bar">
-    <div class="bc-cf-save-status" id="${saveStatusId}">
-        <span style="color:${BRAND.GREY_DARK};">Ready</span>
+<div class="bccf-save-bar" id="${rootId}_save_bar" data-root-id="${esc(rootId)}" data-cf-section="${esc(cfSectionId)}" data-ac-section="${esc(acSectionId)}" data-tab-nav="${esc(tabNavId)}" data-transaction-id="${esc(String(transactionId || ''))}" data-transaction-type="${esc(transactionType || '')}">
+    <div class="bccf-save-status saved" id="${saveStatusId}">
+        <span class="dot"></span>
+        <span class="bccf-save-status-text">Ready</span>
     </div>
-    <div class="bc-cf-save-actions">
-        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
-            Review Cash Flow
-        </button>
-        <button type="button" class="bc-cf-btn-secondary" onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
-            Review Accrual
-        </button>
-        <button type="button" class="bc-cf-btn" id="${saveBtnId}"
-                onclick="bcTiming.save('${esc(String(transactionId || ''))}', '${esc(transactionType || '')}', '${esc(rootId)}', '${esc(cfSectionId)}', '${esc(acSectionId)}', '${esc(saveBtnId)}', '${esc(saveStatusId)}')">
-            ${ICONS.save} Save Schedules
-        </button>
+    <div class="bccf-save-actions">
+        <button type="button" class="bccf-btn" data-action="review-accrual" id="${rootId}_review_btn">Review Accrual</button>
+        <button type="button" class="bccf-btn" data-action="discard">Discard changes</button>
+        <button type="button" class="bccf-btn bccf-btn-rebalance" data-action="rebalance" id="${rootId}_rebalance_btn" style="display:none">Rebalance</button>
+        <button type="button" class="bccf-btn bccf-btn-pri" id="${saveBtnId}" data-action="save">Save schedules</button>
     </div>
 </div>` : '';
 
         return `
-<style>${getBaseStyles()}</style>
-<div class="bc-cf-container"
+${getBaseStyles()}
+<div class="bccf-container"
      id="${rootId}"
      data-transaction-id="${esc(String(transactionId || ''))}"
      data-transaction-type="${esc(transactionType || '')}"
@@ -1105,12 +684,12 @@ ${addRowHtml}`;
      data-change-order-id="${esc(String(changeOrderId || ''))}">
 
     <!-- Header -->
-    <div class="bc-cf-header">
-        <div class="bc-cf-header-title">
+    <div class="bccf-header">
+        <div class="bccf-header-title">
             ${ICONS.cashFlow}
             Cash Flow &amp; Accrual Timing
         </div>
-        <div class="bc-cf-header-meta">
+        <div class="bccf-header-meta">
             <span><strong>Transaction:</strong> ${esc(transactionName || transactionType || '')}</span>
             <span><strong>Entity:</strong> ${esc(entityName || '')}</span>
             ${projectName ? `<span><strong>Project:</strong> ${esc(projectName)}</span>` : ''}
@@ -1119,15 +698,15 @@ ${addRowHtml}`;
     </div>
 
     <!-- Tab Navigation -->
-    <div class="bc-cf-tab-nav" id="${tabNavId}">
-        <button type="button" class="active" data-tab="${esc(cfSectionId)}"
+    <div class="bccf-tabs" id="${tabNavId}" data-cf-section="${esc(cfSectionId)}" data-ac-section="${esc(acSectionId)}" data-root-id="${esc(rootId)}">
+        <a class="active cashflow" data-tab="${esc(cfSectionId)}"
                 onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
             ${ICONS.chart} Cash Flow
-        </button>
-        <button type="button" data-tab="${esc(acSectionId)}"
+        </a>
+        <a data-tab="${esc(acSectionId)}"
                 onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
             ${ICONS.chart} Accrual
-        </button>
+        </a>
     </div>
 
     <!-- Sections -->
@@ -1137,17 +716,20 @@ ${addRowHtml}`;
     <!-- Save Bar -->
     ${saveBarHtml}
 </div>
+<div id="bccf-toast-host"></div>
 
 <script>
 ${getClientScript()}
 
-// Initialize: show Cash Flow tab by default
+// Initialize: show Cash Flow tab by default + wire save bar delegation
 document.addEventListener('DOMContentLoaded', function() {
     bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}');
+    bcTiming.initSaveBar('${esc(rootId)}');
 });
 // Fallback: if DOM already loaded
 if (document.readyState !== 'loading') {
     bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}');
+    bcTiming.initSaveBar('${esc(rootId)}');
 }
 </script>`;
     };
@@ -1187,20 +769,20 @@ if (document.readyState !== 'loading') {
             }).join('');
 
             filtersHtml = `
-<div class="bc-cf-report-filters">
+<div style="display:flex;gap:16px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);flex-wrap:wrap;align-items:flex-end;">
     ${filterItems}
     <div class="filter-group" style="align-self:flex-end;">
-        <button type="submit" class="bc-cf-btn">Apply Filters</button>
+        <button type="submit" class="bccf-btn bccf-btn-pri">Apply Filters</button>
     </div>
 </div>`;
         }
 
         return `
-<style>${getBaseStyles()}</style>
-<div class="bc-cf-container">
-    <div class="bc-cf-report-header">
-        <h1>${esc(title || 'Cash Flow Report')}</h1>
-        ${projectName ? `<div class="subtitle">Project: ${esc(projectName)}</div>` : ''}
+${getBaseStyles()}
+<div class="bccf-container">
+    <div class="bccf-panel-header">
+        <h1 style="font-size:var(--bccf-text-xl);font-weight:700;margin:0;color:var(--bccf-ink-900);">${esc(title || 'Cash Flow Report')}</h1>
+        ${projectName ? `<div style="font-size:var(--bccf-text-sm);color:var(--bccf-ink-500);">Project: ${esc(projectName)}</div>` : ''}
     </div>
     ${filtersHtml}
 </div>`;
@@ -1215,9 +797,6 @@ if (document.readyState !== 'loading') {
      * @returns {string}
      */
     const getClientScript = () => {
-        // Build the BUILT_IN_TEMPLATES JSON for embedding in client-side code
-        const templatesJson = JSON.stringify(BUILT_IN_TEMPLATES);
-        const periodIntervalJson = JSON.stringify(PERIOD_INTERVAL);
 
         return `
 (function() {
@@ -1226,9 +805,6 @@ if (document.readyState !== 'loading') {
     // =====================================================================
     //  BlueCollar Timing Client-Side Controller
     // =====================================================================
-
-    var TEMPLATES = ${templatesJson};
-    var PERIOD_INTERVAL = ${periodIntervalJson};
 
     var bcTiming = window.bcTiming = {};
 
@@ -1343,20 +919,198 @@ if (document.readyState !== 'loading') {
      * Show a toast notification.
      */
     function showToast(message, type) {
-        var existing = document.querySelectorAll('.bc-cf-toast');
-        for (var i = 0; i < existing.length; i++) {
-            existing[i].remove();
+        var host = document.getElementById('bccf-toast-host');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'bccf-toast-host';
+            document.body.appendChild(host);
         }
         var toast = document.createElement('div');
-        toast.className = 'bc-cf-toast ' + (type || 'success');
+        toast.className = 'bccf-toast ' + (type || 'info');
         toast.textContent = message;
-        document.body.appendChild(toast);
+        host.appendChild(toast);
         setTimeout(function() {
             toast.style.opacity = '0';
-            toast.style.transform = 'translateY(-12px)';
+            toast.style.transform = 'translateY(12px)';
             setTimeout(function() { toast.remove(); }, 300);
         }, 3000);
     }
+
+    /**
+     * Show a confirmation modal. Returns a Promise<boolean>.
+     * Resolves true on Confirm / Enter, false on Cancel / Esc.
+     */
+    function confirmDialog(opts) {
+        return new Promise(function(resolve) {
+            var backdrop = document.createElement('div');
+            backdrop.className = 'bccf-modal-backdrop';
+
+            var modal = document.createElement('div');
+            modal.className = 'bccf-modal';
+            modal.setAttribute('role', 'dialog');
+
+            var headline = document.createElement('div');
+            headline.className = 'bccf-modal-headline';
+            headline.textContent = opts.headline || 'Confirm';
+
+            var body = document.createElement('div');
+            body.className = 'bccf-modal-body';
+            body.textContent = opts.body || '';
+
+            var actions = document.createElement('div');
+            actions.className = 'bccf-modal-actions';
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'bccf-btn';
+            cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+
+            var confirmBtn = document.createElement('button');
+            confirmBtn.type = 'button';
+            confirmBtn.className = 'bccf-btn bccf-btn-pri';
+            confirmBtn.textContent = opts.confirmLabel || 'Confirm';
+
+            actions.appendChild(cancelBtn);
+            actions.appendChild(confirmBtn);
+            modal.appendChild(headline);
+            modal.appendChild(body);
+            modal.appendChild(actions);
+            backdrop.appendChild(modal);
+            document.body.appendChild(backdrop);
+
+            function cleanup(result) {
+                backdrop.remove();
+                resolve(result);
+            }
+
+            cancelBtn.addEventListener('click', function() { cleanup(false); });
+            confirmBtn.addEventListener('click', function() { cleanup(true); });
+            backdrop.addEventListener('click', function(e) {
+                if (e.target === backdrop) cleanup(false);
+            });
+            document.addEventListener('keydown', function handler(e) {
+                if (e.key === 'Escape') { document.removeEventListener('keydown', handler); cleanup(false); }
+                if (e.key === 'Enter')  { document.removeEventListener('keydown', handler); cleanup(true); }
+            });
+
+            confirmBtn.focus();
+        });
+    }
+
+    // =====================================================================
+    //  BCCF_CALC — inline mirror of bc_cf_calculator.js (client IIFE copy)
+    //  Must match the AMD module exactly. Spec §3.14.
+    // =====================================================================
+
+    var BCCF_CALC = (function() {
+        var _round2 = function(n) { return Math.round(n * 100) / 100; };
+
+        var weights = function(distribution, n) {
+            var w = new Array(n);
+            for (var i = 1; i <= n; i++) {
+                if (distribution === 'linear') {
+                    w[i - 1] = 1;
+                } else if (distribution === 's_curve') {
+                    w[i - 1] = Math.sin(Math.PI * (i - 0.5) / n);
+                } else if (distribution === 'front_loaded') {
+                    w[i - 1] = n - i + 1;
+                } else if (distribution === 'back_loaded') {
+                    w[i - 1] = i;
+                } else {
+                    throw new Error('Unknown distribution: ' + distribution);
+                }
+            }
+            return w;
+        };
+
+        var normalize = function(w) {
+            var total = w.reduce(function(s, x) { return s + x; }, 0);
+            var p = w.map(function(x) { return _round2(x / total * 100); });
+            var drift = _round2(100 - p.reduce(function(s, x) { return s + x; }, 0));
+            p[p.length - 1] = _round2(p[p.length - 1] + drift);
+            return p;
+        };
+
+        var computeDates = function(startDate, n, interval) {
+            if (interval !== 'monthly' && interval !== 'bi_weekly' && interval !== 'weekly') {
+                throw new Error('Unknown interval: ' + interval);
+            }
+            var out = new Array(n);
+            for (var i = 0; i < n; i++) {
+                if (interval === 'monthly') {
+                    var d = new Date(startDate);
+                    d.setMonth(d.getMonth() + i);
+                    out[i] = d;
+                } else {
+                    var days = interval === 'weekly' ? 7 : 14;
+                    var d2 = new Date(startDate);
+                    d2.setDate(d2.getDate() + i * days);
+                    out[i] = d2;
+                }
+            }
+            return out;
+        };
+
+        var computeEndDate = function(startDate, n, interval) {
+            return computeDates(startDate, n, interval)[n - 1];
+        };
+
+        var generate = function(opts) {
+            var distribution = opts.distribution;
+            var periods = opts.periods;
+            var interval = opts.interval;
+            var startDate = opts.startDate;
+            var source = opts.source;
+
+            var w = weights(distribution, periods);
+            var p = normalize(w);
+            var dates = computeDates(startDate, periods, interval);
+            var rows = p.map(function(pct, i) {
+                return {
+                    periodDate: dates[i],
+                    label: 'Period ' + (i + 1),
+                    percentage: pct,
+                    amount: _round2(source * pct / 100)
+                };
+            });
+            var sumAmt = rows.reduce(function(s, r) { return s + r.amount; }, 0);
+            var amtDrift = _round2(source - sumAmt);
+            if (amtDrift !== 0) {
+                rows[rows.length - 1].amount = _round2(rows[rows.length - 1].amount + amtDrift);
+            }
+            return rows;
+        };
+
+        var rebalance = function(rows, source, lastEditedIndex) {
+            var out = rows.map(function(r) { return Object.assign({}, r); });
+            var excess = _round2(out.reduce(function(s, r) { return s + r.percentage; }, 0) - 100);
+            if (Math.abs(excess) < 0.01) return out;
+            var targets = out.map(function(_, i) { return i; }).filter(function(i) { return i !== lastEditedIndex; });
+            var sumTarget = targets.reduce(function(s, i) { return s + out[i].percentage; }, 0);
+            if (sumTarget > 0) {
+                targets.forEach(function(i) {
+                    out[i].percentage = _round2(out[i].percentage - (out[i].percentage / sumTarget) * excess);
+                    if (out[i].percentage < 0) out[i].percentage = 0;
+                });
+                targets.forEach(function(i) {
+                    out[i].amount = _round2(source * out[i].percentage / 100);
+                });
+                var lastTarget = targets[targets.length - 1];
+                var sumPct = out.reduce(function(s, r) { return s + r.percentage; }, 0);
+                var pctDrift = _round2(100 - sumPct);
+                var adjustedPct = _round2(out[lastTarget].percentage + pctDrift);
+                if (adjustedPct >= 0) {
+                    out[lastTarget].percentage = adjustedPct;
+                    var sumAmt = out.reduce(function(s, r) { return s + r.amount; }, 0);
+                    var amtDrift = _round2(source - sumAmt);
+                    out[lastTarget].amount = _round2(out[lastTarget].amount + amtDrift);
+                }
+            }
+            return out;
+        };
+
+        return { weights: weights, normalize: normalize, computeDates: computeDates, computeEndDate: computeEndDate, generate: generate, rebalance: rebalance };
+    })();
 
     // ─── Tab Switching ──────────────────────────────────────────────────
 
@@ -1366,15 +1120,17 @@ if (document.readyState !== 'loading') {
      * @param {string} [navId]    - Tab nav container ID (defaults to 'bc_cf_tab_nav' for backward compat)
      */
     bcTiming.switchTab = function(tabId, navId) {
-        // Update tab buttons — scope to the specific nav container
+        // Update tab links — scope to the specific nav container
         var nav = document.getElementById(navId || 'bc_cf_tab_nav');
         if (nav) {
-            var buttons = nav.querySelectorAll('button');
-            for (var i = 0; i < buttons.length; i++) {
-                if (buttons[i].getAttribute('data-tab') === tabId) {
-                    buttons[i].classList.add('active');
+            var tabs = nav.querySelectorAll('a[data-tab]');
+            for (var i = 0; i < tabs.length; i++) {
+                if (tabs[i].getAttribute('data-tab') === tabId) {
+                    tabs[i].classList.add('active');
+                    tabs[i].classList.add('cashflow');
                 } else {
-                    buttons[i].classList.remove('active');
+                    tabs[i].classList.remove('active');
+                    tabs[i].classList.remove('cashflow');
                 }
             }
         }
@@ -1383,7 +1139,7 @@ if (document.readyState !== 'loading') {
         if (nav) {
             var container = nav.parentElement;
             if (container) {
-                var sections = container.querySelectorAll('.bc-cf-section');
+                var sections = container.querySelectorAll('.bccf-section');
                 for (var j = 0; j < sections.length; j++) {
                     var sectionEl = sections[j];
                     var sId = sectionEl.getAttribute('data-section-id');
@@ -1397,89 +1153,247 @@ if (document.readyState !== 'loading') {
         }
     };
 
-    // ─── Template Application ───────────────────────────────────────────
+    // ─── Calculator (T21–T23) ───────────────────────────────────────────
 
     /**
-     * Apply a template to a section — calculates lines client-side and populates grid.
+     * Read the current calculator inputs for a section.
      */
-    bcTiming.applyTemplate = function(sectionId) {
-        var selectEl = document.getElementById(sectionId + '_template_select');
-        var dateEl = document.getElementById(sectionId + '_start_date');
+    function getCalcInputs(sectionId) {
+        var dist     = document.getElementById(sectionId + '_calc_dist');
+        var perdsEl  = document.getElementById(sectionId + '_calc_periods');
+        var intEl    = document.getElementById(sectionId + '_calc_interval');
+        var startEl  = document.getElementById(sectionId + '_calc_start');
+        return {
+            distribution: dist     ? dist.value    : 's_curve',
+            periods:      perdsEl  ? (parseInt(perdsEl.value, 10) || 6) : 6,
+            interval:     intEl    ? intEl.value   : 'monthly',
+            startDateStr: startEl  ? startEl.value : ''
+        };
+    }
 
-        if (!selectEl || !dateEl) {
-            showToast('Template controls not found.', 'error');
+    /**
+     * Format a Date to YYYY-MM-DD (for input[type=date]).
+     */
+    function calcFmtDate(d) {
+        if (!d) return '';
+        var yyyy = d.getFullYear();
+        var mm   = String(d.getMonth() + 1).padStart(2, '0');
+        var dd   = String(d.getDate()).padStart(2, '0');
+        return yyyy + '-' + mm + '-' + dd;
+    }
+
+    /**
+     * Format a Date for display: "Apr 15 2026"
+     */
+    function calcFmtDisplay(d) {
+        if (!d) return '';
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
+    }
+
+    /**
+     * Update the live preview panel for a section.
+     */
+    bcTiming.calcPreview = function(sectionId) {
+        var inp = getCalcInputs(sectionId);
+        var prevId = sectionId + '_calc_preview';
+        var preview = document.getElementById(prevId);
+        if (!preview) return;
+
+        if (!inp.startDateStr) {
+            preview.classList.remove('visible');
             return;
         }
 
-        var templateId = selectEl.value;
-        if (!templateId) {
-            showToast('Please select a template.', 'error');
+        var startDate = new Date(inp.startDateStr + 'T00:00:00');
+        if (isNaN(startDate.getTime())) {
+            preview.classList.remove('visible');
             return;
         }
 
-        var startDateStr = dateEl.value;
-        if (!startDateStr) {
-            showToast('Please select a start date.', 'error');
-            return;
-        }
+        var n = Math.max(1, Math.min(36, inp.periods));
+        var endDate = BCCF_CALC.computeEndDate(startDate, n, inp.interval);
 
-        // Find the template
-        var template = null;
-        for (var i = 0; i < TEMPLATES.length; i++) {
-            if (TEMPLATES[i].id === templateId) {
-                template = TEMPLATES[i];
-                break;
-            }
-        }
-        if (!template) {
-            showToast('Template not found: ' + templateId, 'error');
-            return;
-        }
+        // Update end date input
+        var endEl = document.getElementById(sectionId + '_calc_end');
+        if (endEl) endEl.value = calcFmtDate(endDate);
 
+        // Build preview rows
         var sourceAmount = getSourceAmount(sectionId);
-        var startDate = new Date(startDateStr + 'T00:00:00');
-        var intervalId = template.interval || PERIOD_INTERVAL.MONTHLY.id;
-
-        // Build lines
-        var lines = [];
-        var allocated = 0;
-        for (var p = 0; p < template.periods.length; p++) {
-            var period = template.periods[p];
-            var periodDate = advanceDate(startDate, intervalId, p);
-            var isLast = (p === template.periods.length - 1);
-            var amount;
-
-            if (isLast) {
-                amount = round2(sourceAmount - allocated);
-            } else {
-                amount = round2((period.percentage / 100) * sourceAmount);
-            }
-            allocated = round2(allocated + amount);
-
-            lines.push({
-                periodDate: formatDateInput(periodDate),
-                percentage: period.percentage,
-                amount: amount,
-                label: 'Period ' + period.periodNumber + ' (' + template.name + ')',
-                costCode: '',
-                costType: ''
+        var rows;
+        try {
+            rows = BCCF_CALC.generate({
+                distribution: inp.distribution,
+                periods: n,
+                interval: inp.interval,
+                startDate: startDate,
+                source: sourceAmount
             });
+        } catch (e) {
+            preview.classList.remove('visible');
+            return;
         }
 
-        // Recalculate cumulatives
-        var runPct = 0;
-        var runAmt = 0;
-        for (var c = 0; c < lines.length; c++) {
-            runPct = round2(runPct + lines[c].percentage);
-            runAmt = round2(runAmt + lines[c].amount);
-            lines[c].cumulativePct = runPct;
-            lines[c].cumulativeAmt = runAmt;
+        // Compute cumulatives
+        var runPct = 0, runAmt = 0;
+        rows.forEach(function(r) {
+            runPct = Math.round((runPct + r.percentage) * 100) / 100;
+            runAmt = Math.round((runAmt + r.amount) * 100) / 100;
+            r.cumPct = runPct;
+            r.cumAmt = runAmt;
+        });
+
+        // Meta line
+        var distLabel = { s_curve: 'S-curve', linear: 'Linear', front_loaded: 'Front-loaded', back_loaded: 'Back-loaded' }[inp.distribution] || inp.distribution;
+        var intLabel  = { monthly: 'monthly', bi_weekly: 'bi-weekly', weekly: 'weekly' }[inp.interval] || inp.interval;
+        var metaEl = document.getElementById(prevId + '_meta');
+        if (metaEl) {
+            metaEl.textContent = distLabel + ' · ' + n + ' ' + intLabel + ' periods · ' + calcFmtDisplay(startDate) + ' → ' + calcFmtDisplay(endDate);
         }
 
-        // Render into the grid
-        populateGrid(sectionId, lines, sourceAmount);
-        updateKpi(sectionId, lines, sourceAmount);
-        showToast('Applied: ' + template.name, 'success');
+        // Bar chart
+        var barsEl = document.getElementById(prevId + '_bars');
+        if (barsEl) {
+            var maxPct = rows.reduce(function(m, r) { return Math.max(m, r.percentage); }, 0);
+            var barsHtml = '';
+            rows.forEach(function(r) {
+                var h = maxPct > 0 ? Math.round((r.percentage / maxPct) * 40) : 2;
+                barsHtml += '<div class="bar-wrap"><div class="bar-lbl">' + r.percentage.toFixed(1) + '%</div><div class="bar" style="height:' + Math.max(h, 2) + 'px;"></div></div>';
+            });
+            barsEl.innerHTML = barsHtml;
+        }
+
+        // Preview rows table (max 5 + "N more")
+        var rowsEl = document.getElementById(prevId + '_rows');
+        var moreEl = document.getElementById(prevId + '_more');
+        if (rowsEl) {
+            var preview5 = rows.slice(0, 5);
+            var rowsHtml = '';
+            preview5.forEach(function(r) {
+                rowsHtml += '<tr>'
+                    + '<td>' + calcFmtDate(r.periodDate) + '</td>'
+                    + '<td>' + esc(r.label) + '</td>'
+                    + '<td class="right">' + r.percentage.toFixed(1) + '%</td>'
+                    + '<td class="right">$' + r.amount.toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + '</td>'
+                    + '<td class="right">' + r.cumPct.toFixed(1) + '%</td>'
+                    + '<td class="right">$' + r.cumAmt.toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + '</td>'
+                    + '</tr>';
+            });
+            rowsEl.innerHTML = rowsHtml;
+        }
+        if (moreEl) {
+            moreEl.textContent = rows.length > 5 ? ('+ ' + (rows.length - 5) + ' more') : '';
+        }
+
+        preview.classList.add('visible');
+    };
+
+    /**
+     * Generate rows from the calculator — replaces the grid (with confirm if dirty).
+     */
+    bcTiming.calcGenerate = function(sectionId) {
+        var inp = getCalcInputs(sectionId);
+        if (!inp.startDateStr) {
+            showToast('Please enter a start date.', 'error');
+            return;
+        }
+        var startDate = new Date(inp.startDateStr + 'T00:00:00');
+        if (isNaN(startDate.getTime())) {
+            showToast('Invalid start date.', 'error');
+            return;
+        }
+        var n = Math.max(1, Math.min(36, inp.periods));
+        var sourceAmount = getSourceAmount(sectionId);
+        var isDirty = !!window._bccfDirty && !!window._bccfDirty[sectionId];
+
+        function doGenerate() {
+            var rows;
+            try {
+                rows = BCCF_CALC.generate({
+                    distribution: inp.distribution,
+                    periods: n,
+                    interval: inp.interval,
+                    startDate: startDate,
+                    source: sourceAmount
+                });
+            } catch (e) {
+                showToast('Generation failed: ' + e.message, 'error');
+                return;
+            }
+
+            // Add cumulatives
+            var runPct = 0, runAmt = 0;
+            rows.forEach(function(r) {
+                runPct = Math.round((runPct + r.percentage) * 100) / 100;
+                runAmt = Math.round((runAmt + r.amount) * 100) / 100;
+                r.cumulativePct = runPct;
+                r.cumulativeAmt = runAmt;
+                r.periodDate = calcFmtDate(r.periodDate);
+                r.costCode = '';
+                r.costType = '';
+            });
+
+            populateGrid(sectionId, rows, sourceAmount);
+            updateKpi(sectionId, rows, sourceAmount);
+
+            // Reset dirty flags + lastEditedIndex (Generate is a fresh slate)
+            if (!window._bccfDirty) window._bccfDirty = {};
+            window._bccfDirty[sectionId] = false;
+            if (!window.__bccfLastEditedIndex) window.__bccfLastEditedIndex = {};
+            window.__bccfLastEditedIndex[sectionId] = null;
+
+            // Reset save status to Ready after Generate
+            setSaveStatus(sectionId, 'saved', 'Ready');
+            hideRebalanceButton(sectionId);
+
+            showToast('Generated ' + rows.length + ' rows.', 'success');
+        }
+
+        if (isDirty) {
+            confirmDialog({
+                headline: 'Replace existing rows?',
+                body: 'Generating will replace your current rows.'
+            }).then(function(confirmed) {
+                if (confirmed) doGenerate();
+            });
+        } else {
+            doGenerate();
+        }
+    };
+
+    /**
+     * Clear all rows from the grid.
+     */
+    bcTiming.calcClearAll = function(sectionId) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return;
+        var hasRows = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]').length > 0;
+        if (!hasRows) return;
+
+        confirmDialog({
+            headline: 'Clear all rows?',
+            body: 'This will remove all timing lines from the grid.'
+        }).then(function(confirmed) {
+            if (!confirmed) return;
+            tbody.innerHTML = '';
+            var sourceAmount = getSourceAmount(sectionId);
+            updateTotals(sectionId, [], sourceAmount);
+            updateKpi(sectionId, [], sourceAmount);
+            if (!window._bccfDirty) window._bccfDirty = {};
+            window._bccfDirty[sectionId] = false;
+            showToast('Cleared all rows.', 'info');
+        });
+    };
+
+    // ─── Dirty tracking ─────────────────────────────────────────────────
+
+    /**
+     * Mark a section grid as dirty when any row input changes.
+     * Called from grid row inputs (added when rows are populated).
+     */
+    bcTiming.markDirty = function(sectionId) {
+        if (!window._bccfDirty) window._bccfDirty = {};
+        window._bccfDirty[sectionId] = true;
     };
 
     /**
@@ -1524,20 +1438,20 @@ if (document.readyState !== 'loading') {
         var label = line.label || 'Period ' + rowNum;
 
         var row = '<tr data-section="' + esc(sectionId) + '" data-index="' + idx + '">';
-        row += '<td class="center" style="color:#6B7280;font-size:12px;font-weight:600;">' + rowNum + '</td>';
+        row += '<td class="center rownum">' + rowNum + '</td>';
 
         if (showCostCode) {
             row += '<td><input type="text" value="' + esc(line.costCode || '') + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="costCode" placeholder="Cost Code"></td>';
             row += '<td><input type="text" value="' + esc(line.costType || '') + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="costType" placeholder="Cost Type"></td>';
         }
 
-        row += '<td><input type="date" value="' + esc(dateVal) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="periodDate"></td>';
-        row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label"></td>';
-        row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
-        row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.select()" onblur="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" onchange="bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" style="text-align:right;"></td>';
-        row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatPercent(cumPct) + '</td>';
-        row += '<td class="right" style="color:#6B7280;font-size:12px;">' + bcTiming.formatCurrency(cumAmt) + '</td>';
-        row += '<td class="center"><button type="button" class="bc-cf-btn-danger" title="Remove line" onclick="bcTiming.removeRow(\\'' + esc(sectionId) + '\\', ' + idx + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
+        row += '<td><input type="date" value="' + esc(dateVal) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="periodDate" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');if(!window.__bccfLastEditedIndex)window.__bccfLastEditedIndex={};window.__bccfLastEditedIndex[\\'' + esc(sectionId) + '\\']=+' + idx + ';bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.select()" onblur="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" style="text-align:right;"></td>';
+        row += '<td class="right cum">' + bcTiming.formatPercent(cumPct) + '</td>';
+        row += '<td class="right cum">' + bcTiming.formatCurrency(cumAmt) + '</td>';
+        row += '<td class="center"><button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line" onclick="bcTiming.removeRow(\\'' + esc(sectionId) + '\\', ' + idx + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>';
         row += '</tr>';
         return row;
     }
@@ -1561,13 +1475,14 @@ if (document.readyState !== 'loading') {
             if (amtCell) amtCell.textContent = bcTiming.formatCurrency(totalAmt);
         }
 
+        // Validation badge — spec §3.15.7: bccf-badge.success / .warn
         var validationEl = document.getElementById(sectionId + '_validation');
         if (validationEl) {
             var isValid = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - sourceAmount) < 0.01;
             if (isValid) {
-                validationEl.innerHTML = '<span class="bc-cf-validation valid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Balanced (100%)</span>';
+                validationEl.innerHTML = '<span class="bccf-badge success">&#10003; Balanced</span>';
             } else {
-                validationEl.innerHTML = '<span class="bc-cf-validation invalid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' + bcTiming.formatPercent(totalPct) + ' allocated</span>';
+                validationEl.innerHTML = '<span class="bccf-badge warn">&#9888; ' + bcTiming.formatPercent(totalPct) + ' allocated</span>';
             }
         }
     }
@@ -1590,11 +1505,11 @@ if (document.readyState !== 'loading') {
         var pctClass = isPctComplete ? 'green' : '';
         var remClass = remainingAmt <= 0 ? 'green' : (remainingPct > 50 ? 'red' : 'gold');
 
-        kpiContainer.innerHTML = '<div class="bc-cf-kpi-bar">'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value">' + bcTiming.formatCurrency(sourceAmount) + '</div><div class="bc-cf-kpi-label">Total Amount</div></div>'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value ' + pctClass + '">' + bcTiming.formatCurrency(scheduledAmt) + '</div><div class="bc-cf-kpi-label">Scheduled (' + bcTiming.formatPercent(scheduledPct) + ')</div></div>'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value ' + remClass + '">' + bcTiming.formatCurrency(remainingAmt) + '</div><div class="bc-cf-kpi-label">Remaining (' + bcTiming.formatPercent(remainingPct) + ')</div></div>'
-            + '<div class="bc-cf-kpi-card"><div class="bc-cf-kpi-value" style="font-size:18px;"><div style="background:#F5F7FA;border-radius:20px;height:8px;overflow:hidden;margin-bottom:8px;"><div style="height:100%;width:' + Math.min(scheduledPct, 100) + '%;background:' + (isPctComplete ? '#10B981' : '#FFB703') + ';border-radius:20px;transition:width 0.5s ease;"></div></div>' + bcTiming.formatPercent(scheduledPct) + '</div><div class="bc-cf-kpi-label">Completion</div></div>'
+        kpiContainer.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">'
+            + '<div class="bccf-kpi"><div class="bccf-k">Total Amount</div><div class="bccf-v">' + bcTiming.formatCurrency(sourceAmount) + '</div></div>'
+            + '<div class="bccf-kpi"><div class="bccf-k">Scheduled</div><div class="bccf-v' + (pctClass ? ' accent' : '') + '">' + bcTiming.formatCurrency(scheduledAmt) + '</div><div class="bccf-sub">' + bcTiming.formatPercent(scheduledPct) + '</div></div>'
+            + '<div class="bccf-kpi"><div class="bccf-k">Remaining</div><div class="bccf-v">' + bcTiming.formatCurrency(remainingAmt) + '</div><div class="bccf-sub">' + bcTiming.formatPercent(remainingPct) + '</div></div>'
+            + '<div class="bccf-kpi"><div class="bccf-k">Completion</div><div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;"><div style="height:100%;width:' + Math.min(scheduledPct, 100) + '%;background:' + (isPctComplete ? 'var(--bccf-success-500)' : 'var(--bccf-brand-500)') + ';border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div></div><div class="bccf-sub" style="margin-top:4px;">' + bcTiming.formatPercent(scheduledPct) + '</div></div>'
             + '</div>';
     }
 
@@ -1643,6 +1558,9 @@ if (document.readyState !== 'loading') {
             var dateInput = newRow.querySelector('input[data-field="periodDate"]');
             if (dateInput) dateInput.focus();
         }
+
+        // Recalculate totals/badge/KPI/Rebalance after add
+        bcTiming.recalculate(sectionId);
     };
 
     /**
@@ -1672,7 +1590,7 @@ if (document.readyState !== 'loading') {
                 inputs[j].setAttribute('data-index', i);
             }
             // Update remove button onclick
-            var removeBtn = rows[i].querySelector('.bc-cf-btn-danger');
+            var removeBtn = rows[i].querySelector('.bccf-btn-danger-ghost');
             if (removeBtn) {
                 removeBtn.setAttribute('onclick', "bcTiming.removeRow('" + sectionId + "', " + i + ")");
             }
@@ -1684,23 +1602,38 @@ if (document.readyState !== 'loading') {
     // ─── Recalculation ──────────────────────────────────────────────────
 
     /**
-     * Recalculate amounts from percentages, update cumulatives, totals, KPIs.
+     * Canonical recalculate for a section — called by every math-affecting event:
+     *   % edit, $ edit (via onAmountChange), addRow, removeRow.
+     *
+     * Math invariant:
+     *   After any call to recalculate(sid), the following are all consistent:
+     *   - Each row's cumulative % and cumulative $ cells
+     *   - tfoot Total % and Total $ cells
+     *   - Validation badge (bccf-badge.success / .warn per spec §3.15.7)
+     *   - KPI bar (Scheduled / Remaining)
+     *   - Save-status dot (dirty-balanced / dirty-warn)
+     *   - Rebalance button visibility + live tooltip
+     *
+     * When called from a % input: amounts are DERIVED from % (% is truth).
+     * When called from onAmountChange: % is already back-calculated before this runs,
+     *   so amounts are used as-is and only cumulatives + tfoot + KPI need updating.
+     *   The key fix over the old skip-recalculate path is that tfoot and badge
+     *   are now always updated regardless of which field triggered the change.
      */
     bcTiming.recalculate = function(sectionId) {
         var sourceAmount = getSourceAmount(sectionId);
         var lines = collectLines(sectionId);
 
-        // Detect which field changed — if percentage changed, recalc amount; vice versa.
-        // For simplicity, we recalculate amounts from percentages and update cumulatives.
         var tbody = document.getElementById(sectionId + '_tbody');
         if (!tbody) return;
 
         var totalPctInput = 0;
         for (var i = 0; i < lines.length; i++) {
-            totalPctInput += (lines[i].percentage || 0);
+            totalPctInput = round2(totalPctInput + (lines[i].percentage || 0));
         }
 
-        // Recalculate amounts from percentages
+        // Recalculate amounts from percentages (% is truth for this path;
+        // when called after onAmountChange the % is already synced so this is idempotent)
         var allocated = 0;
         for (var k = 0; k < lines.length; k++) {
             var isLast = (k === lines.length - 1);
@@ -1708,7 +1641,7 @@ if (document.readyState !== 'loading') {
             var newAmt;
 
             if (isLast && totalPctInput >= 99.5 && totalPctInput <= 100.5) {
-                // Only absorb rounding when percentages are ~100% (normal case)
+                // Absorb rounding drift only when total % is ~100 (normal balanced case)
                 newAmt = round2(sourceAmount - allocated);
             } else {
                 newAmt = round2((pctVal / 100) * sourceAmount);
@@ -1733,19 +1666,10 @@ if (document.readyState !== 'loading') {
             lines[m].cumulativePct = runPct;
             lines[m].cumulativeAmt = runAmt;
 
-            // Update cumulative cells (the non-input cells after amount)
             if (rows[m]) {
-                var cells = rows[m].querySelectorAll('td');
-                // Find the cumulative cells — they are the two cells before the action cell
-                // that don't contain inputs and have the grey style
-                var cumCells = rows[m].querySelectorAll('td[style*="color"]');
-                // More reliable: look at all tds, cumulative % and cumulative amt are the
-                // last 2 data cells (before the action button cell)
                 var allTds = rows[m].querySelectorAll('td');
                 var tdCount = allTds.length;
-                // Cumulative % is at tdCount - 3, Cumulative Amt at tdCount - 2 (if action cell exists)
-                // or tdCount - 2 and tdCount - 1 (if no action cell)
-                var hasActionCell = rows[m].querySelector('.bc-cf-btn-danger');
+                var hasActionCell = rows[m].querySelector('.bccf-btn-danger-ghost');
                 var cumPctIdx = hasActionCell ? tdCount - 3 : tdCount - 2;
                 var cumAmtIdx = hasActionCell ? tdCount - 2 : tdCount - 1;
                 if (allTds[cumPctIdx]) allTds[cumPctIdx].textContent = bcTiming.formatPercent(runPct);
@@ -1753,17 +1677,45 @@ if (document.readyState !== 'loading') {
             }
         }
 
-        // Update totals and KPIs
+        // Update tfoot totals row
         updateTotals(sectionId, lines, sourceAmount);
+
+        // Update KPI bar
         updateKpi(sectionId, lines, sourceAmount);
+
+        // Mark dirty + update save-status dot
+        if (!window._bccfDirty) window._bccfDirty = {};
+        window._bccfDirty[sectionId] = true;
+
+        // Determine balance state for save-status and Rebalance
+        var totalPct = 0;
+        var totalAmt = 0;
+        for (var n = 0; n < lines.length; n++) {
+            totalPct = round2(totalPct + (lines[n].percentage || 0));
+            totalAmt = round2(totalAmt + (lines[n].amount || 0));
+        }
+        var isBalanced = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - sourceAmount) < 0.01;
+
+        // Update save status
+        var statusState = lines.length === 0 ? 'saved' : (isBalanced ? 'dirty-balanced' : 'dirty-warn');
+        var statusText  = lines.length === 0 ? 'Ready' : (isBalanced ? 'Unsaved changes' : 'Unsaved changes · totals out of balance');
+        setSaveStatus(sectionId, statusState, statusText);
+
+        // Update Rebalance button visibility + tooltip
+        updateRebalanceButton(sectionId, lines, sourceAmount, totalPct, totalAmt, isBalanced);
     };
 
     // ─── Amount-driven entry ──────────────────────────────────────────
 
     /**
      * Handle user typing a dollar amount directly.
-     * Back-calculates the percentage, sets it, then calls recalculate
-     * so totals / cumulatives stay in sync.
+     * Back-calculates the percentage from the entered amount, then calls the
+     * unified recalculate(sid) so ALL derived state (cumulatives, tfoot totals,
+     * KPI bar, validation badge, Rebalance button) is always in sync.
+     *
+     * NOTE: this intentionally replaced the old "skip-recalculate" optimization
+     * (git cf9382c) — the optimization caused tfoot and KPI to lag behind $ edits.
+     * For schedules with <=36 rows the inline recalculate is negligible cost.
      */
     bcTiming.onAmountChange = function(sectionId, index) {
         var sourceAmount = getSourceAmount(sectionId);
@@ -1782,75 +1734,264 @@ if (document.readyState !== 'loading') {
 
         // Back-calculate percentage (avoid division by zero)
         if (sourceAmount > 0) {
-            var newPct = Math.round((rawAmt / sourceAmount) * 100 * 100) / 100;
+            var newPct = round2((rawAmt / sourceAmount) * 100);
             pctInput.value = newPct;
         }
 
-        // Format the amount
+        // Format the amount field
         amtInput.value = bcTiming.formatCurrency(rawAmt);
 
-        // Amount is the source of truth. Recalculate ALL percentages from
-        // current amounts so they reflect the current sourceAmount.
-        // This handles the case where sourceAmount changed since lines were created.
-        var allRows = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
-        var runPct = 0, runAmt = 0, totalPct = 0, totalAmt = 0;
-        for (var k = 0; k < allRows.length; k++) {
-            var rAmtVal = allRows[k].querySelector('input[data-field="amount"]').value;
-            var rAmt = parseFloat(rAmtVal.replace(/[^0-9.\-]/g, '')) || 0;
-            // Derive percentage from amount (amount is truth)
-            var rPct = sourceAmount > 0 ? Math.round((rAmt / sourceAmount) * 100 * 100) / 100 : 0;
-            // Update the percentage input to reflect derived value
-            var pctEl = allRows[k].querySelector('input[data-field="percentage"]');
-            if (pctEl) pctEl.value = rPct;
-            runPct = Math.round((runPct + rPct) * 100) / 100;
-            runAmt = Math.round((runAmt + rAmt) * 100) / 100;
-            totalPct += rPct;
-            totalAmt += rAmt;
-            // Update cumulative cells (last 2 non-button cells)
-            var tds = allRows[k].querySelectorAll('td');
-            var cumPct = tds[tds.length - 3];
-            var cumAmt = tds[tds.length - 2];
-            if (cumPct && !cumPct.querySelector('input')) cumPct.textContent = runPct.toFixed(1) + '%';
-            if (cumAmt && !cumAmt.querySelector('input')) cumAmt.textContent = bcTiming.formatCurrency(runAmt);
+        // Track which row was last edited for Rebalance intent preservation
+        if (!window.__bccfLastEditedIndex) window.__bccfLastEditedIndex = {};
+        window.__bccfLastEditedIndex[sectionId] = index;
+
+        // Canonical recalculate — updates cumulatives + tfoot + KPI + badge + Rebalance
+        // Math truth: amount change flows through recalculate just like % change
+        bcTiming.recalculate(sectionId);
+    };
+
+    // ─── Save-status helpers (T25) ──────────────────────────────────────
+
+    /**
+     * Find the save bar for a given section (or any active pane).
+     * Looks for a save bar that belongs to the same root container as the section.
+     */
+    function findSaveBarForSection(sectionId) {
+        // Section element lives inside root container; save bar also inside it.
+        var sectionEl = document.getElementById(sectionId + '_section');
+        if (!sectionEl) return null;
+        var container = sectionEl.closest('.bccf-container');
+        if (!container) return null;
+        return container.querySelector('.bccf-save-bar');
+    }
+
+    /**
+     * Update the save-status dot + text.
+     * @param {string} sectionId  - Used to locate the save bar scoped to the right pane
+     * @param {string} state      - 'saved' | 'dirty-balanced' | 'dirty-warn'
+     * @param {string} text       - Human-readable label
+     */
+    function setSaveStatus(sectionId, state, text) {
+        var bar = findSaveBarForSection(sectionId);
+        if (!bar) return;
+        var statusId = bar.querySelector('.bccf-save-status');
+        if (!statusId) return;
+        statusId.className = 'bccf-save-status ' + state;
+        var textEl = statusId.querySelector('.bccf-save-status-text');
+        if (textEl) textEl.textContent = text;
+    }
+
+    /**
+     * Show or hide the Rebalance button and update its tooltip.
+     */
+    function updateRebalanceButton(sectionId, lines, sourceAmount, totalPct, totalAmt, isBalanced) {
+        var bar = findSaveBarForSection(sectionId);
+        if (!bar) return;
+        var rebalanceBtn = bar.querySelector('[data-action="rebalance"]');
+        if (!rebalanceBtn) return;
+
+        if (isBalanced || lines.length === 0) {
+            rebalanceBtn.style.display = 'none';
+            rebalanceBtn.title = '';
+        } else {
+            rebalanceBtn.style.display = '';
+            // Build live tooltip: sign-aware overage vs shortage
+            var amtDiff = round2(totalAmt - sourceAmount);
+            var pctDiff = round2(totalPct - 100);
+            var absAmt  = Math.abs(amtDiff);
+            var absPct  = Math.abs(pctDiff);
+            var direction = amtDiff > 0 ? 'overage' : 'shortage';
+            var targetCount = Math.max(0, lines.length - 1);
+            var tipAmt = '$' + absAmt.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            var tipPct = absPct.toFixed(2) + '%';
+            rebalanceBtn.title = 'Distribute the ' + tipAmt + ' (' + tipPct + ') ' + direction + ' across the other ' + targetCount + ' line' + (targetCount !== 1 ? 's' : '') + ' proportionally.';
+
+            // Store active section on the button so delegated handler knows the target
+            rebalanceBtn.setAttribute('data-target-section', sectionId);
+        }
+    }
+
+    // ─── Rebalance (T26) ────────────────────────────────────────────────
+
+    /**
+     * Read current row data from the grid DOM.
+     */
+    function readRowsFromGrid(sectionId) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return [];
+        var rowEls = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        var out = [];
+        for (var i = 0; i < rowEls.length; i++) {
+            var pctInput = rowEls[i].querySelector('input[data-field="percentage"]');
+            var amtInput = rowEls[i].querySelector('input[data-field="amount"]');
+            out.push({
+                percentage: pctInput ? (parseFloat(pctInput.value) || 0) : 0,
+                amount:     amtInput ? (parseFloat(amtInput.value.replace(/[^0-9.\-]/g, '')) || 0) : 0
+            });
+        }
+        return out;
+    }
+
+    /**
+     * Write rebalanced row data back to the grid DOM.
+     */
+    function writeRowsToGrid(sectionId, rows) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return;
+        var rowEls = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        for (var i = 0; i < rows.length && i < rowEls.length; i++) {
+            var pctInput = rowEls[i].querySelector('input[data-field="percentage"]');
+            var amtInput = rowEls[i].querySelector('input[data-field="amount"]');
+            if (pctInput) pctInput.value = rows[i].percentage;
+            if (amtInput) amtInput.value = bcTiming.formatCurrency(rows[i].amount);
+        }
+    }
+
+    /**
+     * Get source amount from a section element's data attribute.
+     */
+    function sourceAmountFor(sectionId) {
+        return getSourceAmount(sectionId);
+    }
+
+    /**
+     * Hide the Rebalance button and clear its tooltip.
+     */
+    function hideRebalanceButton(sectionId) {
+        var bar = findSaveBarForSection(sectionId);
+        if (!bar) return;
+        var btn = bar.querySelector('[data-action="rebalance"]');
+        if (btn) {
+            btn.style.display = 'none';
+            btn.title = '';
+        }
+    }
+
+    /**
+     * Flash a green fade on all rows that were touched by Rebalance.
+     * Skips the lastEditedIndex row (that one was preserved, not touched).
+     */
+    function flashRebalancedRows(sectionId, lastEditedIndex) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return;
+        var rowEls = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        for (var i = 0; i < rowEls.length; i++) {
+            if (i === lastEditedIndex) continue;
+            rowEls[i].classList.add('bccf-rebalanced');
+        }
+        setTimeout(function() {
+            for (var j = 0; j < rowEls.length; j++) {
+                rowEls[j].classList.remove('bccf-rebalanced');
+            }
+        }, 1600);
+    }
+
+    /**
+     * Rebalance redistribution — redistributes overage/shortage across
+     * non-edited rows proportionally, preserving the last-edited row exactly.
+     */
+    bcTiming.handleRebalance = function(sectionId) {
+        var rows = readRowsFromGrid(sectionId);
+        var source = sourceAmountFor(sectionId);
+        var lastEditedIndex = (window.__bccfLastEditedIndex && typeof window.__bccfLastEditedIndex[sectionId] === 'number')
+            ? window.__bccfLastEditedIndex[sectionId]
+            : (rows.length - 1);
+
+        var newRows = BCCF_CALC.rebalance(rows, source, lastEditedIndex);
+        writeRowsToGrid(sectionId, newRows);
+        bcTiming.recalculate(sectionId);
+
+        // Override save status to reflect post-rebalance ready state
+        setSaveStatus(sectionId, 'dirty-balanced', 'Unsaved changes · ready to save');
+
+        flashRebalancedRows(sectionId, lastEditedIndex);
+        hideRebalanceButton(sectionId);
+    };
+
+    // ─── Save-bar delegated event wiring (T25) ───────────────────────────
+
+    /**
+     * Initialize delegated click handler on the save bar.
+     * Handles data-action: save | discard | rebalance | review-accrual | review-cashflow
+     */
+    bcTiming.initSaveBar = function(rootId) {
+        var saveBar = document.getElementById(rootId + '_save_bar');
+        if (!saveBar) return;
+
+        var nav = saveBar.parentElement
+            ? saveBar.parentElement.querySelector('.bccf-tabs')
+            : null;
+        var cfSection = nav ? nav.getAttribute('data-cf-section') : null;
+        var acSection = nav ? nav.getAttribute('data-ac-section') : null;
+        var navId     = nav ? nav.id : null;
+
+        // Resolve IDs from save bar data attributes
+        var cfSectionId = saveBar.getAttribute('data-cf-section') || cfSection;
+        var acSectionId = saveBar.getAttribute('data-ac-section') || acSection;
+        var tabNavId    = saveBar.getAttribute('data-tab-nav') || navId;
+        var txId        = saveBar.getAttribute('data-transaction-id') || '';
+        var txType      = saveBar.getAttribute('data-transaction-type') || '';
+
+        // Derive scoped save/status IDs from rootId convention
+        var saveBtnId    = rootId.replace('bc_cf_root', 'bc_save_btn');
+        var saveStatusId = rootId.replace('bc_cf_root', 'bc_save_status');
+
+        // Track which tab is active for Review button label toggling
+        var activeTabId = cfSectionId;
+
+        // Update Review button label based on active tab
+        function updateReviewLabel() {
+            var reviewBtn = document.getElementById(rootId + '_review_btn');
+            if (!reviewBtn) return;
+            if (activeTabId === cfSectionId) {
+                reviewBtn.textContent = 'Review Accrual';
+                reviewBtn.setAttribute('data-action', 'review-accrual');
+            } else {
+                reviewBtn.textContent = 'Review Cash Flow';
+                reviewBtn.setAttribute('data-action', 'review-cashflow');
+            }
         }
 
-        // Update total row — find it by looking for the row after the data rows
-        var allTrs = tbody.querySelectorAll('tr');
-        var lastTr = allTrs[allTrs.length - 1];
-        if (lastTr && !lastTr.getAttribute('data-section')) {
-            // This is the total row (no data-section attribute)
-            var tCells = lastTr.querySelectorAll('td');
-            for (var t = 0; t < tCells.length; t++) {
-                var txt = tCells[t].textContent;
-                if (txt.indexOf('%') > -1 && txt.indexOf('allocated') === -1) {
-                    tCells[t].textContent = totalPct.toFixed(1) + '%';
-                } else if (txt.indexOf('$') > -1) {
-                    tCells[t].textContent = bcTiming.formatCurrency(totalAmt);
-                }
-            }
-            // Update allocated badge
-            var badge = lastTr.querySelector('td:last-child');
-            if (badge && badge.textContent.indexOf('allocated') > -1) {
-                var isBalanced = totalPct >= 99.5 && totalPct <= 100.5;
-                badge.innerHTML = isBalanced
-                    ? '<span style="color:#10B981;">&#10003; Balanced (' + totalPct.toFixed(0) + '%)</span>'
-                    : '<span style="color:#EF4444;">&#9201; ' + totalPct.toFixed(1) + '% allocated</span>';
-            }
-        }
+        // Override switchTab to keep Review label in sync
+        var _origSwitchTab = bcTiming.switchTab;
+        bcTiming.switchTab = function(tabId, nid) {
+            activeTabId = tabId;
+            updateReviewLabel();
+            _origSwitchTab.call(bcTiming, tabId, nid);
+        };
 
-        // Update KPI cards
-        var section = document.getElementById(sectionId + '_section');
-        if (section) {
-            var kpis = section.querySelectorAll('.bc-cf-kpi-value');
-            if (kpis.length >= 3) {
-                var pctLabel = section.querySelectorAll('.bc-cf-kpi-label');
-                kpis[1].textContent = bcTiming.formatCurrency(totalAmt);
-                if (pctLabel[1]) pctLabel[1].textContent = 'SCHEDULED (' + totalPct.toFixed(1) + '%)';
-                var rem = sourceAmount - totalAmt;
-                kpis[2].textContent = bcTiming.formatCurrency(rem);
-                if (pctLabel[2]) pctLabel[2].textContent = 'REMAINING (' + (100 - totalPct).toFixed(1) + '%)';
+        saveBar.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            var action = btn.getAttribute('data-action');
+
+            if (action === 'save') {
+                bcTiming.save(txId, txType, rootId, cfSectionId, acSectionId, saveBtnId, saveStatusId);
+
+            } else if (action === 'discard') {
+                confirmDialog({
+                    headline: 'Discard changes?',
+                    body: 'Discard all unsaved changes and revert to the last saved state?'
+                }).then(function(confirmed) {
+                    if (!confirmed) return;
+                    // Re-fetch and re-render by reloading the page (simplest for v1)
+                    window.location.reload();
+                });
+
+            } else if (action === 'rebalance') {
+                var targetSection = btn.getAttribute('data-target-section') || cfSectionId;
+                bcTiming.handleRebalance(targetSection);
+
+            } else if (action === 'review-accrual') {
+                if (acSectionId) bcTiming.switchTab(acSectionId, tabNavId);
+
+            } else if (action === 'review-cashflow') {
+                if (cfSectionId) bcTiming.switchTab(cfSectionId, tabNavId);
             }
-        }
+        });
+
+        // Set initial Review label
+        updateReviewLabel();
     };
 
     // ─── Save ───────────────────────────────────────────────────────────
@@ -1858,7 +1999,7 @@ if (document.readyState !== 'loading') {
     /**
      * Collect all line data from both sections and POST to the Suitelet endpoint.
      */
-    bcTiming.save = function(transactionId, transactionType, rootId, cfSectionId, acSectionId, saveBtnId, saveStatusId) {
+    bcTiming.save = async function(transactionId, transactionType, rootId, cfSectionId, acSectionId, saveBtnId, saveStatusId) {
         // Support scoped IDs for multi-pane layouts (CO pages).
         // Fall back to legacy hardcoded IDs for backward compatibility.
         var _rootId = rootId || 'bc_cf_root';
@@ -1894,16 +2035,24 @@ if (document.readyState !== 'loading') {
             acPctTotal += (accrualLines[j].percentage || 0);
         }
 
-        // Warn if not balanced, but allow save
+        // Warn if not balanced, but allow save — use the project's confirmDialog modal, not native confirm()
         if (cashFlowLines.length > 0 && Math.abs(cfPctTotal - 100) > 0.1) {
-            if (!confirm('Cash Flow schedule is not balanced (' + bcTiming.formatPercent(cfPctTotal) + '). Save anyway?')) {
-                return;
-            }
+            var cfOk = await confirmDialog({
+                headline: 'Cash Flow schedule is not balanced',
+                body: 'The Cash Flow schedule totals ' + bcTiming.formatPercent(cfPctTotal) + ' (should be 100%). Save anyway?',
+                confirmLabel: 'Save anyway',
+                cancelLabel: 'Cancel'
+            });
+            if (!cfOk) return;
         }
         if (accrualLines.length > 0 && Math.abs(acPctTotal - 100) > 0.1) {
-            if (!confirm('Accrual schedule is not balanced (' + bcTiming.formatPercent(acPctTotal) + '). Save anyway?')) {
-                return;
-            }
+            var acOk = await confirmDialog({
+                headline: 'Accrual schedule is not balanced',
+                body: 'The Accrual schedule totals ' + bcTiming.formatPercent(acPctTotal) + ' (should be 100%). Save anyway?',
+                confirmLabel: 'Save anyway',
+                cancelLabel: 'Cancel'
+            });
+            if (!acOk) return;
         }
 
         // Build individual save requests per timing type (matches Suitelet 'save' action)
@@ -1916,7 +2065,7 @@ if (document.readyState !== 'loading') {
                 transactionId: transactionId,
                 projectId: projectId,
                 lines: cashFlowLines,
-                timingType: 1,
+                timingType: ${TIMING_TYPE.CASH_FLOW.id},
                 sourceGroup: Number(sourceGroup) || 0,
                 changeOrderId: changeOrderId || null
             });
@@ -1928,7 +2077,7 @@ if (document.readyState !== 'loading') {
                 transactionId: transactionId,
                 projectId: projectId,
                 lines: accrualLines,
-                timingType: 2,
+                timingType: ${TIMING_TYPE.ACCRUAL.id},
                 sourceGroup: Number(sourceGroup) || 0,
                 changeOrderId: changeOrderId || null
             });
@@ -1943,7 +2092,71 @@ if (document.readyState !== 'loading') {
         var saveBtn = document.getElementById(_saveBtnId);
         var statusEl = document.getElementById(_saveStatusId);
         if (saveBtn) saveBtn.disabled = true;
-        if (statusEl) statusEl.innerHTML = '<span class="bc-cf-spinner"></span> Saving...';
+        if (statusEl) {
+            statusEl.className = 'bccf-save-status dirty-balanced';
+            var savingTextEl = statusEl.querySelector('.bccf-save-status-text');
+            if (savingTextEl) savingTextEl.textContent = 'Saving...';
+        }
+
+        // Skeleton: find the active (visible) section tbody and replace its rows with
+        // shimmer placeholders so the user has an immediate in-grid visual signal.
+        // We skeleton all rows (dirty tracking is boolean per section, not per row).
+        var _skelWidths = [60, 80, 70, 90, 65, 75, 55, 85];
+        var _skelTbodies = {}; // keyed by sectionId -> { el, backup, lines, sourceAmount }
+
+        function _buildSkelTbody(sectionId, linesForSection) {
+            var el = document.getElementById(sectionId + '_tbody');
+            if (!el) return;
+            var rowCount = el.children.length;
+            if (rowCount === 0) return;
+            var colCount = el.firstElementChild ? el.firstElementChild.children.length : 8;
+            var backup = el.innerHTML;
+            _skelTbodies[sectionId] = {
+                el: el,
+                backup: backup,
+                lines: linesForSection,
+                sourceAmount: getSourceAmount(sectionId)
+            };
+            var skelHTML = '';
+            for (var sr = 0; sr < rowCount; sr++) {
+                skelHTML += '<tr>';
+                for (var sc = 0; sc < colCount; sc++) {
+                    var w = _skelWidths[(sr + sc) % _skelWidths.length];
+                    skelHTML += '<td><span class="bccf-skel" style="width:' + w + 'px;height:12px"></span></td>';
+                }
+                skelHTML += '</tr>';
+            }
+            el.innerHTML = skelHTML;
+        }
+
+        // Apply skeleton to whichever section(s) we are saving.
+        // Prefer only the visible (active) section; if both are saving, cover both.
+        if (cashFlowLines.length > 0 && accrualLines.length > 0) {
+            _buildSkelTbody(_cfId, cashFlowLines);
+            _buildSkelTbody(_acId, accrualLines);
+        } else if (cashFlowLines.length > 0) {
+            _buildSkelTbody(_cfId, cashFlowLines);
+        } else if (accrualLines.length > 0) {
+            _buildSkelTbody(_acId, accrualLines);
+        }
+
+        function _restoreFromSkel(success) {
+            var ids = Object.keys(_skelTbodies);
+            for (var si = 0; si < ids.length; si++) {
+                var sid = ids[si];
+                var info = _skelTbodies[sid];
+                if (!info || !info.el) continue;
+                if (success) {
+                    // Restore from the collected lines so typed values reappear,
+                    // then recalculate to refresh cumulative/tfoot/badge.
+                    populateGrid(sid, info.lines, info.sourceAmount);
+                    bcTiming.recalculate(sid);
+                } else {
+                    // On failure restore backup HTML so the user does not lose their edits.
+                    info.el.innerHTML = info.backup;
+                }
+            }
+        }
 
         var completed = 0;
         var failed = false;
@@ -1954,20 +2167,29 @@ if (document.readyState !== 'loading') {
 
             if (completed < requests.length) return;
 
-            // All requests finished
+            // All requests finished — restore grid rows first, then update status.
+            _restoreFromSkel(!failed);
+
             if (saveBtn) saveBtn.disabled = false;
 
             if (!failed) {
-                if (statusEl) statusEl.innerHTML = '<span style="color:#10B981;font-weight:600;">Saved successfully</span>';
+                if (statusEl) {
+                    statusEl.className = 'bccf-save-status saved';
+                    var savedTextEl = statusEl.querySelector('.bccf-save-status-text');
+                    if (savedTextEl) savedTextEl.textContent = 'Saved';
+                }
+                if (!window._bccfDirty) window._bccfDirty = {};
+                window._bccfDirty[_cfId] = false;
+                window._bccfDirty[_acId] = false;
                 showToast('Schedules saved successfully!', 'success');
             } else {
-                if (statusEl) statusEl.innerHTML = '<span style="color:#EF4444;font-weight:600;">Save failed</span>';
+                if (statusEl) {
+                    statusEl.className = 'bccf-save-status dirty-warn';
+                    var failTextEl = statusEl.querySelector('.bccf-save-status-text');
+                    if (failTextEl) failTextEl.textContent = 'Save failed';
+                }
                 showToast('Save failed: ' + (errMsg || 'Unknown error'), 'error');
             }
-
-            setTimeout(function() {
-                if (statusEl) statusEl.innerHTML = '<span style="color:#6B7280;">Ready</span>';
-            }, 5000);
         }
 
         for (var r = 0; r < requests.length; r++) {
@@ -2007,7 +2229,8 @@ if (document.readyState !== 'loading') {
     return {
         getBaseStyles,
         renderKpiBar,
-        renderTemplateSelector,
+        renderCalculatorToolbar,
+        renderTemplateSelector,    // backward-compat alias for renderCalculatorToolbar
         renderTimingGrid,
         renderTimingSection,
         renderScheduleSubtab,

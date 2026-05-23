@@ -22,14 +22,6 @@ define(['./bc_timing_constants'], (Constants) => {
         return val < 0 ? '(' + formatted + ')' : formatted;
     };
 
-    /** Format for actual rows — always positive display, zero → em-dash. */
-    const fmtActual = (n) => {
-        if (n == null || isNaN(n)) return '\u2014';
-        const abs = Math.abs(Math.round(n));
-        if (abs === 0) return '\u2014';
-        return '$' + abs.toLocaleString('en-US');
-    };
-
     /** Compact dollar formatting for chart labels — $3.5K, $1.2M */
     const fmtCompact = (val) => {
         if (val == null || val === 0) return '$0';
@@ -153,7 +145,6 @@ define(['./bc_timing_constants'], (Constants) => {
     .kpi-hero .kpi-status .dot { width: 8px; height: 8px; border-radius: 50%; }
     .kpi-hero .kpi-status .status-text { font-size: 11px; color: rgba(255,255,255,0.8); }
     .kpi-badge { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
-    .kpi-actual { border-left: 3px solid; }
 
     /* Chart container */
     .chart-wrap { background: ${BRAND.GREY_LIGHT}; border: 1px solid #E5E7EB; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
@@ -194,16 +185,6 @@ define(['./bc_timing_constants'], (Constants) => {
     tr.net-row td.positive { color: ${BRAND.GOLD}; }
     tr.net-row td.negative { color: ${BRAND.RED}; }
     tr.sep td { padding: 0; height: 6px; border: none; background: ${BRAND.WHITE}; }
-
-    /* Actual rows */
-    tr.actual-sec-hdr td { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: ${BRAND.NAVY}; background: #EEF2F7; border-bottom: 2px solid #CBD5E1; }
-    .actual-badge { display: inline-block; background: #64748B; color: #fff; font-size: 8px; font-weight: 700; padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
-    tr.actual-detail td { color: #64748B; font-style: italic; background: #FAFBFC; }
-    tr.actual-detail td:first-child { padding-left: 24px; font-weight: 600; }
-    tr.actual-close td { padding: 0; height: 2px; border: none; background: #CBD5E1; }
-    tr.net-actual-row td { font-weight: 700; background: #334155; color: ${BRAND.WHITE}; font-size: 13px; font-style: italic; }
-    tr.net-actual-row td.positive { color: ${BRAND.GOLD}; }
-    tr.net-actual-row td.negative { color: ${BRAND.RED}; }
 
     /* Drillable links */
     a.drill { color: ${BRAND.NAVY}; text-decoration: none; border-bottom: 1px dashed #D1D5DB; }
@@ -304,10 +285,8 @@ function switchView(val) {
      *   - badgeColor: hex color for badge circle background
      *   - accent: hex color for the value and/or left-border
      *   - statusDot/statusText: shown on hero card below value
-     * @param {Object[]} [actualsRow] - optional second row of actual KPI cards:
-     *   { label, value, accent }
      */
-    const buildKPICards = (items, actualsRow) => {
+    const buildKPICards = (items) => {
         let html = '<div class="kpi-row">';
 
         items.forEach((item) => {
@@ -340,18 +319,6 @@ function switchView(val) {
         });
 
         html += '</div>';
-
-        // Optional actuals KPI row
-        if (actualsRow && actualsRow.length) {
-            html += '<div class="kpi-row">';
-            actualsRow.forEach((item) => {
-                html += `<div class="kpi-card kpi-actual" style="border-left-color:${item.accent || BRAND.GREY_DARK};">
-                    <div class="kpi-label">${esc(item.label)}</div>
-                    <div class="kpi-value" style="color:${item.accent || BRAND.NAVY};">${fmtDollar(item.value)}</div>
-                </div>`;
-            });
-            html += '</div>';
-        }
 
         return html;
     };
@@ -546,7 +513,7 @@ function switchView(val) {
         const src = sourceMap && sourceMap[name];
         if (!src || !src.source_id) return esc(name);
         const url = src.source_type === 'cr'
-            ? '/app/common/custom/custrecordentry.nl?rectype=495&id=' + src.source_id
+            ? '/app/common/custom/custrecordentry.nl?rectype=customrecord_bc_change_req&id=' + src.source_id
             : '/app/accounting/transactions/transaction.nl?id=' + src.source_id;
         return `<a class="drill" href="${url}" target="_top">${esc(name)}</a>`;
     };
@@ -562,10 +529,9 @@ function switchView(val) {
      * @param {Object} config.totals - { period: total }
      * @param {number} config.grandTotal
      * @param {Object} config.groupSourceMap
-     * @param {Object} [config.actuals] - { sectionLabel, groups, groupOrder, groupTotals }
      */
     const buildTable = (config) => {
-        const { columnHeader, periods, groups, groupOrder, groupTotals, totals, grandTotal, groupSourceMap, actuals } = config;
+        const { columnHeader, periods, groups, groupOrder, groupTotals, totals, grandTotal, groupSourceMap } = config;
         const curMonth = currentYYYYMM();
 
         // Header row
@@ -598,32 +564,9 @@ function switchView(val) {
         });
         totalRow += `<td class="col-total">${fmtDollar(grandTotal)}</td></tr>`;
 
-        // Actuals section (no column total)
-        let actualHtml = '';
-        if (actuals && actuals.groupOrder && actuals.groupOrder.length) {
-            const colSpan = periods.length + 2;
-            actualHtml += `<tr class="sep"><td colspan="${colSpan}"></td></tr>`;
-            actualHtml += `<tr class="actual-sec-hdr"><td colspan="${colSpan}">${esc(actuals.sectionLabel || 'Actuals')} <span class="actual-badge">ACTUAL</span></td></tr>`;
-
-            actuals.groupOrder.forEach((g) => {
-                actualHtml += '<tr class="actual-detail">';
-                actualHtml += `<td class="row-label">${esc(g)}</td>`;
-                periods.forEach((p) => {
-                    const val = actuals.groups[g] ? actuals.groups[g][p] : null;
-                    const cls = p === curMonth ? ' class="cur-month"' : '';
-                    actualHtml += `<td${cls}>${val ? fmtActual(val) : '\u2014'}</td>`;
-                });
-                actualHtml += `<td class="col-total">${fmtActual(actuals.groupTotals[g])}</td>`;
-                actualHtml += '</tr>';
-            });
-
-            // Close with subtle border (no column total row)
-            actualHtml += `<tr class="actual-close"><td colspan="${colSpan}"></td></tr>`;
-        }
-
         return `<div class="tbl-wrap"><table>
             <thead><tr>${headerCells}</tr></thead>
-            <tbody>${bodyRows}${totalRow}${actualHtml}</tbody>
+            <tbody>${bodyRows}${totalRow}</tbody>
         </table></div>`;
     };
 
@@ -681,7 +624,7 @@ function switchView(val) {
 
     return {
         BRAND, TIMING_TYPE,
-        fmtDollar, fmtActual, fmtCompact, esc, escTooltip,
+        fmtDollar, fmtCompact, esc, escTooltip,
         monthAbbrev, monthFull, periodLabel, currentYYYYMM,
         pivot, drillLink, csvEsc,
         buildCSS, buildPageShell, buildEmptyState,

@@ -196,4 +196,17 @@ describe('bc_cf_calculator', () => {
             expect(end.getDate()).toBe(13);
         });
     });
+
+    describe('computeDates safety', () => {
+        it('throws on unknown interval (symmetric with weights() throw)', () => {
+            expect(() => Calc.computeDates(new Date(2026, 5, 1), 3, 'quarterly')).toThrow(/Unknown interval/);
+            expect(() => Calc.computeDates(new Date(2026, 5, 1), 3, 'biweekly')).toThrow(/Unknown interval/);
+        });
+    });
+
+    describe('weights safety', () => {
+        it('throws on unknown distribution', () => {
+            expect(() => Calc.weights('bell_curve', 4)).toThrow(/Unknown distribution/);
+        });
+    });
 });

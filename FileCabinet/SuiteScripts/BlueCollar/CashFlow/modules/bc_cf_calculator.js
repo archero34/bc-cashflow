@@ -50,9 +50,14 @@ define([], function () {
 
     /**
      * Compute period dates from a start date + interval + count.
-     * Monthly preserves day-of-month (and clamps via Date if month is shorter).
+     * Monthly stepping uses Date.setMonth which OVERFLOWS for short months —
+     * e.g. Jan 31 + 1 month = Mar 3 (not Feb 28). Use a start date within the
+     * first 28 days of the month if strict same-day-of-month alignment matters.
      */
     const computeDates = (startDate, n, interval) => {
+        if (interval !== 'monthly' && interval !== 'bi_weekly' && interval !== 'weekly') {
+            throw new Error(`Unknown interval: ${interval}`);
+        }
         const out = new Array(n);
         for (let i = 0; i < n; i++) {
             if (interval === 'monthly') {

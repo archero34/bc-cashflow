@@ -311,8 +311,8 @@ define([
         colHeaders += '<th>Label</th>';
         colHeaders += '<th class="right">Percentage</th>';
         colHeaders += '<th class="right">Amount</th>';
-        colHeaders += '<th class="right">Cumulative %</th>';
-        colHeaders += '<th class="right">Cumulative Amount</th>';
+        colHeaders += '<th class="right">Total %</th>';
+        colHeaders += '<th class="right">Total Amount</th>';
         if (editable) {
             colHeaders += '<th class="center" style="width:50px;"></th>';
         }
@@ -1227,7 +1227,7 @@ ${getBaseStyles()}
                 // last 2 data cells (before the action button cell)
                 var allTds = rows[m].querySelectorAll('td');
                 var tdCount = allTds.length;
-                // Cumulative % is at tdCount - 3, Cumulative Amt at tdCount - 2 (if action cell exists)
+                // Total % is at tdCount - 3, Total Amt at tdCount - 2 (if action cell exists)
                 // or tdCount - 2 and tdCount - 1 (if no action cell)
                 var hasActionCell = rows[m].querySelector('.bccf-btn-danger-ghost');
                 var cumPctIdx = hasActionCell ? tdCount - 3 : tdCount - 2;

@@ -327,18 +327,18 @@ define([
             return { x: x, y: y, value: v };
         });
         var polyPoints = trendPoints.map(function(p) { return p.x + ',' + p.y; }).join(' ');
-        var dotsSvg = trendPoints.map(function(p) {
-            var fill = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-            return '<circle cx="' + p.x + '" cy="' + p.y + '" r="1.2" fill="' + fill + '" vector-effect="non-scaling-stroke" />';
+        var dotsHtml = trendPoints.map(function(p) {
+            var color = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
+            return '<span style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);pointer-events:none;"></span>';
         }).join('');
         var lastPt = trendPoints[trendPoints.length - 1];
         var labelClr = lastPt.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-        var trendLabelSvg = '<text x="' + lastPt.x + '" y="' + lastPt.y + '" dx="-2" dy="-6" text-anchor="end" font-size="3.5" font-weight="600" fill="' + labelClr + '" style="font-family:inherit">' + fmtCurrency(lastPt.value) + '</text>';
+        var labelHtml = '<span style="position:absolute;left:' + lastPt.x + '%;top:' + lastPt.y + '%;transform:translate(-100%,calc(-100% - 4px));font-size:12px;font-weight:600;color:' + labelClr + ';background:rgba(255,255,255,0.92);padding:2px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;box-shadow:0 1px 2px rgba(0,0,0,0.06);">' + fmtCurrency(lastPt.value) + '</span>';
         var svgOverlay = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible">'
             + '<polyline points="' + polyPoints + '" fill="none" stroke="var(--bccf-success-500)" stroke-width="2" vector-effect="non-scaling-stroke" />'
-            + dotsSvg
-            + trendLabelSvg
-            + '</svg>';
+            + '</svg>'
+            + dotsHtml
+            + labelHtml;
 
         // Legend — gap:16px between swatches, margin-right:6px between swatch box and label (Bug 4 fix)
         var legend = '<div style="display:flex;align-items:center;gap:16px;font-size:12px;color:var(--bccf-ink-500)">'

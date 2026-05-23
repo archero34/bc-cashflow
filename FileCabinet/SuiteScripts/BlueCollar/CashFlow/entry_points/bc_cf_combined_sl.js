@@ -465,13 +465,13 @@ define([
 
     // Skeleton HTML strings for re-painting regions on refresh (Bug 2 fix)
     var SKEL_KPIS = (function() {
-        var cards = ‘’;
-        [‘Total Revenue’,’Total Cost’,’Net Cash Flow’,’Margin’].forEach(function(label) {
-            cards += ‘<div class="bccf-kpi">’
-                + ‘<div class="bccf-k">’ + esc(label) + ‘</div>’
-                + ‘<div class="bccf-v"><span class="bccf-skel" style="display:block;width:140px;height:24px;margin-top:4px"></span></div>’
-                + ‘<div class="bccf-sub"><span class="bccf-skel" style="display:block;width:100px;height:11px;margin-top:6px"></span></div>’
-                + ‘</div>’;
+        var cards = '';
+        ['Total Revenue','Total Cost','Net Cash Flow','Margin'].forEach(function(label) {
+            cards += '<div class="bccf-kpi">'
+                + '<div class="bccf-k">' + esc(label) + '</div>'
+                + '<div class="bccf-v"><span class="bccf-skel" style="display:block;width:140px;height:24px;margin-top:4px"></span></div>'
+                + '<div class="bccf-sub"><span class="bccf-skel" style="display:block;width:100px;height:11px;margin-top:6px"></span></div>'
+                + '</div>';
         });
         return cards;
     }());
@@ -479,70 +479,70 @@ define([
     var SKEL_CHART = (function() {
         var heights = [40, 70, 100, 90, 60, 30];
         var bars = heights.map(function(h) {
-            return ‘<div class="bccf-skel bar-skel" style="flex:1;height:’ + h + ‘px;margin:0 3px;border-radius:3px 3px 0 0"></div>’;
-        }).join(‘’);
-        return ‘<div class="bccf-panel" style="margin-bottom:16px">’
-            + ‘<div class="bccf-panel-header"><span style="font-size:var(--bccf-text-base);font-weight:600;color:var(--bccf-ink-900)">Monthly Cash Flow</span></div>’
-            + ‘<div class="bccf-panel-body"><div style="display:flex;align-items:flex-end;height:120px;padding:14px 18px">’ + bars + ‘</div></div>’
-            + ‘</div>’;
+            return '<div class="bccf-skel bar-skel" style="flex:1;height:' + h + 'px;margin:0 3px;border-radius:3px 3px 0 0"></div>';
+        }).join('');
+        return '<div class="bccf-panel" style="margin-bottom:16px">'
+            + '<div class="bccf-panel-header"><span style="font-size:var(--bccf-text-base);font-weight:600;color:var(--bccf-ink-900)">Monthly Cash Flow</span></div>'
+            + '<div class="bccf-panel-body"><div style="display:flex;align-items:flex-end;height:120px;padding:14px 18px">' + bars + '</div></div>'
+            + '</div>';
     }());
 
     var SKEL_TABLE = (function() {
         var widths = [80, 60, 70, 65, 75, 55, 90];
-        var rows = ‘’;
+        var rows = '';
         for (var r = 0; r < 5; r++) {
-            rows += ‘<tr>’;
+            rows += '<tr>';
             for (var c = 0; c < 8; c++) {
                 var w = widths[(r + c) % widths.length];
-                rows += ‘<td><span class="bccf-skel" style="display:inline-block;width:’ + w + ‘px;height:12px"></span></td>’;
+                rows += '<td><span class="bccf-skel" style="display:inline-block;width:' + w + 'px;height:12px"></span></td>';
             }
-            rows += ‘</tr>’;
+            rows += '</tr>';
         }
-        return ‘<div class="bccf-panel">’
-            + ‘<div class="bccf-panel-body" style="padding:0;overflow-x:auto">’
-            + ‘<table style="width:100%;border-collapse:collapse"><tbody>’ + rows + ‘</tbody></table>’
-            + ‘</div></div>’;
+        return '<div class="bccf-panel">'
+            + '<div class="bccf-panel-body" style="padding:0;overflow-x:auto">'
+            + '<table style="width:100%;border-collapse:collapse"><tbody>' + rows + '</tbody></table>'
+            + '</div></div>';
     }());
 
     function loadData(dataUrl) {
         _lastDataUrl = dataUrl;
 
         // Bug 2: repaint skeletons immediately so user sees loading state on refresh
-        var kpiElSkel = document.getElementById(‘bccf-kpis’);
+        var kpiElSkel = document.getElementById('bccf-kpis');
         if (kpiElSkel) kpiElSkel.innerHTML = SKEL_KPIS;
-        var chartElSkel = document.getElementById(‘bccf-chart’);
+        var chartElSkel = document.getElementById('bccf-chart');
         if (chartElSkel) chartElSkel.innerHTML = SKEL_CHART;
-        var tableElSkel = document.getElementById(‘bccf-table’);
+        var tableElSkel = document.getElementById('bccf-table');
         if (tableElSkel) tableElSkel.innerHTML = SKEL_TABLE;
 
         fetch(dataUrl)
             .then(function(res) {
-                if (!res.ok) throw new Error(‘HTTP ‘ + res.status);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.json();
             })
             .then(function(data) {
-                if (!data.ok) throw new Error(data.error || ‘Data SL returned ok:false’);
+                if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
 
                 // Bug 1: use innerHTML on stable wrapper divs (IDs never destroyed)
-                var kpiEl = document.getElementById(‘bccf-kpis’);
+                var kpiEl = document.getElementById('bccf-kpis');
                 if (kpiEl) kpiEl.innerHTML = renderKpis(data.kpis);
 
-                var chartEl = document.getElementById(‘bccf-chart’);
+                var chartEl = document.getElementById('bccf-chart');
                 if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.categories);
 
-                var tableEl = document.getElementById(‘bccf-table’);
+                var tableEl = document.getElementById('bccf-table');
                 if (tableEl) tableEl.innerHTML = renderTable(data.periods, data.categories);
             })
             .catch(function(err) {
                 var errHtml = renderError(err.message || String(err));
 
-                var kpiEl = document.getElementById(‘bccf-kpis’);
+                var kpiEl = document.getElementById('bccf-kpis');
                 if (kpiEl) {
-                    kpiEl.innerHTML = ‘<div class="bccf-error-card" style="grid-column:1/-1"><h4>Couldn\\u2019t load report data</h4><pre>’ + esc(err.message || ‘Unknown error’) + ‘</pre><button type="button" class="bccf-btn" data-action="retry">Retry</button></div>’;
+                    kpiEl.innerHTML = '<div class="bccf-error-card" style="grid-column:1/-1"><h4>Couldn\\u2019t load report data</h4><pre>' + esc(err.message || 'Unknown error') + '</pre><button type="button" class="bccf-btn" data-action="retry">Retry</button></div>';
                 }
-                var chartEl = document.getElementById(‘bccf-chart’);
+                var chartEl = document.getElementById('bccf-chart');
                 if (chartEl) chartEl.innerHTML = errHtml;
-                var tableEl = document.getElementById(‘bccf-table’);
+                var tableEl = document.getElementById('bccf-table');
                 if (tableEl) tableEl.innerHTML = errHtml;
             });
     }

@@ -377,11 +377,8 @@ define([
         var cols = periods.map(function(label, i) {
             var rev   = revTotal[i]  || 0;
             var cost  = costTotal[i] || 0;
-            var net   = rev - cost;
             var isNow = labelToYYYYMM(label) === curYYYYMM;
 
-            var netColor  = net >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-            var netLabel  = fmtCurrency(net);
             var haloStyle = isNow
                 ? 'background:var(--bccf-brand-50);border-radius:6px;padding:4px 6px 6px;'
                 : '';
@@ -393,15 +390,9 @@ define([
             var costH = barH(cost);
 
             return '<div class="' + (isNow ? 'now' : '') + '" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:48px;' + haloStyle + '">'
-                // Net amount label above bars — background + z-index so the trend line/dot don't bisect the text.
-                + '<div style="font-size:11px;font-weight:600;color:' + netColor + ';margin-bottom:4px;white-space:nowrap;font-variant-numeric:tabular-nums;position:relative;z-index:2;background:var(--bccf-surface);padding:1px 4px;border-radius:3px">'
-                    + esc(netLabel)
-                + '</div>'
-                // Paired bars — hover via .bccf-bar:hover CSS rule (spec §3.8: CSS-only, no JS)
+                // Paired bars — Revenue/Cost values surfaced via title hover.
                 + '<div style="display:flex;align-items:flex-end;gap:2px;height:' + BAR_MAX_H + 'px">'
-                    // Revenue bar (navy)
                     + '<div class="bccf-bar" title="Revenue: ' + esc(fmtCurrency(rev)) + '" style="width:16px;height:' + revH + 'px;background:var(--bccf-brand-500);border-radius:3px 3px 0 0"></div>'
-                    // Cost bar (coral)
                     + '<div class="bccf-bar" title="Cost: ' + esc(fmtCurrency(cost)) + '" style="width:16px;height:' + costH + 'px;background:var(--bccf-cost-500);border-radius:3px 3px 0 0"></div>'
                 + '</div>'
                 // Month label below
@@ -423,12 +414,15 @@ define([
         var trendPoints = cumNet.map(function(v, i) {
             var x = (i + 0.5) / periods.length * 100;
             var y = 100 - ((v - cumMin) / cumRange) * 100;
-            return { x: x, y: y, value: v };
+            return { x: x, y: y, value: v, label: periods[i] };
         });
         var polyPoints = trendPoints.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+        // Dots are hoverable — native title tooltip shows cumulative net at that period.
+        // Browser places the tooltip optimistically (above/beside, avoiding screen edges).
         var dotsHtml = trendPoints.map(function(p) {
             var color = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-            return '<span style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);pointer-events:none;"></span>';
+            var tip = esc(p.label) + ': ' + fmtCurrency(p.value) + ' cumulative';
+            return '<span title="' + esc(tip) + '" style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);cursor:default;"></span>';
         }).join('');
         // Final-period cumulative label removed — Net Cash Flow KPI already surfaces this value.
         var svgOverlay = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible">'

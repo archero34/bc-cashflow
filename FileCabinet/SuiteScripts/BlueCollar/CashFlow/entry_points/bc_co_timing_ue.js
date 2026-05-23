@@ -330,39 +330,38 @@ define([
                 return;
             }
 
-            // ── Contract / Estimate toggle ────────────────────────────────
+            // ── Contract / Estimate toggle (spec §3.13) ───────────────────
+            // Both panes are pre-rendered in the DOM; the pill toggle swaps
+            // visibility via display:none. Saves always commit both panes
+            // because all four section IDs (co_rev_*, co_cost_*) remain in
+            // the DOM and the existing save loop walks them all.
             htmlField.defaultValue = `
-<style>
-    .bc-co-wrap { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .bc-co-bar { display: flex; gap: 0; border-bottom: 2px solid #04233D; background: #F5F7FA; padding: 0 16px; }
-    .bc-co-btn { padding: 12px 28px; font-size: 13px; font-weight: 600; color: #6B7280; background: transparent;
-        border: none; border-bottom: 3px solid transparent; cursor: pointer; text-transform: uppercase;
-        letter-spacing: 0.5px; transition: all 0.2s; margin-bottom: -2px; }
-    .bc-co-btn:hover { color: #04233D; background: rgba(4,35,61,0.05); }
-    .bc-co-btn.active { color: #04233D; border-bottom-color: #FFB703; background: #FFFFFF; }
-    .bc-co-btn .bc-co-amt { font-size: 11px; font-weight: 400; opacity: 0.7; margin-left: 8px; }
-    .bc-co-pane { display: none; }
-    .bc-co-pane.active { display: block; }
-</style>
-<div class="bc-co-wrap">
-    <div class="bc-co-bar">
-        <button type="button" class="bc-co-btn active" onclick="bcCoToggle('contract')" id="bcCoBtn_contract">
-            Contract <span class="bc-co-amt">$${fmtCurrency(billingTotal)}</span>
+<div style="font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:12px 16px 0;display:flex;align-items:center;gap:12px;">
+    <div class="bccf-pane-toggle" id="bccf_co_toggle">
+        <button type="button" class="active contract" data-pane="contract">
+            Contract ($${fmtCurrency(billingTotal)})
         </button>
-        <button type="button" class="bc-co-btn" onclick="bcCoToggle('estimate')" id="bcCoBtn_estimate">
-            Estimate <span class="bc-co-amt">$${fmtCurrency(costTotal)}</span>
+        <button type="button" class="estimate" data-pane="estimate">
+            Estimate ($${fmtCurrency(costTotal)})
         </button>
     </div>
-    <div class="bc-co-pane active" id="bcCoPane_contract">${revenueHtml}</div>
-    <div class="bc-co-pane" id="bcCoPane_estimate">${costCodeSummary}${costHtml}</div>
 </div>
+<div id="co_contract_pane">${revenueHtml}</div>
+<div id="co_estimate_pane" style="display:none">${costCodeSummary}${costHtml}</div>
 <script>
-function bcCoToggle(p) {
-    document.querySelectorAll('.bc-co-btn').forEach(function(b){b.classList.remove('active');});
-    document.querySelectorAll('.bc-co-pane').forEach(function(v){v.classList.remove('active');});
-    document.getElementById('bcCoBtn_'+p).classList.add('active');
-    document.getElementById('bcCoPane_'+p).classList.add('active');
-}
+(function() {
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('#bccf_co_toggle button');
+        if (!btn) return;
+        var target = btn.getAttribute('data-pane');
+        document.querySelectorAll('#bccf_co_toggle button').forEach(function(b) {
+            b.classList.remove('active', 'contract', 'estimate');
+        });
+        btn.classList.add('active', target);
+        document.getElementById('co_contract_pane').style.display = target === 'contract' ? '' : 'none';
+        document.getElementById('co_estimate_pane').style.display = target === 'estimate' ? '' : 'none';
+    });
+})();
 </script>`;
 
             log.debug({ title: funcName, details: `CO Schedule with toggle rendered for CR ${crId}.` });

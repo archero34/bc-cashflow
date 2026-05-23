@@ -359,17 +359,21 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
 
     /**
      * Pivot flat rows for one direction ('Revenue' or 'Cost') into:
-     *   lines: [{ id, label, source, amounts: [...], total }]
+     *   lines: [{ id, label, source, amounts: [...], total, createdDate }]
      *   total: [...per-period totals...]
      *   grandTotal: number
      *
      * @param {Object[]} rows - filtered rows for one flow_direction
      * @param {string[]} periods - sorted YYYY-MM strings
-     * @param {string} firstKey - group key to hoist to first position
+     * @param {string} firstKey - retained for backwards-compat; unused after E1.5. Spec §3.1.4.
      */
     const _pivotDirection = (rows, periods, firstKey) => {
+        // firstKey arg retained for backwards-compat — unused after E1.5.
+        // Group keys are now ordered by createdDate DESC NULLS LAST. Spec §3.1.4.
+
         const groups = {};
         const sourceMap = {};
+        const createdMap = {};
 
         rows.forEach((r) => {
             const g = r.cost_group;
@@ -378,9 +382,20 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             if (!sourceMap[g] && r.source_id) {
                 sourceMap[g] = { id: r.source_id, type: r.source_type };
             }
+            if (!(g in createdMap) && r.created_date != null) {
+                createdMap[g] = r.created_date;
+            }
         });
 
-        const keys = _sortedKeys(groups, firstKey);
+        // Sort group keys by createdDate DESC NULLS LAST.
+        const keys = Object.keys(groups).sort((a, b) => {
+            const da = createdMap[a];
+            const db = createdMap[b];
+            if (da == null && db == null) return a < b ? -1 : (a > b ? 1 : 0);  // stable alphabetic for both-null
+            if (da == null) return 1;   // nulls to end
+            if (db == null) return -1;
+            return da < db ? 1 : (da > db ? -1 : 0);  // descending
+        });
 
         const lines = keys.map((k) => {
             const byPeriod = groups[k];
@@ -392,7 +407,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                 label: k,
                 source: src,
                 amounts,
-                total
+                total,
+                createdDate: (k in createdMap) ? createdMap[k] : null
             };
         });
 

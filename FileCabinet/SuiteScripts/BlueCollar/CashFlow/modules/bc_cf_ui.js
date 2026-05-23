@@ -17,6 +17,15 @@ define([], function () {
             .replace(/'/g, '&#39;');
     };
 
+    /**
+     * Layout container. `header`, `body`, `footer` are RAW HTML — they're meant to
+     * carry composed primitives (other builders' output). Caller is responsible
+     * for escaping any user-supplied strings before composing them in.
+     * @param {Object} opts
+     * @param {string} [opts.header] - Raw HTML for the header region.
+     * @param {string} [opts.body]   - Raw HTML for the body region.
+     * @param {string} [opts.footer] - Raw HTML for the footer region.
+     */
     const panel = ({ header, body, footer }) => {
         const h = header ? `<div class="bccf-panel-header">${header}</div>` : '';
         const b = body ? `<div class="bccf-panel-body">${body}</div>` : '';
@@ -24,6 +33,17 @@ define([], function () {
         return `<div class="bccf-panel">${h}${b}${f}</div>`;
     };
 
+    /**
+     * KPI card. `k` (label) is escaped; `v` and `sub` are RAW HTML so callers
+     * can compose colored deltas (e.g. `<span style="color:var(--bccf-success-500)">+$8K</span>`)
+     * or badges inline. Caller is responsible for escaping any user-supplied
+     * strings before passing them as `v` or `sub`.
+     * @param {Object}  opts
+     * @param {string}  opts.k       - Label, escaped.
+     * @param {string}  opts.v       - Value as raw HTML.
+     * @param {string}  [opts.sub]   - Subline as raw HTML.
+     * @param {boolean} [opts.accent] - True ⇒ value renders in brand color.
+     */
     const kpi = ({ k, v, sub, accent }) => {
         const cls = accent ? 'bccf-kpi accent' : 'bccf-kpi';
         return `<div class="${cls}">

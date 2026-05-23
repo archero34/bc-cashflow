@@ -184,4 +184,38 @@ describe('bc_cf_combined_sl — shell structure', () => {
             expect(body).toMatch(/mode=cash/);
         });
     });
+
+    describe('cumulative net trend line overlay', () => {
+        let body;
+
+        beforeEach(() => {
+            const res = mockResponse();
+            Suitelet.onRequest({ request: GET({ projectId: '1807', mode: 'cash' }), response: res });
+            body = res.getBody();
+        });
+
+        it('client script contains cumNet accumulator variable', () => {
+            expect(body).toContain('cumNet');
+        });
+
+        it('client script renders <polyline> SVG element for the trend line', () => {
+            expect(body).toContain('<polyline');
+        });
+
+        it('client script renders SVG overlay with correct viewBox', () => {
+            expect(body).toContain('viewBox="0 0 100 100"');
+        });
+
+        it('legend contains "Cumulative Net" label', () => {
+            expect(body).toContain('Cumulative Net');
+        });
+
+        it('client script uses vector-effect="non-scaling-stroke" for consistent stroke width', () => {
+            expect(body).toContain('vector-effect="non-scaling-stroke"');
+        });
+
+        it('SVG overlay has pointer-events:none so bars remain hoverable', () => {
+            expect(body).toContain('pointer-events:none');
+        });
+    });
 });

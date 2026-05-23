@@ -315,10 +315,36 @@ define([
             + '</div>';
         });
 
+        // ── Cumulative net trend line ────────────────────────────────────────
+        var net = periods.map(function(_, i) { return (revTotal[i] || 0) - (costTotal[i] || 0); });
+        var cumNet = net.reduce(function(acc, n) { acc.push((acc[acc.length - 1] || 0) + n); return acc; }, []);
+        var cumMax = Math.max(0, Math.max.apply(null, cumNet));
+        var cumMin = Math.min(0, Math.min.apply(null, cumNet));
+        var cumRange = (cumMax - cumMin) || 1;
+        var trendPoints = cumNet.map(function(v, i) {
+            var x = (i + 0.5) / periods.length * 100;
+            var y = 100 - ((v - cumMin) / cumRange) * 100;
+            return { x: x, y: y, value: v };
+        });
+        var polyPoints = trendPoints.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+        var dotsSvg = trendPoints.map(function(p) {
+            var fill = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
+            return '<circle cx="' + p.x + '" cy="' + p.y + '" r="1.2" fill="' + fill + '" vector-effect="non-scaling-stroke" />';
+        }).join('');
+        var lastPt = trendPoints[trendPoints.length - 1];
+        var labelClr = lastPt.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
+        var trendLabelSvg = '<text x="' + lastPt.x + '" y="' + lastPt.y + '" dx="-2" dy="-6" text-anchor="end" font-size="3.5" font-weight="600" fill="' + labelClr + '" style="font-family:inherit">' + fmtCurrency(lastPt.value) + '</text>';
+        var svgOverlay = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible">'
+            + '<polyline points="' + polyPoints + '" fill="none" stroke="var(--bccf-success-500)" stroke-width="2" vector-effect="non-scaling-stroke" />'
+            + dotsSvg
+            + trendLabelSvg
+            + '</svg>';
+
         // Legend — gap:16px between swatches, margin-right:6px between swatch box and label (Bug 4 fix)
         var legend = '<div style="display:flex;align-items:center;gap:16px;font-size:12px;color:var(--bccf-ink-500)">'
             + '<span><span style="display:inline-block;width:10px;height:10px;background:var(--bccf-brand-500);border-radius:2px;vertical-align:middle;margin-right:6px"></span>Revenue</span>'
             + '<span><span style="display:inline-block;width:10px;height:10px;background:var(--bccf-cost-500);border-radius:2px;vertical-align:middle;margin-right:6px"></span>Cost</span>'
+            + '<span style="display:inline-flex;align-items:center;gap:6px"><svg width="18" height="6" viewBox="0 0 18 6" style="display:block"><line x1="0" y1="3" x2="18" y2="3" stroke="var(--bccf-success-500)" stroke-width="2" /><circle cx="9" cy="3" r="1.6" fill="var(--bccf-success-500)" /></svg>Cumulative Net</span>'
         + '</div>';
 
         var headerHtml = '<div style="display:flex;align-items:center;justify-content:space-between">'
@@ -326,8 +352,11 @@ define([
             + legend
         + '</div>';
 
-        var barsHtml = '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">'
-            + cols.join('')
+        var barsHtml = '<div style="position:relative">'
+            + '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">'
+                + cols.join('')
+            + '</div>'
+            + svgOverlay
         + '</div>';
 
         // renderChart returns the full panel HTML — loadData sets innerHTML of #bccf-chart wrapper (Bug 1 fix)

@@ -1,167 +1,213 @@
 # BC Cash Flow Forecasting — Project Status
 
-## Current Phase: POC Live + Actuals Integration In Progress
+## Current Phase: v1 Redesign Complete · Customer Sandbox Deploy Ready
 
-**Date**: 2026-03-26
-**Demo**: Data Airflow — COMPLETED SUCCESSFULLY ("absolutely crushed it")
-**Account**: TD2984799 - BlueCollar Demo Trailing
+**Date**: 2026-05-23
+**Account**: TD2984799 — BlueCollar Demo Trailing (dev)
 **Repo**: https://github.com/archero34/bc-cashflow
-**Demo Project**: Data Airflow - Cash Flow Demo (ID: 1807, DEMO-2026-DAF-001)
+**Demo Project**: Data Airflow - Cash Flow Demo (ID: 1807)
+**Active branch**: `feature/v1-redesign` (30+ commits, ahead of `main`; PR pending)
 
 ---
 
-## What's Working
+## Snapshot
 
-### Schedule Subtabs (PO, SO, Change Request)
-- Cash Flow + Accrual timing grids on PO, SO, Change Request
-- Template apply (7 built-in patterns), manual date/percentage editing
-- Currency formatting, cumulative calculations, 100% validation badge
-- SO automatically excludes CO-added lines (Original Contract = Total - CO Billing Impacts)
-- CO has Contract/Estimate toggle (not stacked panes)
-- Amount-driven entry: type a dollar amount → percentage back-calculates
-- Save persists to custom records via AJAX Suitelet endpoint
-- Delete via diff-based save (removed lines get deleted on save)
+### What changed in the v1 redesign (this session)
 
-### Project-Level Reports (Cash Flow tab — 3 iframed Suitelets)
-- **Combined**: Revenue vs Cost = Net, KPIs, bar chart, Cash Flow/Accrual toggle, drillable links, current month highlight, Export CSV/PDF
-- **Cost**: Cost outflows by vendor/CO, bar chart, drillable links
-- **Revenue**: Revenue inflows by Base Bid/CO, bar chart, drillable links
-- **Actuals Integration** (in progress): Bills, invoices, payments pulled via SuiteQL
-  - Revenue: Invoiced (CustInvc) + Collected (CustPymt) — WORKING
-  - Cost: Billed (VendBill) — WORKING. Paid (VendPmt) — NEEDS VALIDATION
-  - Each query independent (payment failure doesn't kill bills)
-  - Actual rows styled with muted italic + subtle background
-  - KPIs: Received to Date, Paid to Date, Actual Invoiced, Actual Billed
+- **Actuals integration removed entirely** — half-finished SuiteQL (CustInvc / CustPymt / VendBill / VendPmt) deleted along with the variance KPIs and italic-actual rendering. Spec §3.3. Reintroduction is a Phase 2 epic; the code remains in git history.
+- **Design system rolled out across all 6 surfaces** — shared `bc_cf_styles.js` (CSS tokens + primitives), `bc_cf_ui.js` (HTML builders), `bc_cf_calculator.js` (pure math). All classes prefixed `bccf-*`.
+- **3 report Suitelets converted to shell-only** — server returns skeleton instantly; client fetches JSON from the new `bc_cf_data_sl` (action-routed: `?action=combined|cost|revenue`).
+- **Color encoding**: Revenue = navy `--bccf-brand-500 #1f3b5e`. Cost = coral `--bccf-cost-500 #f97316`. Net positive = green, negative = red. Spec §3.7.
+- **Combined chart**: paired bars per period + Net amount label above each pair + cumulative-net trend line overlay (green polyline with sign-colored dots). No final-period label (Net KPI already surfaces it).
+- **Drillable transaction links restored** — sub-row labels link to SO / PO / Change Request via `target="_top"`. Labels now show transaction tranid (PO1377, SO0631, etc.) instead of vendor name.
+- **Cash/Accrual toggle + Refresh button** in each report header. Skeleton flashes on refresh + on save.
+- **Schedule editor reskin** (PO / SO / CO Schedule subtabs):
+  - Calculator toolbar replaces the old stamp-only template selector: Distribution (S-curve/Linear/Front/Back) + Periods + Interval (Monthly/Bi-weekly/Weekly) + Start date + End date (read-only computed) + Generate + Clear all.
+  - Live preview region updates as inputs change (mini bar chart + 5-row table snippet).
+  - Generate replaces the grid; confirms first if rows are dirty.
+  - New save bar with status pulse: saved (green) / dirty-balanced (slate pulse) / dirty-warn (amber pulse). Discard / Rebalance (conditional) / Save schedules.
+  - Math truth fix: edits to BOTH percent AND amount columns now route through a unified `recalculate(sid)` — totals row + validation badge + KPI strip + Rebalance button visibility all reconcile after every edit (was previously broken for amount edits).
+  - Rebalance button distributes the overage/shortage proportionally across non-last-edited rows. Live tooltip shows the amount + percent + line count.
+  - Validation badge in tfoot: `✓ Balanced` (success-green) or `⚠ X% allocated` (warn-amber).
+  - CO Schedule: Contract / Estimate pill toggle in header (Contract = navy, Estimate = slate) replaces the old stacked dual-pane layout.
+  - Skeleton-load grid rows during save AJAX so the user sees progress (in addition to the save-bar pulse).
+- **Native `confirm()` / `alert()` swept out** — all dialogs now use the project's `confirmDialog` modal (esc/enter keyboard support, custom button labels).
 
-### Known Issues (Current)
-- **VendPmt query** may not match if payment not created FROM the bill directly. Uses `pmt.createdfrom IN (SELECT bill.id ...)` — needs validation with actual payment data
-- **Amount-driven manual entry** works for new lines but has edge cases when existing lines were created at a different source amount
-- **Template dropdown** resets to "Choose a Template" on reload (cosmetic — template ID not stored on timing lines)
+### Portability audit (pre-customer-deploy, 2026-05-23)
+
+Four critical hardcoded internal IDs were found and fixed:
+- `bc_cf_report_utils.js`: `rectype=495` → `rectype=customrecord_bc_change_req` (scriptid form)
+- `bc_cf_data_sl.js`: `modeToTimingType` now references `Constants.TIMING_TYPE.CASH_FLOW.id` / `.ACCRUAL.id`
+- `bc_timing_ui.js`: save handler `timingType: 1` / `2` literals replaced with `${TIMING_TYPE.CASH_FLOW.id}` / `${TIMING_TYPE.ACCRUAL.id}` template interpolation
+- `bc_cf_project_ue.js`: iframe URL `timingType: 1` replaced with `mode: 'cash'` (the portable string param the shell SLs actually consume)
+
+Zero remaining references to TD2984799, project ID 1807, transaction IDs, or vendor names in production code.
+
+### Manual NetSuite UI configurations (not SDF-deployable — owned per-account)
+
+| Item | Record | Notes |
+|------|--------|-------|
+| Parent/child subtab structure on BC Project | BC Project | Cash Flow as parent; Combined / Cost / Revenue as children. Each `custrecord_bc_cf_*_html` field moved to its child subtab. |
+| `custrecord_bc_ctl_cost_code` display label | BC Cost Timing Line | **Renamed in NetSuite UI to "Related Cost Code"** to avoid name collision with the BC Project cost code custom segment when updating the BlueCollar SuiteApp. Script ID unchanged. |
+| `custrecord_bc_ctl_change_order` display label | BC Cost Timing Line | Renamed to "Related Change Order" (same reasoning). Script ID unchanged. |
+| List/Record field type fixes | Timing line records | Custom fields manually changed from INTEGER to List/Record in the NS UI to reference BC SuiteApp records. SDF deploy would revert these — the records path is commented out of `deploy.xml`. |
+| Available Without Login = OFF | `customdeploy_bc_cf_data_sl` | Data endpoint should be authenticated-only (iframe carries session). Verified during T14 deploy. |
 
 ---
 
 ## Architecture
 
 ```
-Purchase Order → Schedule subtab → custbody_bc_cost_timing_html
-                  └── UE: bc_cost_timing_ue.js (populates existing INLINEHTML field)
+BC Project record · Cash Flow parent subtab
+    ├── Combined child subtab    →  iframe  →  bc_cf_combined_sl  ─┐
+    ├── Cost child subtab         →  iframe  →  bc_cf_cost_report_sl │  shell only
+    └── Revenue child subtab      →  iframe  →  bc_cf_rev_report_sl  ─┘
+                                                          │
+                                                  fetch JSON
+                                                          ↓
+                                            bc_cf_data_sl?action=…&projectId=…&mode=cash|accrual
 
-Sales Order    → Schedule subtab → custbody_bc_rev_timing_html
-                  └── UE: bc_rev_timing_ue.js (BC Contract gate + original contract calc)
-
-Change Request → Schedule subtab → custrecord_bc_co_timing_html
-                  └── UE: bc_co_timing_ue.js (Contract/Estimate toggle)
-                  ├── Contract → Revenue timing (transactionId = parent SO)
-                  └── Estimate → Cost timing (transactionId = null, keyed by CO)
-
-Project Record → Cash Flow tab (3 INLINEHTML fields, each loading an iframe)
-                  ├── Combined → custrecord_bc_cf_combined_html
-                  ├── Cost     → custrecord_bc_cf_cost_html
-                  └── Revenue  → custrecord_bc_cf_revenue_html
-                  └── UE: bc_cf_project_ue.js (populates all 3 fields with iframe HTML)
+Purchase Order → Schedule subtab → custbody_bc_cost_timing_html ─┐
+Sales Order    → Schedule subtab → custbody_bc_rev_timing_html   │  full inline editor
+Change Request → Schedule subtab → custrecord_bc_co_timing_html  ─┘  (UI + math both in iframe)
+                                                                  └── data via bc_timing_data_sl AJAX
 ```
 
-### Shared Modules (FileCabinet/SuiteScripts/BlueCollar/CashFlow/modules/)
-- `bc_timing_ui.js` (~1,900 lines) — Inline HTML/CSS/JS renderer
-- `bc_timing_engine.js` — Template application, validation, recalculation
-- `bc_timing_dao.js` — SuiteQL reads + N/record writes
-- `bc_timing_constants.js` — Field IDs, list values, brand config
+### File layout
 
-### Entry Points (FileCabinet/SuiteScripts/BlueCollar/CashFlow/entry_points/)
-- `bc_timing_data_sl.js` — AJAX Suitelet for all timing CRUD
-- `bc_cost_timing_ue.js` — PO Schedule subtab
-- `bc_rev_timing_ue.js` — SO Schedule subtab
-- `bc_co_timing_ue.js` — CO Schedule subtab (dual-pane)
-- `bc_cf_project_ue.js` — Project Cash Flow tab
-- `bc_cf_combined_sl.js` — Combined report Suitelet
-- `bc_cf_cost_report_sl.js` — Cost report Suitelet
-- `bc_cf_rev_report_sl.js` — Revenue report Suitelet
+```
+FileCabinet/SuiteScripts/BlueCollar/CashFlow/
+  modules/
+    bc_cf_styles.js         — shared CSS tokens + primitives (149 lines)
+    bc_cf_ui.js              — HTML builders (esc, panel, kpi, badge, toggle, skeleton*, errorCard)
+    bc_cf_calculator.js      — pure-function schedule math (weights, normalize, generate, rebalance, computeEndDate)
+    bc_cf_report_utils.js    — legacy report utils; mostly orphaned, drillLink fixed for portability
+    bc_timing_ui.js          — schedule editor HTML + inline client IIFE (~1.5k lines)
+    bc_timing_engine.js      — schedule math engine (server-side; applyTemplate removed)
+    bc_timing_dao.js         — DAO: SuiteQL reads + N/record writes for timing lines
+    bc_timing_constants.js   — list values, field IDs, brand config
+
+  entry_points/
+    bc_cf_data_sl.js              — NEW shared JSON data endpoint, action-routed
+    bc_cf_combined_sl.js          — shell-only Combined report
+    bc_cf_cost_report_sl.js       — shell-only Cost report
+    bc_cf_rev_report_sl.js        — shell-only Revenue report
+    bc_cf_project_ue.js           — stamps 3 iframes on BC Project record
+    bc_timing_data_sl.js          — schedule editor AJAX endpoint (unchanged)
+    bc_cost_timing_ue.js          — PO Schedule subtab UE
+    bc_rev_timing_ue.js           — SO Schedule subtab UE
+    bc_co_timing_ue.js            — CO Schedule subtab UE (now with Contract/Estimate toggle)
+```
 
 ---
 
-## Deploy Commands
+## Deploy commands
 
 ```bash
-# File-only updates (preferred for iteration):
-npx suitecloud file:upload --paths "/SuiteScripts/BlueCollar/CashFlow/entry_points/FILE.js"
+# File-only updates (preferred for code iteration):
+npx suitecloud file:upload --paths "/SuiteScripts/BlueCollar/CashFlow/<file>"
 
-# Multiple files:
-npx suitecloud file:upload --paths "/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_cf_combined_sl.js" "/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_cf_cost_report_sl.js"
+# Full project deploy (when adding new script objects / fields):
+npm run deploy
 
-# Full project deploy (new objects only — records excluded):
-npx suitecloud project:deploy
+# Validate before deploy:
+npm run validate
 
-# NEVER use full deploy for code-only changes — it overwrites manual UI field fixes
+# Dry-run:
+npm run deploy:dryrun
 ```
 
-### Objects/records/ is EXCLUDED from deploy.xml
-Custom record fields were manually changed from INTEGER to List/Record in the NS UI to reference BC SuiteApp records. SDF deploy reverts these. The records path is commented out in deploy.xml.
+**NEVER use full deploy for code-only changes** — it can overwrite manual UI field fixes. Records path is excluded from `deploy.xml` for this reason.
+
+### Suitelet inventory (deployed)
+
+| Script ID | Deploy ID | Purpose |
+|-----------|-----------|---------|
+| `customscript_bc_cf_combined_sl` | `customdeploy_bc_cf_combined_sl` | Combined report shell |
+| `customscript_bc_cf_cost_report_sl` | `customdeploy_bc_cf_cost_report_sl` | Cost report shell |
+| `customscript_bc_cf_rev_report_sl` | `customdeploy_bc_cf_rev_report_sl` | Revenue report shell |
+| `customscript_bc_cf_data_sl` | `customdeploy_bc_cf_data_sl` | **NEW** action-routed JSON endpoint. Available Without Login = OFF. |
+| `customscript_bc_timing_data_sl` | `customdeploy_bc_timing_data_sl` | Schedule editor AJAX save endpoint |
 
 ---
 
-## Manual Setup (not SDF-deployable)
+## Demo scenario data (Project 1807)
 
-| Item | Record | Done |
-|------|--------|------|
-| `custrecord_bc_cf_combined_html` | BC Project | Yes |
-| `custrecord_bc_cf_cost_html` | BC Project | Yes |
-| `custrecord_bc_cf_revenue_html` | BC Project | Yes |
-| `custrecord_bc_co_timing_html` | BC Change Request | Yes |
-| UE deploy: bc_cf_project_ue.js | BC Project | Yes |
-| UE deploy: bc_co_timing_ue.js | BC Change Request | Yes |
-| List/Record field type fixes | Timing records | Yes |
+- **Customer**: Bolder Construction Inc. (ID: 197)
+- **Contract**: SO0631 — $30,000 base + $12,000 CO = $42,000 current
+- **PO A**: Phoenix Mechanical Supply (PO 16240) — $15,000
+- **PO B**: Metro Electric Supply (PO 16241) — $8,000
+- **CO**: CO-001 — $12K billing / $10K estimate
+- **Forecast totals**: Revenue $42K · Cost $33K · Net $9K · Margin 21.4%
 
 ---
 
-## Key SuiteQL Gotchas Discovered
+## Known minor quirks (not blocking v1)
 
-| Issue | Solution |
-|-------|----------|
-| `entity.companyname` not found | Use `entity.entitytitle` |
-| `account.acctname` NOT_EXPOSED | Use `account.accountsearchdisplayname` |
-| PERCENT fields return decimals (0.5 = 50%) | Multiply by 100 on load |
-| Invoice line `foreignamount` is NEGATIVE | Use `SUM(-tl.foreignamount)` |
-| Customer payment `foreigntotal` is NEGATIVE | Use `SUM(-pmt.foreigntotal)` |
-| Payment→Invoice join creates cross-product | Use EXISTS subquery |
-| VendPmt `transactionline.createdfrom` empty | Use `pmt.createdfrom` (header) or IN subquery |
-| Custom segment on transactionline | `tl.cseg_bc_project` works in SuiteQL |
-| BC Change Request status field | `custrecord_bc_request_status` (not `chg_request_status`) |
-| BC Change Request project field | `custrecord_bc_blue_collar_proj` (not `cseg_bc_project`) |
-| BC Contract checkbox | `custbody_bc_is_bluecollar_contract` |
-| CO number field | `custrecord_bc_change_order_number` |
-| CO related SO | `custrecord_bc_related_transactions` |
+- **Amount-driven entry rounding drift**: typing exact whole-dollar amounts can land slightly off due to the percent ↔ amount round-trip (e.g. typing `$2,000` may settle at `$1,999.50` after one debounce cycle). Soft forecast numbers — not material for v1. Could be fixed in Phase 2 by storing the literal amount and recomputing percentages directly without an intermediate rounded percent.
+- **Combined chart trend line in tall iframes**: the SVG `viewBox="0 0 100 100" preserveAspectRatio="none"` stretches the polyline correctly but data dots and the (now-removed) label needed to be HTML siblings instead of SVG children. Pattern documented in T15.7 fix; relevant for any future overlay work.
+- **NetSuite iframe iframe height**: hardcoded 900px on the parent record. ResizeObserver / postMessage height-sync is a Phase 2 polish item per spec §3.11.
 
 ---
 
-## Demo Scenario Data
+## Phase 2 backlog — enhancement requests (NEW, captured 2026-05-23)
 
-**Project**: Data Airflow - Cash Flow Demo (ID: 1807)
-**Customer**: Bolder Construction Inc. (ID: 197)
-**Contract**: SO0631 | $30,000 base + $12,000 CO = $42,000 current
-**PO A**: Phoenix Mechanical Supply | $15,000 (ID: 16240)
-**PO B**: Metro Electric Supply | $8,000 (ID: 16241)
-**CO**: CO-001 | $12K billing / $10K estimate
+### E1 — Date range filtering on report Suitelets
 
----
+**Request:** Add a date range selector to Revenue / Cost / Combined reports. Currently the reports show all periods present in the underlying timing lines. User needs to view any combination of periods.
 
-## What's NOT Built Yet
+**Notes:**
+- The selector should allow picking arbitrary start/end periods, not just preset ranges.
+- Consider a max period count limit (e.g. 18 months) to prevent column-cramping on long horizons.
+- Both `mode=cash` and `mode=accrual` should respect the same range.
+- The `bc_cf_data_sl` JSON contract may need a `startPeriod` / `endPeriod` filter param — bake server-side or filter client-side after fetch.
+
+**Mocks**: TBD. Place the selector in the report header next to the Cash/Accrual toggle.
+
+### E2 — Consolidated portfolio Suitelet
+
+**Request:** A new top-level Suitelet that rolls up all BC projects into a single cash-flow view. The earlier "consolidated reporting" thread did NOT mean consolidating the 3 SuiteApps (Combined / Cost / Revenue) into one — it meant a portfolio view across all projects.
+
+**Notes:**
+- Each project = one row showing revenue + cost across the period columns.
+- Header KPIs + charting that aggregate across all visible projects (total revenue, total cost, net, etc.).
+- Multi-select project picker (filter to a subset of projects).
+- Date range filter (same component as E1 — reusable).
+- Cash / Accrual toggle (same primitive as the report SLs).
+- This is a new Suitelet, not modifications to the existing project-level reports. Probably `bc_cf_portfolio_sl` + a new INLINEHTML mount point or a standalone NS menu entry.
+
+**Architecture**: likely a new shell SL (HTML + skeleton) + the existing `bc_cf_data_sl` extended with a `?action=portfolio` action returning the multi-project rollup.
+
+### E3 — Existing tracked items (Phase 2, unchanged from earlier sessions)
 
 | Feature | Phase |
 |---------|-------|
+| Actuals integration re-introduction (CustInvc / CustPymt / VendBill / VendPmt) — design from scratch | 2 |
 | Labor timing | 2 |
 | Task/schedule integration | 2 |
-| Portfolio view (all projects) | 2 |
 | Status updater scheduled script | 2 |
 | Alerts / email digests | 2 |
 | Dashboard portlets | 2 |
 | Lock/unlock schedule | 2 |
 | Template stored on timing lines | 2 |
 | Subcontract CO handling | 2 |
+| Iframe height-sync via postMessage | 2 polish |
+| Least-privilege custom run-as role for Suitelet deployments | 2 hardening |
+| Replace TIMING_TYPE list-value integer IDs with scriptid-based lookup | 2 hardening |
+| Migrate brand hex literals to `--bccf-*` CSS tokens consistently | 2 polish |
 
 ---
 
-## Session History
+## Session history
 
-**2026-03-25/26 overnight**: Built entire POC from scratch. 12 scripts, 34 tests, 20+ bug fixes. Deployed via SDF. Demo to Data Airflow — success.
+- **2026-03-25/26 overnight**: POC built from scratch. Demo to Data Airflow — success.
+- **2026-03-26 post-demo**: Actuals integration started (bills, invoices, payments). Unresolved correctness issues.
+- **2026-05-22 → 2026-05-23**: Brainstormed + designed the v1 redesign. Wrote spec (`docs/superpowers/specs/2026-05-22-cashflow-ui-redesign-design.md`) and 31-task plan (`docs/superpowers/plans/2026-05-22-cashflow-ui-redesign.md`). Executed all 31 tasks + 4 polish passes via subagent-driven development. Deployed continuously to TD2984799 sandbox. Committed everything to `feature/v1-redesign` branch on GitHub. Portability audit + fixes. Ready for customer sandbox.
 
-**2026-03-26 post-demo**: Added actuals integration (bills, invoices, payments). Fixed SuiteQL joins, negative amounts, cross-product inflation. Split queries for resilience. Polished report charts (simplified sparklines, hover tooltips, drillable links). Fixed amount-driven entry UX. Created demo project + cheatsheet.
+---
+
+## Open questions / decisions to make next session
+
+1. **Merge `feature/v1-redesign` to `main`?** Pending PR review on https://github.com/archero34/bc-cashflow/pull/new/feature/v1-redesign. Local `main` is currently equal to the branch (since dev commits went directly to main earlier in the session). Decide: reset local `main` to `origin/main` and merge via PR, or fast-forward both?
+2. **Customer sandbox deploy procedure** — first-deploy runbook: install BC SuiteApp prerequisites, then SDF deploy this project. The 4 portability fixes from 2026-05-23 should make this clean.
+3. **E1 + E2 brainstorming** — pick up next session with the brainstorming skill to design these two features. E2 (portfolio view) is the bigger lift and should probably go through its own spec + plan cycle.

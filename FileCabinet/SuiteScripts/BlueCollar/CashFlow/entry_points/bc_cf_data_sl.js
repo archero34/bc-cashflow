@@ -27,9 +27,11 @@ define(['N/log'], function (log) {
         return { periods: [], categories: {}, kpis: {} };
     };
     const _loadCost = (projectId, mode) => {
+        // Phase 3 stub: real implementation lands in Task 12.
         return { periods: [], categories: {}, kpis: {} };
     };
     const _loadRevenue = (projectId, mode) => {
+        // Phase 3 stub: real implementation lands in Task 13.
         return { periods: [], categories: {}, kpis: {} };
     };
 

@@ -21,11 +21,12 @@ describe('bc_cf_data_sl', () => {
     });
 
     it('rejects unknown action with ok:false', () => {
-        const req = { method: 'GET', parameters: { action: 'frobnicate' } };
+        const req = { method: 'GET', parameters: { action: 'frobnicate', projectId: '1807' } };
         const res = mockResponse();
         Suitelet.onRequest({ request: req, response: res });
         const body = JSON.parse(res.getBody());
         expect(body.ok).toBe(false);
+        expect(body.error).toMatch(/unknown action/i);
     });
 
     it('rejects missing projectId with ok:false', () => {

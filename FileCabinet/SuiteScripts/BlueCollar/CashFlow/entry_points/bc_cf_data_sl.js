@@ -338,7 +338,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      *   kpis: { totalRevenue: number, totalCost: number, netCashFlow: number, margin: number }
      * }}
      */
-    const _loadCombined = (projectId, mode) => {
+    const _loadCombined = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
 
         let rows;
@@ -392,7 +392,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      *   kpis: { totalCost: number, currentMonth: number, peakMonth: number, remaining: number }
      * }}
      */
-    const _loadCost = (projectId, mode) => {
+    const _loadCost = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
 
         let rows;
@@ -456,7 +456,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      *   kpis: { totalRevenue: number, baseContract: number, changeOrders: number, peakMonth: number }
      * }}
      */
-    const _loadRevenue = (projectId, mode) => {
+    const _loadRevenue = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
 
         let rows;
@@ -511,18 +511,24 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             const action = params.action;
             const projectId = params.projectId;
             const mode = params.mode || 'cash';
+            const rawStart = params.startPeriod;
+            const rawEnd   = params.endPeriod;
 
             if (!action) return sendError(res, 'Missing action parameter');
             if (!projectId) return sendError(res, 'Missing projectId parameter');
             if (mode !== 'cash' && mode !== 'accrual') return sendError(res, `Invalid mode: ${mode}`);
 
+            const resolved = api._resolveRange(rawStart, rawEnd);
+            if (!resolved.ok) return sendError(res, resolved.error);
+            const range = { startPeriod: resolved.startPeriod, endPeriod: resolved.endPeriod };
+
             let data;
             // Dispatch through `api` so Jest spies on the returned object intercept the call
             // (referencing closure-scoped functions directly would bypass the spy).
             // `module.exports` is undefined in NetSuite's AMD runtime — never reference it here.
-            if (action === 'combined')      data = api._loadCombined(projectId, mode);
-            else if (action === 'cost')     data = api._loadCost(projectId, mode);
-            else if (action === 'revenue')  data = api._loadRevenue(projectId, mode);
+            if (action === 'combined')      data = api._loadCombined(projectId, mode, range);
+            else if (action === 'cost')     data = api._loadCost(projectId, mode, range);
+            else if (action === 'revenue')  data = api._loadRevenue(projectId, mode, range);
             else return sendError(res, `Unknown action: ${action}`);
 
             sendJSON(res, Object.assign({ ok: true, mode }, data));

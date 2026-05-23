@@ -61,6 +61,43 @@ describe('bc_cf_data_sl', () => {
         expect(body.periods).toEqual(['Apr', 'May', 'Jun']);
         expect(body.kpis.totalRevenue).toBe(42000);
     });
+
+    it('rejects malformed startPeriod with ok:false', () => {
+        const req = { method: 'GET', parameters: { action: 'combined', projectId: '1807', startPeriod: '2026-13' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(false);
+        expect(body.error).toMatch(/invalid period format/i);
+    });
+
+    it('rejects range > 24 months with ok:false', () => {
+        const req = { method: 'GET', parameters: { action: 'combined', projectId: '1807', startPeriod: '2026-01', endPeriod: '2028-02' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(false);
+        expect(body.error).toMatch(/24-month/i);
+    });
+
+    it('rejects startPeriod > endPeriod with ok:false', () => {
+        const req = { method: 'GET', parameters: { action: 'combined', projectId: '1807', startPeriod: '2026-12', endPeriod: '2026-01' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(false);
+        expect(body.error).toMatch(/startPeriod must be <= endPeriod/i);
+    });
+
+    it('passes resolved range to _loadCombined', () => {
+        const spy = jest.spyOn(Suitelet, '_loadCombined').mockReturnValue({
+            periods: [], categories: { revenue: {lines:[],total:[],grandTotal:0}, cost: {lines:[],total:[],grandTotal:0} }, kpis: {}
+        });
+        const req = { method: 'GET', parameters: { action: 'combined', projectId: '1807', startPeriod: '2026-03', endPeriod: '2026-08' } };
+        Suitelet.onRequest({ request: req, response: mockResponse() });
+        expect(spy).toHaveBeenCalledWith('1807', 'cash', { startPeriod: '2026-03', endPeriod: '2026-08' });
+        spy.mockRestore();
+    });
 });
 
 describe('bc_cf_data_sl combined action shape', () => {

@@ -115,76 +115,6 @@ define([
         }).asMappedResults();
     };
 
-    /**
-     * Fetch actual transaction data — 4 independent queries.
-     * Each wrapped in its own try/catch so one failure doesn't kill the rest.
-     */
-    const fetchActuals = (projectId) => {
-        const periodsSet = new Set();
-        const revGroups = {};
-        const costGroups = {};
-
-        const addRows = (rows, bucket) => {
-            (rows || []).forEach((r) => {
-                const grp = r.cost_group;
-                const per = r.period;
-                const amt = Number(r.amount) || 0;
-                periodsSet.add(per);
-                if (!bucket[grp]) bucket[grp] = {};
-                bucket[grp][per] = (bucket[grp][per] || 0) + amt;
-            });
-        };
-
-        const runQ = (sql, params, label) => {
-            try {
-                return query.runSuiteQL({ query: sql, params }).asMappedResults() || [];
-            } catch (e) {
-                log.error({ title: MODULE + '.fetchActuals.' + label, details: e.message });
-                return [];
-            }
-        };
-
-        // 1. Revenue Invoiced
-        addRows(runQ(`SELECT 'Invoiced' AS cost_group, TO_CHAR(t.trandate, 'YYYY-MM') AS period, SUM(-tl.foreignamount) AS amount FROM transaction t JOIN transactionline tl ON tl.transaction = t.id WHERE t.type = 'CustInvc' AND tl.cseg_bc_project = ? AND tl.mainline = 'F' AND tl.taxline = 'F' GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')`, [projectId], 'invoiced'), revGroups);
-
-        // 2. Revenue Collected
-        addRows(runQ(`SELECT 'Collected' AS cost_group, TO_CHAR(pmt.trandate, 'YYYY-MM') AS period, SUM(-pmt.foreigntotal) AS amount FROM transaction pmt WHERE pmt.type = 'CustPymt' AND EXISTS (SELECT 1 FROM transactionline pmtl JOIN transactionline invl ON invl.transaction = pmtl.createdfrom WHERE pmtl.transaction = pmt.id AND pmtl.mainline = 'F' AND invl.cseg_bc_project = ? AND invl.mainline = 'F') GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')`, [projectId], 'collected'), revGroups);
-
-        // 3. Cost Billed
-        addRows(runQ(`SELECT 'Billed' AS cost_group, TO_CHAR(t.trandate, 'YYYY-MM') AS period, SUM(tl.foreignamount) AS amount FROM transaction t JOIN transactionline tl ON tl.transaction = t.id WHERE t.type = 'VendBill' AND tl.cseg_bc_project = ? AND tl.mainline = 'F' AND tl.taxline = 'F' GROUP BY TO_CHAR(t.trandate, 'YYYY-MM')`, [projectId], 'billed'), costGroups);
-
-        // 4. Cost Paid
-        addRows(runQ(`SELECT 'Paid' AS cost_group, TO_CHAR(pmt.trandate, 'YYYY-MM') AS period, SUM(pmt.foreigntotal) AS amount FROM transaction pmt WHERE pmt.type = 'VendPmt' AND pmt.createdfrom IN (SELECT DISTINCT bill.id FROM transaction bill JOIN transactionline billl ON billl.transaction = bill.id WHERE bill.type = 'VendBill' AND billl.cseg_bc_project = ? AND billl.mainline = 'F') GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')`, [projectId], 'paid'), costGroups);
-
-        // Compute totals
-        const periods = Array.from(periodsSet).sort();
-        const revTotals = {};
-        const costTotals = {};
-        let grandRev = 0;
-        let grandCost = 0;
-
-        periods.forEach((p) => {
-            let rSum = 0;
-            Object.values(revGroups).forEach((g) => { rSum += (g[p] || 0); });
-            let cSum = 0;
-            Object.values(costGroups).forEach((g) => { cSum += (g[p] || 0); });
-            revTotals[p] = rSum;
-            costTotals[p] = cSum;
-            grandRev += rSum;
-            grandCost += cSum;
-        });
-
-        return {
-            revActualGroups: revGroups,
-            costActualGroups: costGroups,
-            revActualTotals: revTotals,
-            costActualTotals: costTotals,
-            grandRevActual: grandRev,
-            grandCostActual: grandCost,
-            actualPeriods: periods
-        };
-    };
-
     // ─── Transform ────────────────────────────────────────────────────────────
 
     /**
@@ -257,19 +187,9 @@ define([
 
     // ─── Combined Table (unique to this report) ───────────────────────────────
 
-    const buildCombinedTable = (data, actuals) => {
-        const { periods: forecastPeriods, revenueGroups, costGroups, revTotals, costTotals,
+    const buildCombinedTable = (data) => {
+        const { periods, revenueGroups, costGroups, revTotals, costTotals,
                 netTotals, grandRevenue, grandCost, grandNet, groupSourceMap } = data;
-        const { revActualGroups, costActualGroups, revActualTotals, costActualTotals,
-                grandRevActual, grandCostActual, actualPeriods } = actuals || {
-            revActualGroups: {}, costActualGroups: {}, revActualTotals: {}, costActualTotals: {},
-            grandRevActual: 0, grandCostActual: 0, actualPeriods: []
-        };
-
-        // Merge forecast + actual periods
-        const allPeriodsSet = new Set(forecastPeriods);
-        (actualPeriods || []).forEach((p) => allPeriodsSet.add(p));
-        const periods = Array.from(allPeriodsSet).sort();
 
         const curMonth = utils.currentYYYYMM();
         const colSpan = periods.length + 2;
@@ -311,24 +231,6 @@ define([
 
         const sep = `<tr class="sep"><td colspan="${colSpan}"></td></tr>`;
 
-        // Revenue actuals (no column total row — stages not additive)
-        const hasRevActuals = revActualGroups && Object.keys(revActualGroups).length > 0;
-        let revActualHtml = '';
-        if (hasRevActuals) {
-            revActualHtml += sep;
-            revActualHtml += `<tr class="actual-sec-hdr"><td colspan="${colSpan}">REVENUE ACTUAL <span class="actual-badge">ACTUAL</span></td></tr>`;
-            Object.keys(revActualGroups).sort().forEach((name) => {
-                const grp = revActualGroups[name];
-                revActualHtml += '<tr class="actual-detail"><td>' + utils.esc(name) + '</td>';
-                periods.forEach((p) => {
-                    const cls = p === curMonth ? ' class="cur-month"' : '';
-                    revActualHtml += `<td${cls}>${utils.fmtActual(grp[p])}</td>`;
-                });
-                revActualHtml += `<td class="col-total">${utils.fmtActual(groupTotal(grp))}</td></tr>`;
-            });
-            revActualHtml += `<tr class="actual-close"><td colspan="${colSpan}"></td></tr>`;
-        }
-
         // Cost section
         let costHeader = `<tr class="sec-hdr"><td colspan="${colSpan}">COST</td></tr>`;
         let costRows = '';
@@ -350,24 +252,6 @@ define([
         });
         costTotalRow += `<td class="col-total">${utils.fmtDollar(grandCost)}</td></tr>`;
 
-        // Cost actuals (no column total row — stages not additive)
-        const hasCostActuals = costActualGroups && Object.keys(costActualGroups).length > 0;
-        let costActualHtml = '';
-        if (hasCostActuals) {
-            costActualHtml += sep;
-            costActualHtml += `<tr class="actual-sec-hdr"><td colspan="${colSpan}">COST ACTUAL <span class="actual-badge">ACTUAL</span></td></tr>`;
-            Object.keys(costActualGroups).sort().forEach((name) => {
-                const grp = costActualGroups[name];
-                costActualHtml += '<tr class="actual-detail"><td>' + utils.esc(name) + '</td>';
-                periods.forEach((p) => {
-                    const cls = p === curMonth ? ' class="cur-month"' : '';
-                    costActualHtml += `<td${cls}>${utils.fmtActual(grp[p])}</td>`;
-                });
-                costActualHtml += `<td class="col-total">${utils.fmtActual(groupTotal(grp))}</td></tr>`;
-            });
-            costActualHtml += `<tr class="actual-close"><td colspan="${colSpan}"></td></tr>`;
-        }
-
         // Net Forecast row
         let netRow = '<tr class="net-row"><td>NET FORECAST</td>';
         periods.forEach((p) => {
@@ -376,29 +260,14 @@ define([
         });
         netRow += `<td class="${grandNet >= 0 ? 'positive' : 'negative'}">${utils.fmtDollar(grandNet)}</td></tr>`;
 
-        // Net Actual row (only if any actuals exist)
-        const hasAnyActuals = hasRevActuals || hasCostActuals;
-        let netActualRow = '';
-        if (hasAnyActuals) {
-            const grandNetActual = grandRevActual - grandCostActual;
-            netActualRow = '<tr class="net-actual-row"><td>NET ACTUAL</td>';
-            periods.forEach((p) => {
-                const v = (revActualTotals[p] || 0) - (costActualTotals[p] || 0);
-                netActualRow += `<td class="${v >= 0 ? 'positive' : 'negative'}">${utils.fmtDollar(v)}</td>`;
-            });
-            netActualRow += `<td class="${grandNetActual >= 0 ? 'positive' : 'negative'}">${utils.fmtDollar(grandNetActual)}</td></tr>`;
-        }
-
         return `<div class="tbl-wrap"><table>
             <thead><tr>${headerCells}</tr></thead>
             <tbody>
                 ${revHeader}${revRows}${revTotalRow}
-                ${revActualHtml}
                 ${sep}
                 ${costHeader}${costRows}${costTotalRow}
-                ${costActualHtml}
                 ${sep}
-                ${netRow}${netActualRow}
+                ${netRow}
             </tbody>
         </table></div>`;
     };
@@ -477,11 +346,9 @@ define([
                 return;
             }
 
-            // Transform + fetch actuals
+            // Transform
             const data = transformData(rows);
-            const actuals = fetchActuals(projectId);
             const { grandRevenue, grandCost, grandNet, periods, revTotals, costTotals, netTotals } = data;
-            const { revActualGroups, costActualGroups } = actuals;
 
             // ── KPI Cards ──
             const heroItems = [
@@ -495,33 +362,6 @@ define([
                 { label: 'Revenue In', value: grandRevenue, accent: BRAND.NAVY },
                 { label: 'Cost Out', value: grandCost, accent: BRAND.NAVY }
             ];
-
-            // Conditional actuals KPI row
-            let actualsKPI = null;
-            const hasCollected = revActualGroups.Collected && Object.keys(revActualGroups.Collected).length;
-            const hasPaid = costActualGroups.Paid && Object.keys(costActualGroups.Paid).length;
-            const hasInvoiced = revActualGroups.Invoiced && Object.keys(revActualGroups.Invoiced).length;
-            const hasBilled = costActualGroups.Billed && Object.keys(costActualGroups.Billed).length;
-
-            if (hasCollected || hasPaid || hasInvoiced || hasBilled) {
-                actualsKPI = [];
-                if (hasCollected) {
-                    const val = Object.values(revActualGroups.Collected).reduce((s, v) => s + Math.abs(v), 0);
-                    actualsKPI.push({ label: 'Received', accent: BRAND.GREEN, value: val });
-                }
-                if (hasPaid) {
-                    const val = Object.values(costActualGroups.Paid).reduce((s, v) => s + Math.abs(v), 0);
-                    actualsKPI.push({ label: 'Paid', accent: BRAND.RED, value: val });
-                }
-                if (hasInvoiced) {
-                    const val = Object.values(revActualGroups.Invoiced).reduce((s, v) => s + Math.abs(v), 0);
-                    actualsKPI.push({ label: 'Invoiced', accent: BRAND.GOLD, value: val });
-                }
-                if (hasBilled) {
-                    const val = Object.values(costActualGroups.Billed).reduce((s, v) => s + Math.abs(v), 0);
-                    actualsKPI.push({ label: 'Billed', accent: BRAND.GREY_DARK, value: val });
-                }
-            }
 
             // ── Chart ──
             const chartHtml = utils.buildChart({
@@ -541,9 +381,9 @@ define([
 
             // ── Assemble ──
             const bodyContent = [
-                utils.buildKPICards(heroItems, actualsKPI),
+                utils.buildKPICards(heroItems),
                 chartHtml,
-                buildCombinedTable(data, actuals),
+                buildCombinedTable(data),
                 utils.buildExportBar({ filename: safeName + '_cashflow', csvRows })
             ].join('\n');
 

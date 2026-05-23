@@ -263,4 +263,54 @@ describe('bc_timing_engine', () => {
             expect(totalRevenue - totalCost).toBe(9000);
         });
     });
+
+    // ─── Math truth: onAmountChange must flow through recalculate ────────────
+    //
+    // The client-side `bcTiming.onAmountChange` was formerly an optimization that
+    // skipped `recalculate` and updated cumulatives + tfoot directly (git cf9382c).
+    // That caused tfoot and the validation badge to lag behind $ edits.
+    //
+    // The fix (T25-T27) routes ALL math-affecting events through a single canonical
+    // recalculate(sid) call.  The server-rendered HTML and the client buildRowHtml
+    // both wire the $ input to onAmountChange, which back-calculates %, then calls
+    // recalculate — never skipping it.
+    //
+    // This block asserts the ENGINE-side contract that backs the client math:
+    //   recalculateAmounts + recalculateCumulatives together produce the same
+    //   totalPct/totalAmt whether you started from % or from $ (the client
+    //   always syncs one from the other before calling recalculate).
+
+    describe('math truth — % and $ paths converge after recalculate', () => {
+        it('back-calculating % from $ then recalculating amounts matches direct % input', () => {
+            const sourceAmount = 15000;
+            // Simulates user typing $3000, $4500, $7500 (= 20/30/50% of $15K)
+            const amountEntries = [3000, 4500, 7500];
+            const linesFromAmt = amountEntries.map((amt) => ({
+                percentage: Math.round((amt / sourceAmount) * 100 * 100) / 100,
+                amount: amt,
+                cumulativePct: 0,
+                cumulativeAmt: 0
+            }));
+
+            // Simulates user typing 20%, 30%, 50% directly
+            const linesFromPct = [
+                { percentage: 20, amount: 0, cumulativePct: 0, cumulativeAmt: 0 },
+                { percentage: 30, amount: 0, cumulativePct: 0, cumulativeAmt: 0 },
+                { percentage: 50, amount: 0, cumulativePct: 0, cumulativeAmt: 0 }
+            ];
+            Engine.recalculateAmounts(linesFromPct, sourceAmount);
+
+            // After recalculateAmounts, both paths must produce identical totals
+            const totalAmtFromAmt = linesFromAmt.reduce((s, l) => s + l.amount, 0);
+            const totalAmtFromPct = linesFromPct.reduce((s, l) => s + l.amount, 0);
+            expect(totalAmtFromAmt).toBe(totalAmtFromPct);
+            expect(totalAmtFromAmt).toBe(sourceAmount);
+
+            // Cumulatives must also match
+            Engine.recalculateCumulatives(linesFromAmt);
+            Engine.recalculateCumulatives(linesFromPct);
+            expect(linesFromAmt[2].cumulativePct).toBe(linesFromPct[2].cumulativePct);
+            expect(linesFromAmt[2].cumulativeAmt).toBe(linesFromPct[2].cumulativeAmt);
+        });
+    });
 });

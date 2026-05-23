@@ -141,7 +141,11 @@ define([
 .bccf-grid tfoot td { background: var(--bccf-bg-50); font-weight: 600; border-top: 1px solid var(--bccf-border); border-bottom: 0; }
 .bccf-grid tr:hover td { background: #fafbfc; }
 
-/* Validation badge in tfoot */
+/* Validation badge in tfoot (spec §3.15.7) */
+.bccf-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 12px; transition: background 0.2s ease, color 0.2s ease; white-space: nowrap; }
+.bccf-badge.success { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+.bccf-badge.warn    { background: var(--bccf-warn-50);    color: var(--bccf-warn-500);    }
+/* Legacy validation classes (kept for backward compat in server-render path) */
 .bccf-validation { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; transition: all 0.3s ease; }
 .bccf-validation.valid { background: var(--bccf-success-50); color: var(--bccf-success-500); }
 .bccf-validation.invalid { background: var(--bccf-danger-50); color: var(--bccf-danger-500); }
@@ -158,6 +162,9 @@ define([
 @keyframes bccf-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.4 } }
 .bccf-save-actions { display: flex; gap: 8px; align-items: center; }
 .bccf-btn-rebalance { background: var(--bccf-warn-50); border-color: var(--bccf-warn-500); color: var(--bccf-warn-500); font-weight: 600; }
+/* Rebalance row flash — added by handleRebalance, removed after animation */
+@keyframes bccf-rebalanced-fade { from { background-color: #d1fae5; } to { background-color: transparent; } }
+.bccf-rebalanced td { animation: bccf-rebalanced-fade 1.5s ease forwards; }
 
 /* Field block (calculator + filter inputs) */
 .bccf-field { display: flex; flex-direction: column; gap: 4px; }
@@ -428,9 +435,10 @@ define([
         totalAmt = Math.round(totalAmt * 100) / 100;
         const isValid = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - (sourceAmount || 0)) < 0.01;
 
+        // Validation badge per spec §3.15.7 (bccf-badge.success / .warn)
         const validationHtml = isValid
-            ? `<span class="bccf-validation valid">${ICONS.check} Balanced (100%)</span>`
-            : `<span class="bccf-validation invalid">${ICONS.warning} ${fmtPercent(totalPct)} allocated</span>`;
+            ? `<span class="bccf-badge success">&#10003; Balanced</span>`
+            : `<span class="bccf-badge warn">&#9888; ${fmtPercent(totalPct)} allocated</span>`;
 
         const costCodeCols = showCostCode ? 2 : 0;
         const baseCols = 6; // #, date, label, pct, amt, cum%, cumAmt
@@ -497,7 +505,7 @@ ${addRowHtml}`;
         if (editable) {
             row += `<td><input type="date" value="${esc(dateVal)}" data-section="${sid}" data-index="${idx}" data-field="periodDate"></td>`;
             row += `<td><input type="text" value="${esc(label)}" data-section="${sid}" data-index="${idx}" data-field="label" placeholder="Period label"></td>`;
-            row += `<td class="right"><input type="number" value="${pct}" step="0.01" min="0" max="100" data-section="${sid}" data-index="${idx}" data-field="percentage" onchange="bcTiming.recalculate('${sid}')"></td>`;
+            row += `<td class="right"><input type="number" value="${pct}" step="0.01" min="0" max="100" data-section="${sid}" data-index="${idx}" data-field="percentage" onchange="if(!window.__bccfLastEditedIndex)window.__bccfLastEditedIndex={};window.__bccfLastEditedIndex['${sid}']=${idx};bcTiming.recalculate('${sid}')"></td>`;
             row += `<td class="right"><input type="text" value="${fmtCurrency(amt)}" data-section="${sid}" data-index="${idx}" data-field="amount" onfocus="this.select()" onblur="bcTiming.onAmountChange('${sid}',${idx})" onchange="bcTiming.onAmountChange('${sid}',${idx})" style="text-align:right;"></td>`;
         } else {
             row += `<td>${esc(dateDisplay)}</td>`;
@@ -645,21 +653,16 @@ ${addRowHtml}`;
         });
 
         const saveBarHtml = (editable !== false) ? `
-<div class="bccf-save-bar">
-    <div class="bccf-save-status" id="${saveStatusId}">
-        <span class="dot"></span> Ready
+<div class="bccf-save-bar" id="${rootId}_save_bar" data-root-id="${esc(rootId)}" data-cf-section="${esc(cfSectionId)}" data-ac-section="${esc(acSectionId)}" data-tab-nav="${esc(tabNavId)}" data-transaction-id="${esc(String(transactionId || ''))}" data-transaction-type="${esc(transactionType || '')}">
+    <div class="bccf-save-status saved" id="${saveStatusId}">
+        <span class="dot"></span>
+        <span class="bccf-save-status-text">Ready</span>
     </div>
     <div class="bccf-save-actions">
-        <button type="button" class="bccf-btn" onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
-            Review Cash Flow
-        </button>
-        <button type="button" class="bccf-btn" onclick="bcTiming.switchTab('${esc(acSectionId)}', '${esc(tabNavId)}')">
-            Review Accrual
-        </button>
-        <button type="button" class="bccf-btn bccf-btn-pri" id="${saveBtnId}"
-                onclick="bcTiming.save('${esc(String(transactionId || ''))}', '${esc(transactionType || '')}', '${esc(rootId)}', '${esc(cfSectionId)}', '${esc(acSectionId)}', '${esc(saveBtnId)}', '${esc(saveStatusId)}')">
-            ${ICONS.save} Save Schedules
-        </button>
+        <button type="button" class="bccf-btn" data-action="review-accrual" id="${rootId}_review_btn">Review Accrual</button>
+        <button type="button" class="bccf-btn" data-action="discard">Discard changes</button>
+        <button type="button" class="bccf-btn bccf-btn-rebalance" data-action="rebalance" id="${rootId}_rebalance_btn" style="display:none">Rebalance</button>
+        <button type="button" class="bccf-btn bccf-btn-pri" id="${saveBtnId}" data-action="save">Save schedules</button>
     </div>
 </div>` : '';
 
@@ -691,7 +694,7 @@ ${getBaseStyles()}
     </div>
 
     <!-- Tab Navigation -->
-    <div class="bccf-tabs" id="${tabNavId}">
+    <div class="bccf-tabs" id="${tabNavId}" data-cf-section="${esc(cfSectionId)}" data-ac-section="${esc(acSectionId)}" data-root-id="${esc(rootId)}">
         <a class="active cashflow" data-tab="${esc(cfSectionId)}"
                 onclick="bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}')">
             ${ICONS.chart} Cash Flow
@@ -714,13 +717,15 @@ ${getBaseStyles()}
 <script>
 ${getClientScript()}
 
-// Initialize: show Cash Flow tab by default
+// Initialize: show Cash Flow tab by default + wire save bar delegation
 document.addEventListener('DOMContentLoaded', function() {
     bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}');
+    bcTiming.initSaveBar('${esc(rootId)}');
 });
 // Fallback: if DOM already loaded
 if (document.readyState !== 'loading') {
     bcTiming.switchTab('${esc(cfSectionId)}', '${esc(tabNavId)}');
+    bcTiming.initSaveBar('${esc(rootId)}');
 }
 </script>`;
     };
@@ -1327,9 +1332,15 @@ ${getBaseStyles()}
             populateGrid(sectionId, rows, sourceAmount);
             updateKpi(sectionId, rows, sourceAmount);
 
-            // Reset dirty flags
+            // Reset dirty flags + lastEditedIndex (Generate is a fresh slate)
             if (!window._bccfDirty) window._bccfDirty = {};
             window._bccfDirty[sectionId] = false;
+            if (!window.__bccfLastEditedIndex) window.__bccfLastEditedIndex = {};
+            window.__bccfLastEditedIndex[sectionId] = null;
+
+            // Reset save status to Ready after Generate
+            setSaveStatus(sectionId, 'saved', 'Ready');
+            hideRebalanceButton(sectionId);
 
             showToast('Generated ' + rows.length + ' rows.', 'success');
         }
@@ -1432,7 +1443,7 @@ ${getBaseStyles()}
 
         row += '<td><input type="date" value="' + esc(dateVal) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="periodDate" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\')"></td>';
         row += '<td><input type="text" value="' + esc(label) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="label" placeholder="Period label" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\')"></td>';
-        row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
+        row += '<td class="right"><input type="number" value="' + pct + '" step="0.01" min="0" max="100" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="percentage" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');if(!window.__bccfLastEditedIndex)window.__bccfLastEditedIndex={};window.__bccfLastEditedIndex[\\'' + esc(sectionId) + '\\']=+this.closest(\'tr\').getAttribute(\'data-index\');bcTiming.recalculate(\\'' + esc(sectionId) + '\\')"></td>';
         row += '<td class="right"><input type="text" value="' + bcTiming.formatCurrency(amt) + '" data-section="' + esc(sectionId) + '" data-index="' + idx + '" data-field="amount" onfocus="this.select()" onblur="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" onchange="bcTiming.markDirty(\\'' + esc(sectionId) + '\\');bcTiming.onAmountChange(\\'' + esc(sectionId) + '\\',' + idx + ')" style="text-align:right;"></td>';
         row += '<td class="right cum">' + bcTiming.formatPercent(cumPct) + '</td>';
         row += '<td class="right cum">' + bcTiming.formatCurrency(cumAmt) + '</td>';
@@ -1460,13 +1471,14 @@ ${getBaseStyles()}
             if (amtCell) amtCell.textContent = bcTiming.formatCurrency(totalAmt);
         }
 
+        // Validation badge — spec §3.15.7: bccf-badge.success / .warn
         var validationEl = document.getElementById(sectionId + '_validation');
         if (validationEl) {
             var isValid = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - sourceAmount) < 0.01;
             if (isValid) {
-                validationEl.innerHTML = '<span class="bccf-validation valid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Balanced (100%)</span>';
+                validationEl.innerHTML = '<span class="bccf-badge success">&#10003; Balanced</span>';
             } else {
-                validationEl.innerHTML = '<span class="bccf-validation invalid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' + bcTiming.formatPercent(totalPct) + ' allocated</span>';
+                validationEl.innerHTML = '<span class="bccf-badge warn">&#9888; ' + bcTiming.formatPercent(totalPct) + ' allocated</span>';
             }
         }
     }
@@ -1542,6 +1554,9 @@ ${getBaseStyles()}
             var dateInput = newRow.querySelector('input[data-field="periodDate"]');
             if (dateInput) dateInput.focus();
         }
+
+        // Recalculate totals/badge/KPI/Rebalance after add
+        bcTiming.recalculate(sectionId);
     };
 
     /**
@@ -1583,23 +1598,38 @@ ${getBaseStyles()}
     // ─── Recalculation ──────────────────────────────────────────────────
 
     /**
-     * Recalculate amounts from percentages, update cumulatives, totals, KPIs.
+     * Canonical recalculate for a section — called by every math-affecting event:
+     *   % edit, $ edit (via onAmountChange), addRow, removeRow.
+     *
+     * Math invariant:
+     *   After any call to recalculate(sid), the following are all consistent:
+     *   - Each row's cumulative % and cumulative $ cells
+     *   - tfoot Total % and Total $ cells
+     *   - Validation badge (bccf-badge.success / .warn per spec §3.15.7)
+     *   - KPI bar (Scheduled / Remaining)
+     *   - Save-status dot (dirty-balanced / dirty-warn)
+     *   - Rebalance button visibility + live tooltip
+     *
+     * When called from a % input: amounts are DERIVED from % (% is truth).
+     * When called from onAmountChange: % is already back-calculated before this runs,
+     *   so amounts are used as-is and only cumulatives + tfoot + KPI need updating.
+     *   The key fix over the old skip-recalculate path is that tfoot and badge
+     *   are now always updated regardless of which field triggered the change.
      */
     bcTiming.recalculate = function(sectionId) {
         var sourceAmount = getSourceAmount(sectionId);
         var lines = collectLines(sectionId);
 
-        // Detect which field changed — if percentage changed, recalc amount; vice versa.
-        // For simplicity, we recalculate amounts from percentages and update cumulatives.
         var tbody = document.getElementById(sectionId + '_tbody');
         if (!tbody) return;
 
         var totalPctInput = 0;
         for (var i = 0; i < lines.length; i++) {
-            totalPctInput += (lines[i].percentage || 0);
+            totalPctInput = round2(totalPctInput + (lines[i].percentage || 0));
         }
 
-        // Recalculate amounts from percentages
+        // Recalculate amounts from percentages (% is truth for this path;
+        // when called after onAmountChange the % is already synced so this is idempotent)
         var allocated = 0;
         for (var k = 0; k < lines.length; k++) {
             var isLast = (k === lines.length - 1);
@@ -1607,7 +1637,7 @@ ${getBaseStyles()}
             var newAmt;
 
             if (isLast && totalPctInput >= 99.5 && totalPctInput <= 100.5) {
-                // Only absorb rounding when percentages are ~100% (normal case)
+                // Absorb rounding drift only when total % is ~100 (normal balanced case)
                 newAmt = round2(sourceAmount - allocated);
             } else {
                 newAmt = round2((pctVal / 100) * sourceAmount);
@@ -1632,18 +1662,9 @@ ${getBaseStyles()}
             lines[m].cumulativePct = runPct;
             lines[m].cumulativeAmt = runAmt;
 
-            // Update cumulative cells (the non-input cells after amount)
             if (rows[m]) {
-                var cells = rows[m].querySelectorAll('td');
-                // Find the cumulative cells — they are the two cells before the action cell
-                // that don't contain inputs and have the grey style
-                var cumCells = rows[m].querySelectorAll('td[style*="color"]');
-                // More reliable: look at all tds, cumulative % and cumulative amt are the
-                // last 2 data cells (before the action button cell)
                 var allTds = rows[m].querySelectorAll('td');
                 var tdCount = allTds.length;
-                // Total % is at tdCount - 3, Total Amt at tdCount - 2 (if action cell exists)
-                // or tdCount - 2 and tdCount - 1 (if no action cell)
                 var hasActionCell = rows[m].querySelector('.bccf-btn-danger-ghost');
                 var cumPctIdx = hasActionCell ? tdCount - 3 : tdCount - 2;
                 var cumAmtIdx = hasActionCell ? tdCount - 2 : tdCount - 1;
@@ -1652,17 +1673,45 @@ ${getBaseStyles()}
             }
         }
 
-        // Update totals and KPIs
+        // Update tfoot totals row
         updateTotals(sectionId, lines, sourceAmount);
+
+        // Update KPI bar
         updateKpi(sectionId, lines, sourceAmount);
+
+        // Mark dirty + update save-status dot
+        if (!window._bccfDirty) window._bccfDirty = {};
+        window._bccfDirty[sectionId] = true;
+
+        // Determine balance state for save-status and Rebalance
+        var totalPct = 0;
+        var totalAmt = 0;
+        for (var n = 0; n < lines.length; n++) {
+            totalPct = round2(totalPct + (lines[n].percentage || 0));
+            totalAmt = round2(totalAmt + (lines[n].amount || 0));
+        }
+        var isBalanced = Math.abs(totalPct - 100) < 0.01 && Math.abs(totalAmt - sourceAmount) < 0.01;
+
+        // Update save status
+        var statusState = lines.length === 0 ? 'saved' : (isBalanced ? 'dirty-balanced' : 'dirty-warn');
+        var statusText  = lines.length === 0 ? 'Ready' : (isBalanced ? 'Unsaved changes' : 'Unsaved changes · totals out of balance');
+        setSaveStatus(sectionId, statusState, statusText);
+
+        // Update Rebalance button visibility + tooltip
+        updateRebalanceButton(sectionId, lines, sourceAmount, totalPct, totalAmt, isBalanced);
     };
 
     // ─── Amount-driven entry ──────────────────────────────────────────
 
     /**
      * Handle user typing a dollar amount directly.
-     * Back-calculates the percentage, sets it, then calls recalculate
-     * so totals / cumulatives stay in sync.
+     * Back-calculates the percentage from the entered amount, then calls the
+     * unified recalculate(sid) so ALL derived state (cumulatives, tfoot totals,
+     * KPI bar, validation badge, Rebalance button) is always in sync.
+     *
+     * NOTE: this intentionally replaced the old "skip-recalculate" optimization
+     * (git cf9382c) — the optimization caused tfoot and KPI to lag behind $ edits.
+     * For schedules with <=36 rows the inline recalculate is negligible cost.
      */
     bcTiming.onAmountChange = function(sectionId, index) {
         var sourceAmount = getSourceAmount(sectionId);
@@ -1681,75 +1730,264 @@ ${getBaseStyles()}
 
         // Back-calculate percentage (avoid division by zero)
         if (sourceAmount > 0) {
-            var newPct = Math.round((rawAmt / sourceAmount) * 100 * 100) / 100;
+            var newPct = round2((rawAmt / sourceAmount) * 100);
             pctInput.value = newPct;
         }
 
-        // Format the amount
+        // Format the amount field
         amtInput.value = bcTiming.formatCurrency(rawAmt);
 
-        // Amount is the source of truth. Recalculate ALL percentages from
-        // current amounts so they reflect the current sourceAmount.
-        // This handles the case where sourceAmount changed since lines were created.
-        var allRows = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
-        var runPct = 0, runAmt = 0, totalPct = 0, totalAmt = 0;
-        for (var k = 0; k < allRows.length; k++) {
-            var rAmtVal = allRows[k].querySelector('input[data-field="amount"]').value;
-            var rAmt = parseFloat(rAmtVal.replace(/[^0-9.\-]/g, '')) || 0;
-            // Derive percentage from amount (amount is truth)
-            var rPct = sourceAmount > 0 ? Math.round((rAmt / sourceAmount) * 100 * 100) / 100 : 0;
-            // Update the percentage input to reflect derived value
-            var pctEl = allRows[k].querySelector('input[data-field="percentage"]');
-            if (pctEl) pctEl.value = rPct;
-            runPct = Math.round((runPct + rPct) * 100) / 100;
-            runAmt = Math.round((runAmt + rAmt) * 100) / 100;
-            totalPct += rPct;
-            totalAmt += rAmt;
-            // Update cumulative cells (last 2 non-button cells)
-            var tds = allRows[k].querySelectorAll('td');
-            var cumPct = tds[tds.length - 3];
-            var cumAmt = tds[tds.length - 2];
-            if (cumPct && !cumPct.querySelector('input')) cumPct.textContent = runPct.toFixed(1) + '%';
-            if (cumAmt && !cumAmt.querySelector('input')) cumAmt.textContent = bcTiming.formatCurrency(runAmt);
+        // Track which row was last edited for Rebalance intent preservation
+        if (!window.__bccfLastEditedIndex) window.__bccfLastEditedIndex = {};
+        window.__bccfLastEditedIndex[sectionId] = index;
+
+        // Canonical recalculate — updates cumulatives + tfoot + KPI + badge + Rebalance
+        // Math truth: amount change flows through recalculate just like % change
+        bcTiming.recalculate(sectionId);
+    };
+
+    // ─── Save-status helpers (T25) ──────────────────────────────────────
+
+    /**
+     * Find the save bar for a given section (or any active pane).
+     * Looks for a save bar that belongs to the same root container as the section.
+     */
+    function findSaveBarForSection(sectionId) {
+        // Section element lives inside root container; save bar also inside it.
+        var sectionEl = document.getElementById(sectionId + '_section');
+        if (!sectionEl) return null;
+        var container = sectionEl.closest('.bccf-container');
+        if (!container) return null;
+        return container.querySelector('.bccf-save-bar');
+    }
+
+    /**
+     * Update the save-status dot + text.
+     * @param {string} sectionId  - Used to locate the save bar scoped to the right pane
+     * @param {string} state      - 'saved' | 'dirty-balanced' | 'dirty-warn'
+     * @param {string} text       - Human-readable label
+     */
+    function setSaveStatus(sectionId, state, text) {
+        var bar = findSaveBarForSection(sectionId);
+        if (!bar) return;
+        var statusId = bar.querySelector('.bccf-save-status');
+        if (!statusId) return;
+        statusId.className = 'bccf-save-status ' + state;
+        var textEl = statusId.querySelector('.bccf-save-status-text');
+        if (textEl) textEl.textContent = text;
+    }
+
+    /**
+     * Show or hide the Rebalance button and update its tooltip.
+     */
+    function updateRebalanceButton(sectionId, lines, sourceAmount, totalPct, totalAmt, isBalanced) {
+        var bar = findSaveBarForSection(sectionId);
+        if (!bar) return;
+        var rebalanceBtn = bar.querySelector('[data-action="rebalance"]');
+        if (!rebalanceBtn) return;
+
+        if (isBalanced || lines.length === 0) {
+            rebalanceBtn.style.display = 'none';
+            rebalanceBtn.title = '';
+        } else {
+            rebalanceBtn.style.display = '';
+            // Build live tooltip: sign-aware overage vs shortage
+            var amtDiff = round2(totalAmt - sourceAmount);
+            var pctDiff = round2(totalPct - 100);
+            var absAmt  = Math.abs(amtDiff);
+            var absPct  = Math.abs(pctDiff);
+            var direction = amtDiff > 0 ? 'overage' : 'shortage';
+            var targetCount = Math.max(0, lines.length - 1);
+            var tipAmt = '$' + absAmt.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            var tipPct = absPct.toFixed(2) + '%';
+            rebalanceBtn.title = 'Distribute the ' + tipAmt + ' (' + tipPct + ') ' + direction + ' across the other ' + targetCount + ' line' + (targetCount !== 1 ? 's' : '') + ' proportionally.';
+
+            // Store active section on the button so delegated handler knows the target
+            rebalanceBtn.setAttribute('data-target-section', sectionId);
+        }
+    }
+
+    // ─── Rebalance (T26) ────────────────────────────────────────────────
+
+    /**
+     * Read current row data from the grid DOM.
+     */
+    function readRowsFromGrid(sectionId) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return [];
+        var rowEls = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        var out = [];
+        for (var i = 0; i < rowEls.length; i++) {
+            var pctInput = rowEls[i].querySelector('input[data-field="percentage"]');
+            var amtInput = rowEls[i].querySelector('input[data-field="amount"]');
+            out.push({
+                percentage: pctInput ? (parseFloat(pctInput.value) || 0) : 0,
+                amount:     amtInput ? (parseFloat(amtInput.value.replace(/[^0-9.\-]/g, '')) || 0) : 0
+            });
+        }
+        return out;
+    }
+
+    /**
+     * Write rebalanced row data back to the grid DOM.
+     */
+    function writeRowsToGrid(sectionId, rows) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return;
+        var rowEls = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        for (var i = 0; i < rows.length && i < rowEls.length; i++) {
+            var pctInput = rowEls[i].querySelector('input[data-field="percentage"]');
+            var amtInput = rowEls[i].querySelector('input[data-field="amount"]');
+            if (pctInput) pctInput.value = rows[i].percentage;
+            if (amtInput) amtInput.value = bcTiming.formatCurrency(rows[i].amount);
+        }
+    }
+
+    /**
+     * Get source amount from a section element's data attribute.
+     */
+    function sourceAmountFor(sectionId) {
+        return getSourceAmount(sectionId);
+    }
+
+    /**
+     * Hide the Rebalance button and clear its tooltip.
+     */
+    function hideRebalanceButton(sectionId) {
+        var bar = findSaveBarForSection(sectionId);
+        if (!bar) return;
+        var btn = bar.querySelector('[data-action="rebalance"]');
+        if (btn) {
+            btn.style.display = 'none';
+            btn.title = '';
+        }
+    }
+
+    /**
+     * Flash a green fade on all rows that were touched by Rebalance.
+     * Skips the lastEditedIndex row (that one was preserved, not touched).
+     */
+    function flashRebalancedRows(sectionId, lastEditedIndex) {
+        var tbody = document.getElementById(sectionId + '_tbody');
+        if (!tbody) return;
+        var rowEls = tbody.querySelectorAll('tr[data-section="' + sectionId + '"]');
+        for (var i = 0; i < rowEls.length; i++) {
+            if (i === lastEditedIndex) continue;
+            rowEls[i].classList.add('bccf-rebalanced');
+        }
+        setTimeout(function() {
+            for (var j = 0; j < rowEls.length; j++) {
+                rowEls[j].classList.remove('bccf-rebalanced');
+            }
+        }, 1600);
+    }
+
+    /**
+     * Rebalance redistribution — redistributes overage/shortage across
+     * non-edited rows proportionally, preserving the last-edited row exactly.
+     */
+    bcTiming.handleRebalance = function(sectionId) {
+        var rows = readRowsFromGrid(sectionId);
+        var source = sourceAmountFor(sectionId);
+        var lastEditedIndex = (window.__bccfLastEditedIndex && typeof window.__bccfLastEditedIndex[sectionId] === 'number')
+            ? window.__bccfLastEditedIndex[sectionId]
+            : (rows.length - 1);
+
+        var newRows = BCCF_CALC.rebalance(rows, source, lastEditedIndex);
+        writeRowsToGrid(sectionId, newRows);
+        bcTiming.recalculate(sectionId);
+
+        // Override save status to reflect post-rebalance ready state
+        setSaveStatus(sectionId, 'dirty-balanced', 'Unsaved changes · ready to save');
+
+        flashRebalancedRows(sectionId, lastEditedIndex);
+        hideRebalanceButton(sectionId);
+    };
+
+    // ─── Save-bar delegated event wiring (T25) ───────────────────────────
+
+    /**
+     * Initialize delegated click handler on the save bar.
+     * Handles data-action: save | discard | rebalance | review-accrual | review-cashflow
+     */
+    bcTiming.initSaveBar = function(rootId) {
+        var saveBar = document.getElementById(rootId + '_save_bar');
+        if (!saveBar) return;
+
+        var nav = saveBar.parentElement
+            ? saveBar.parentElement.querySelector('.bccf-tabs')
+            : null;
+        var cfSection = nav ? nav.getAttribute('data-cf-section') : null;
+        var acSection = nav ? nav.getAttribute('data-ac-section') : null;
+        var navId     = nav ? nav.id : null;
+
+        // Resolve IDs from save bar data attributes
+        var cfSectionId = saveBar.getAttribute('data-cf-section') || cfSection;
+        var acSectionId = saveBar.getAttribute('data-ac-section') || acSection;
+        var tabNavId    = saveBar.getAttribute('data-tab-nav') || navId;
+        var txId        = saveBar.getAttribute('data-transaction-id') || '';
+        var txType      = saveBar.getAttribute('data-transaction-type') || '';
+
+        // Derive scoped save/status IDs from rootId convention
+        var saveBtnId    = rootId.replace('bc_cf_root', 'bc_save_btn');
+        var saveStatusId = rootId.replace('bc_cf_root', 'bc_save_status');
+
+        // Track which tab is active for Review button label toggling
+        var activeTabId = cfSectionId;
+
+        // Update Review button label based on active tab
+        function updateReviewLabel() {
+            var reviewBtn = document.getElementById(rootId + '_review_btn');
+            if (!reviewBtn) return;
+            if (activeTabId === cfSectionId) {
+                reviewBtn.textContent = 'Review Accrual';
+                reviewBtn.setAttribute('data-action', 'review-accrual');
+            } else {
+                reviewBtn.textContent = 'Review Cash Flow';
+                reviewBtn.setAttribute('data-action', 'review-cashflow');
+            }
         }
 
-        // Update total row — find it by looking for the row after the data rows
-        var allTrs = tbody.querySelectorAll('tr');
-        var lastTr = allTrs[allTrs.length - 1];
-        if (lastTr && !lastTr.getAttribute('data-section')) {
-            // This is the total row (no data-section attribute)
-            var tCells = lastTr.querySelectorAll('td');
-            for (var t = 0; t < tCells.length; t++) {
-                var txt = tCells[t].textContent;
-                if (txt.indexOf('%') > -1 && txt.indexOf('allocated') === -1) {
-                    tCells[t].textContent = totalPct.toFixed(1) + '%';
-                } else if (txt.indexOf('$') > -1) {
-                    tCells[t].textContent = bcTiming.formatCurrency(totalAmt);
-                }
-            }
-            // Update allocated badge
-            var badge = lastTr.querySelector('td:last-child');
-            if (badge && badge.textContent.indexOf('allocated') > -1) {
-                var isBalanced = totalPct >= 99.5 && totalPct <= 100.5;
-                badge.innerHTML = isBalanced
-                    ? '<span style="color:#10B981;">&#10003; Balanced (' + totalPct.toFixed(0) + '%)</span>'
-                    : '<span style="color:#EF4444;">&#9201; ' + totalPct.toFixed(1) + '% allocated</span>';
-            }
-        }
+        // Override switchTab to keep Review label in sync
+        var _origSwitchTab = bcTiming.switchTab;
+        bcTiming.switchTab = function(tabId, nid) {
+            activeTabId = tabId;
+            updateReviewLabel();
+            _origSwitchTab.call(bcTiming, tabId, nid);
+        };
 
-        // Update KPI cards
-        var section = document.getElementById(sectionId + '_section');
-        if (section) {
-            var kpis = section.querySelectorAll('.bccf-kpi .bccf-v');
-            if (kpis.length >= 3) {
-                var subLabels = section.querySelectorAll('.bccf-kpi .bccf-sub');
-                kpis[1].textContent = bcTiming.formatCurrency(totalAmt);
-                if (subLabels[0]) subLabels[0].textContent = totalPct.toFixed(1) + '%';
-                var rem = sourceAmount - totalAmt;
-                kpis[2].textContent = bcTiming.formatCurrency(rem);
-                if (subLabels[1]) subLabels[1].textContent = (100 - totalPct).toFixed(1) + '%';
+        saveBar.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            var action = btn.getAttribute('data-action');
+
+            if (action === 'save') {
+                bcTiming.save(txId, txType, rootId, cfSectionId, acSectionId, saveBtnId, saveStatusId);
+
+            } else if (action === 'discard') {
+                confirmDialog({
+                    headline: 'Discard changes?',
+                    body: 'Discard all unsaved changes and revert to the last saved state?'
+                }).then(function(confirmed) {
+                    if (!confirmed) return;
+                    // Re-fetch and re-render by reloading the page (simplest for v1)
+                    window.location.reload();
+                });
+
+            } else if (action === 'rebalance') {
+                var targetSection = btn.getAttribute('data-target-section') || cfSectionId;
+                bcTiming.handleRebalance(targetSection);
+
+            } else if (action === 'review-accrual') {
+                if (acSectionId) bcTiming.switchTab(acSectionId, tabNavId);
+
+            } else if (action === 'review-cashflow') {
+                if (cfSectionId) bcTiming.switchTab(cfSectionId, tabNavId);
             }
-        }
+        });
+
+        // Set initial Review label
+        updateReviewLabel();
     };
 
     // ─── Save ───────────────────────────────────────────────────────────
@@ -1842,7 +2080,11 @@ ${getBaseStyles()}
         var saveBtn = document.getElementById(_saveBtnId);
         var statusEl = document.getElementById(_saveStatusId);
         if (saveBtn) saveBtn.disabled = true;
-        if (statusEl) statusEl.innerHTML = '<span class="bccf-skel" style="width:16px;height:16px;border-radius:50%;display:inline-block;"></span> Saving...';
+        if (statusEl) {
+            statusEl.className = 'bccf-save-status dirty-balanced';
+            var savingTextEl = statusEl.querySelector('.bccf-save-status-text');
+            if (savingTextEl) savingTextEl.textContent = 'Saving...';
+        }
 
         var completed = 0;
         var failed = false;
@@ -1857,16 +2099,23 @@ ${getBaseStyles()}
             if (saveBtn) saveBtn.disabled = false;
 
             if (!failed) {
-                if (statusEl) statusEl.innerHTML = '<span style="color:#10B981;font-weight:600;">Saved successfully</span>';
+                if (statusEl) {
+                    statusEl.className = 'bccf-save-status saved';
+                    var savedTextEl = statusEl.querySelector('.bccf-save-status-text');
+                    if (savedTextEl) savedTextEl.textContent = 'Saved';
+                }
+                if (!window._bccfDirty) window._bccfDirty = {};
+                window._bccfDirty[_cfId] = false;
+                window._bccfDirty[_acId] = false;
                 showToast('Schedules saved successfully!', 'success');
             } else {
-                if (statusEl) statusEl.innerHTML = '<span style="color:#EF4444;font-weight:600;">Save failed</span>';
+                if (statusEl) {
+                    statusEl.className = 'bccf-save-status dirty-warn';
+                    var failTextEl = statusEl.querySelector('.bccf-save-status-text');
+                    if (failTextEl) failTextEl.textContent = 'Save failed';
+                }
                 showToast('Save failed: ' + (errMsg || 'Unknown error'), 'error');
             }
-
-            setTimeout(function() {
-                if (statusEl) statusEl.innerHTML = '<span style="color:#6B7280;">Ready</span>';
-            }, 5000);
         }
 
         for (var r = 0; r < requests.length; r++) {

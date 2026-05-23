@@ -405,7 +405,12 @@ Single style across all surfaces:
 
 #### 3.15.5 KPI cards
 
-`.bccf-kpi` — surface bg, border, r-lg, padding 14px 16px. Components inside: `.k` (uppercase label, ink-500), `.v` (24px or 20px value, ink-900 default), `.sub` (12px subline, ink-500). Variant `.bccf-kpi.accent` colors `.v` with `--brand-500` for the headline total. **No KPI ever colors `.v` with green/red** — green/red is reserved exclusively for net-sign deltas in chart amount labels and tfoot Net cells (per §3.7).
+`.bccf-kpi` — surface bg, border, r-lg, padding 14px 16px. Components inside (all prefixed per §3.1 namespace mandate):
+- `.bccf-k` — uppercase label, `--bccf-ink-500`, `--bccf-text-xs`
+- `.bccf-v` — 24px or 20px value, `--bccf-ink-900` default
+- `.bccf-sub` — 12px subline, `--bccf-ink-500`
+
+Variant `.bccf-kpi.accent` colors `.bccf-v` with `--bccf-brand-500` for the headline total. **No KPI ever colors `.bccf-v` with green/red** — green/red is reserved exclusively for net-sign deltas in chart amount labels and tfoot Net cells (per §3.7).
 
 #### 3.15.6 Toast / Confirm
 

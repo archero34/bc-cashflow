@@ -92,6 +92,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             ON cr.id = rtl.custrecord_bc_rtl_change_order
         WHERE rtl.custrecord_bc_rtl_project = ?
           AND rtl.custrecord_bc_rtl_timing_type = ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') <= ?
         GROUP BY
             CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
@@ -534,31 +536,58 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      */
     const _loadRevenue = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
+        const { startPeriod, endPeriod } = range;
 
         let rows;
         try {
             rows = query.runSuiteQL({
                 query: REVENUE_SQL,
-                params: [projectId, timingType]
+                params: [projectId, timingType, startPeriod, endPeriod]
             }).asMappedResults();
         } catch (e) {
             log.error({ title: MODULE + '._loadRevenue', details: e.message + '\n' + (e.stack || '') });
             rows = [];
         }
 
-        // Collect sorted unique YYYY-MM periods
+        // availableBounds
+        let boundsRow;
+        try {
+            boundsRow = query.runSuiteQL({
+                query: REVENUE_BOUNDS_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadRevenue (bounds)', details: e.message + '\n' + (e.stack || '') });
+            boundsRow = {};
+        }
+        const _curYYYYMM = (new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0');
+        const availableBounds = {
+            minPeriod: boundsRow.min_period || _curYYYYMM,
+            maxPeriod: boundsRow.max_period || _curYYYYMM
+        };
+
+        // projectTotals.revenue
+        let totalRow;
+        try {
+            totalRow = query.runSuiteQL({
+                query: REVENUE_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadRevenue (total)', details: e.message + '\n' + (e.stack || '') });
+            totalRow = {};
+        }
+        const projectTotals = { revenue: Number(totalRow.total_amount) || 0 };
+
+        // ── Existing in-range pivot below ──
         const periodsSet = new Set();
         rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
         const periods = Array.from(periodsSet).sort();
 
-        // No hoist key — SO tranid labels vary; alphabetical order puts SOs before COs naturally.
-        // 'Base Bid' hoist kept as fallback for rows where tranid was NULL.
         const revenue = _pivotDirection(rows, periods, 'Base Bid');
 
-        // KPIs
         const totalRevenue = revenue.grandTotal;
 
-        // baseContract = sum of all non-CO lines (SO tranid labels, or 'Base Bid' fallback)
         const baseContract = revenue.lines
             .filter((l) => !l.id.startsWith('CO: '))
             .reduce((sum, l) => sum + l.total, 0);
@@ -574,7 +603,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         return {
             periods: periods.map(_periodLabel),
             categories: { revenue },
-            kpis: { totalRevenue, baseContract, changeOrders, peakMonth }
+            kpis: { totalRevenue, baseContract, changeOrders, peakMonth },
+            range: { startPeriod, endPeriod },
+            availableBounds,
+            projectTotals
         };
     };
 

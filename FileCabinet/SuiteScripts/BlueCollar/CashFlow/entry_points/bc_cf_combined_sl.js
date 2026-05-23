@@ -635,6 +635,7 @@ define([
             })
             .then(function(data) {
                 if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
+                applyBoundsToPicker(data.availableBounds);
 
                 // Bug 1: use innerHTML on stable wrapper divs (IDs never destroyed)
                 var kpiEl = document.getElementById('bccf-kpis');
@@ -666,6 +667,164 @@ define([
         var u = new URL(currentUrl, window.location.href);
         u.searchParams.set('mode', newMode);
         return u.toString();
+    }
+
+    // ── Date range picker (E1 spec §3.2) ─────────────────────────────────────
+
+    /**
+     * Add N months to a YYYY-MM string. UTC-safe.
+     */
+    function addMonths(yyyymm, n) {
+        var parts = yyyymm.split('-');
+        var y = Number(parts[0]);
+        var m = Number(parts[1]);
+        var d = new Date(Date.UTC(y, (m - 1) + n, 1));
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+    }
+
+    function monthsBetween(s, e) {
+        var sp = s.split('-').map(Number);
+        var ep = e.split('-').map(Number);
+        return (ep[0] - sp[0]) * 12 + (ep[1] - sp[1]) + 1;
+    }
+
+    /** Center N-month window around the current month: -floor(N/4) / +(N - floor(N/4) - 1) per spec preset behavior. */
+    function presetWindow(n) {
+        var now = new Date();
+        var cur = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '00');
+        var back = Math.floor(n / 4);  // 8->2, 12->3, 18->4, 24->6
+        return { startPeriod: addMonths(cur, -back), endPeriod: addMonths(cur, n - back - 1) };
+    }
+
+    function pickerEl() { return document.getElementById('bccf-daterange'); }
+    function pickerPanel() { var p = pickerEl(); return p ? p.querySelector('.bccf-daterange-panel') : null; }
+    function pickerFrom()  { var p = pickerEl(); return p ? p.querySelector('[data-input="from"]') : null; }
+    function pickerTo()    { var p = pickerEl(); return p ? p.querySelector('[data-input="to"]')   : null; }
+    function pickerApply() { var p = pickerEl(); return p ? p.querySelector('[data-action="apply-daterange"]') : null; }
+
+    function setActivePreset(n) {
+        var p = pickerEl();
+        if (!p) return;
+        p.querySelectorAll('[data-preset]').forEach(function(b) {
+            b.classList.toggle('active', String(n) === b.dataset.preset);
+        });
+    }
+
+    function clearActivePreset() {
+        var p = pickerEl();
+        if (!p) return;
+        p.querySelectorAll('[data-preset]').forEach(function(b) { b.classList.remove('active'); });
+    }
+
+    /**
+     * Validate the custom From/To inputs. Returns null if valid (then enables Apply),
+     * or a short message if invalid (then disables Apply).
+     */
+    function validatePickerInputs() {
+        var from = pickerFrom();
+        var to   = pickerTo();
+        var apply = pickerApply();
+        if (!from || !to || !apply) return 'init';
+        var f = from.value;
+        var t = to.value;
+        var ok = /^\\d{4}-(0[1-9]|1[0-2])$/.test(f) && /^\\d{4}-(0[1-9]|1[0-2])$/.test(t);
+        if (!ok) {
+            apply.disabled = true;
+            return 'Invalid month';
+        }
+        if (f > t) {
+            apply.disabled = true;
+            return 'From must be on or before To';
+        }
+        if (monthsBetween(f, t) > 24) {
+            apply.disabled = true;
+            return 'Maximum 24 months';
+        }
+        apply.disabled = false;
+        return null;
+    }
+
+    function openPicker() {
+        var panel = pickerPanel();
+        if (panel) panel.style.display = 'block';
+    }
+    function closePicker() {
+        var panel = pickerPanel();
+        if (panel) panel.style.display = 'none';
+    }
+
+    function applyPicker() {
+        var from = pickerFrom();
+        var to   = pickerTo();
+        if (!from || !to) return;
+        if (validatePickerInputs() !== null) return;  // re-check
+        var u = new URL(window.location.href);
+        u.searchParams.set('startPeriod', from.value);
+        u.searchParams.set('endPeriod',   to.value);
+        window.location.replace(u.toString());
+    }
+
+    // Wire picker events
+    document.addEventListener('click', function(e) {
+        // Open/close on trigger
+        var trigger = e.target.closest('[data-action="open-daterange"]');
+        if (trigger) {
+            var panel = pickerPanel();
+            var isOpen = panel && panel.style.display === 'block';
+            if (isOpen) closePicker(); else openPicker();
+            return;
+        }
+        // Apply
+        if (e.target.closest('[data-action="apply-daterange"]')) {
+            applyPicker();
+            return;
+        }
+        // Preset chip
+        var preset = e.target.closest('[data-preset]');
+        if (preset) {
+            var n = Number(preset.dataset.preset);
+            var win = presetWindow(n);
+            var from = pickerFrom();
+            var to   = pickerTo();
+            if (from) from.value = win.startPeriod;
+            if (to)   to.value   = win.endPeriod;
+            setActivePreset(n);
+            validatePickerInputs();
+            return;
+        }
+        // Outside click closes panel
+        var p = pickerEl();
+        if (p && !p.contains(e.target)) closePicker();
+    }, true);
+
+    // Custom input edits clear preset + revalidate
+    document.addEventListener('input', function(e) {
+        if (!e.target.matches('[data-input="from"], [data-input="to"]')) return;
+        clearActivePreset();
+        validatePickerInputs();
+    });
+
+    // Esc closes panel
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePicker();
+    });
+
+    /**
+     * After the JSON fetch resolves, clamp the from/to inputs to availableBounds
+     * so the native month-picker UI honors the project's actual data window.
+     */
+    function applyBoundsToPicker(availableBounds) {
+        if (!availableBounds) return;
+        var from = pickerFrom();
+        var to   = pickerTo();
+        if (from) {
+            from.setAttribute('min', availableBounds.minPeriod);
+            from.setAttribute('max', availableBounds.maxPeriod);
+        }
+        if (to) {
+            to.setAttribute('min', availableBounds.minPeriod);
+            to.setAttribute('max', availableBounds.maxPeriod);
+        }
     }
 
     // ── Event delegation ─────────────────────────────────────────────────────

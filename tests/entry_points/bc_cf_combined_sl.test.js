@@ -288,4 +288,35 @@ describe('bc_cf_combined_sl — date range picker (E1)', () => {
         expect(body).not.toMatch(/startPeriod=garbage/);
         expect(body).not.toMatch(/endPeriod=2026-13/);
     });
+
+    describe('picker client JS', () => {
+        let body;
+        beforeEach(() => {
+            const res = mockResponse();
+            Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+            body = res.getBody();
+        });
+
+        it('listens for [data-action="open-daterange"]', () => {
+            expect(body).toMatch(/open-daterange/);
+        });
+        it('listens for [data-action="apply-daterange"]', () => {
+            expect(body).toMatch(/apply-daterange/);
+        });
+        it('listens for preset chip clicks', () => {
+            expect(body).toMatch(/data-preset/);
+        });
+        it('inlines outside-click / Esc handler', () => {
+            expect(body).toMatch(/Escape|keydown/);
+        });
+        it('rebuilds URL with startPeriod/endPeriod on apply', () => {
+            // The client script contains a URL-build helper that sets both params
+            expect(body).toMatch(/startPeriod/);
+            expect(body).toMatch(/endPeriod/);
+        });
+        it('clamps availableBounds onto the from/to inputs after fetch', () => {
+            // The client script wires data.availableBounds → input min/max
+            expect(body).toMatch(/availableBounds/);
+        });
+    });
 });

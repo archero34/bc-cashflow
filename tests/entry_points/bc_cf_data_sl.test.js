@@ -29,6 +29,15 @@ describe('bc_cf_data_sl', () => {
         expect(body.error).toMatch(/unknown action/i);
     });
 
+    it('rejects invalid mode with ok:false', () => {
+        const req = { method: 'GET', parameters: { action: 'combined', projectId: '1807', mode: 'gibberish' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(false);
+        expect(body.error).toMatch(/invalid mode/i);
+    });
+
     it('rejects missing projectId with ok:false', () => {
         const req = { method: 'GET', parameters: { action: 'combined' } };
         const res = mockResponse();

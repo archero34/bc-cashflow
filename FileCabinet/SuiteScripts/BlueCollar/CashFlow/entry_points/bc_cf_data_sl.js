@@ -159,9 +159,7 @@ define(['N/log', 'N/query'], function (log, query) {
             };
         });
 
-        const total = periods.map((p) => {
-            return lines.reduce((s, l) => s + (l.amounts[periods.indexOf(p)] || 0), 0);
-        });
+        const total = periods.map((_, i) => lines.reduce((s, l) => s + (l.amounts[i] || 0), 0));
         const grandTotal = total.reduce((s, v) => s + v, 0);
 
         return { lines, total, grandTotal };
@@ -251,6 +249,7 @@ define(['N/log', 'N/query'], function (log, query) {
 
             if (!action) return sendError(res, 'Missing action parameter');
             if (!projectId) return sendError(res, 'Missing projectId parameter');
+            if (mode !== 'cash' && mode !== 'accrual') return sendError(res, `Invalid mode: ${mode}`);
 
             let data;
             if (action === 'combined')      data = module.exports._loadCombined(projectId, mode);

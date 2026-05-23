@@ -224,6 +224,24 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     `;
 
     /**
+     * Per-line revenue total query: project-wide totals grouped by the
+     * same key as REVENUE_SQL, without any date filter. Used to derive
+     * project-total baseContract / changeOrders for KPI sublines.
+     */
+    const REVENUE_LINES_TOTAL_SQL = `
+        SELECT
+            CASE
+                WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO'
+                ELSE 'BASE'
+            END AS bucket,
+            SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount
+        FROM customrecord_bc_revenue_timing_line rtl
+        WHERE rtl.custrecord_bc_rtl_project = ?
+          AND rtl.custrecord_bc_rtl_timing_type = ?
+        GROUP BY CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO' ELSE 'BASE' END
+    `;
+
+    /**
      * Pre-range cumulative net for combined action.
      * Returns one row with rev_total and cost_total — both summed across
      * periods STRICTLY BEFORE the supplied startPeriod. Caller computes
@@ -677,7 +695,24 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             log.error({ title: MODULE + '._loadRevenue (total)', details: e.message + '\n' + (e.stack || '') });
             totalRow = {};
         }
-        const projectTotals = { revenue: Number(totalRow.total_amount) || 0 };
+        // Bucket project-wide revenue into baseContract vs changeOrders
+        let bucketRows;
+        try {
+            bucketRows = query.runSuiteQL({
+                query: REVENUE_LINES_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults();
+        } catch (e) {
+            log.error({ title: MODULE + '._loadRevenue (buckets)', details: e.message + '\n' + (e.stack || '') });
+            bucketRows = [];
+        }
+        const baseTotal = (bucketRows.find((r) => r.bucket === 'BASE') || {}).amount || 0;
+        const coTotal   = (bucketRows.find((r) => r.bucket === 'CO')   || {}).amount || 0;
+        const projectTotals = {
+            revenue:       Number(totalRow.total_amount) || 0,
+            baseContract:  Number(baseTotal) || 0,
+            changeOrders:  Number(coTotal) || 0
+        };
 
         // Build full period list from the range so months with no data still render as $0 columns.
         const periods = [];

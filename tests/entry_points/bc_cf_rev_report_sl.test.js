@@ -289,3 +289,45 @@ describe('bc_cf_rev_report_sl — shell structure', () => {
         });
     });
 });
+
+describe('bc_cf_rev_report_sl — date range picker (E1)', () => {
+
+    it('passes startPeriod and endPeriod through to data SL URL', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({
+            request: GET({ projectId: '1807', startPeriod: '2026-03', endPeriod: '2026-08' }),
+            response: res
+        });
+        const body = res.getBody();
+        expect(body).toMatch(/startPeriod=2026-03/);
+        expect(body).toMatch(/endPeriod=2026-08/);
+        expect(body).toMatch(/action=revenue/);
+    });
+
+    it('renders picker pill + 4 preset chips', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toContain('class="bccf-daterange"');
+        expect(body).toContain('data-preset="8"');
+        expect(body).toContain('data-preset="24"');
+    });
+
+    it('wires picker handlers + bounds clamp', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toMatch(/open-daterange/);
+        expect(body).toMatch(/apply-daterange/);
+        expect(body).toMatch(/Escape|keydown/);
+        expect(body).toMatch(/availableBounds/);
+    });
+
+    it('renderKpis accepts projectTotals', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toMatch(/function renderKpis\(kpis,\s*categories,\s*projectTotals\)/);
+        expect(body).toMatch(/renderKpis\(data\.kpis,\s*data\.categories,\s*data\.projectTotals\)/);
+    });
+});

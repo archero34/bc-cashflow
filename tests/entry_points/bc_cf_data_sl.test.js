@@ -242,6 +242,23 @@ describe('bc_cf_data_sl revenue action shape', () => {
         expect(body.availableBounds).toEqual({ minPeriod: '2026-01', maxPeriod: '2027-12' });
         expect(body.projectTotals.revenue).toBe(42000);
     });
+
+    it('returns projectTotals.baseContract and projectTotals.changeOrders on revenue action', () => {
+        jest.spyOn(Suitelet, '_loadRevenue').mockReturnValue({
+            periods: [],
+            categories: { revenue: { lines: [], total: [], grandTotal: 0 } },
+            kpis: { totalRevenue: 0, baseContract: 0, changeOrders: 0, peakMonth: 0 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-04' },
+            availableBounds: { minPeriod: '2026-01', maxPeriod: '2027-12' },
+            projectTotals: { revenue: 42000, baseContract: 30000, changeOrders: 12000 }
+        });
+        const req = { method: 'GET', parameters: { action: 'revenue', projectId: '1807' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.projectTotals.baseContract).toBe(30000);
+        expect(body.projectTotals.changeOrders).toBe(12000);
+    });
 });
 
 describe('bc_cf_data_sl YYYY-MM helpers', () => {

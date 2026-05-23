@@ -139,6 +139,48 @@ define([], function () {
 
         /* Title pill */
         .bccf-title-pill { display: inline-flex; align-items: center; background: var(--bccf-brand-50); color: var(--bccf-brand-500); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--bccf-r-full); }
+
+        /* Date range picker (E1 spec §3.2) */
+        .bccf-daterange { position: relative; display: inline-block; }
+        .bccf-daterange-trigger { display: inline-flex; align-items: center; gap: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); padding: 6px 12px; font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; }
+        .bccf-daterange-trigger:hover { background: var(--bccf-bg-50); }
+        .bccf-daterange-trigger .bccf-daterange-label { color: var(--bccf-ink-900); }
+        .bccf-daterange-trigger[disabled] { opacity: 0.6; cursor: not-allowed; }
+        .bccf-daterange-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); box-shadow: 0 4px 16px rgba(18,24,33,.08); padding: 14px; min-width: 280px; z-index: 50; }
+        .bccf-daterange-panel h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; margin: 0 0 8px; }
+        .bccf-daterange-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+        .bccf-daterange-presets button { font-size: var(--bccf-text-xs); padding: 6px 10px; border-radius: var(--bccf-r-md); background: var(--bccf-bg-50); border: 1px solid var(--bccf-border); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; text-align: center; }
+        .bccf-daterange-presets button.active { background: var(--bccf-brand-500); color: #fff; border-color: var(--bccf-brand-500); }
+        .bccf-daterange-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .bccf-daterange-custom label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; margin-bottom: 3px; }
+        .bccf-daterange-custom input { width: 100%; padding: 6px 8px; font-size: var(--bccf-text-xs); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); font-family: inherit; }
+        .bccf-daterange-custom input:focus { outline: 2px solid var(--bccf-brand-500); outline-offset: -1px; border-color: var(--bccf-brand-500); }
+        .bccf-daterange-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bccf-bg-100); }
+        .bccf-daterange-hint { font-size: 11px; color: var(--bccf-ink-500); }
+        .bccf-daterange-actions button[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+        /* Trend-line dot with hover tooltip (Combined chart) */
+        .bccf-trend-dot { cursor: default; }
+        .bccf-trend-dot::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bccf-ink-900);
+            color: #fff;
+            padding: 5px 9px;
+            border-radius: var(--bccf-r-md);
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            margin-bottom: 8px;
+            transition: opacity var(--bccf-t-fast);
+            z-index: 10;
+        }
+        .bccf-trend-dot:hover::after { opacity: 1; }
     `;
 
     /**

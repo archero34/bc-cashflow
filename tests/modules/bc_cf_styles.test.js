@@ -52,6 +52,18 @@ describe('bc_cf_styles', () => {
             expect(out).toMatch(/\.bccf-bar\b/);
         });
 
+        it('defines bccf-daterange primitives from E1 spec §3.2', () => {
+            const out = Styles.getStyles();
+            expect(out).toMatch(/\.bccf-daterange\b/);
+            expect(out).toMatch(/\.bccf-daterange-trigger\b/);
+            expect(out).toMatch(/\.bccf-daterange-panel\b/);
+            expect(out).toMatch(/\.bccf-daterange-presets\b/);
+            expect(out).toMatch(/\.bccf-daterange-custom\b/);
+            expect(out).toMatch(/\.bccf-daterange-actions\b/);
+            expect(out).toMatch(/\.bccf-daterange-hint\b/);
+            expect(out).toMatch(/\.bccf-daterange-label\b/);
+        });
+
         it('defines --bccf-cost-500 coral token', () => {
             const out = Styles.getStyles();
             expect(out).toContain('--bccf-cost-500: #f97316');

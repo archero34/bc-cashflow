@@ -53,6 +53,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         LEFT JOIN customrecord_bc_change_req cr ON cr.id = ctl.custrecord_bc_ctl_change_order
         WHERE ctl.custrecord_bc_ctl_project = ?
           AND ctl.custrecord_bc_ctl_timing_type = ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') <= ?
         GROUP BY
             CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
@@ -90,6 +92,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             ON cr.id = rtl.custrecord_bc_rtl_change_order
         WHERE rtl.custrecord_bc_rtl_project = ?
           AND rtl.custrecord_bc_rtl_timing_type = ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') <= ?
         GROUP BY
             CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
@@ -126,6 +130,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             ON cr.id = rtl.custrecord_bc_rtl_change_order
         WHERE rtl.custrecord_bc_rtl_project = ?
           AND rtl.custrecord_bc_rtl_timing_type = ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') <= ?
         GROUP BY
             CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
@@ -162,6 +168,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             ON cr2.id = ctl.custrecord_bc_ctl_change_order
         WHERE ctl.custrecord_bc_ctl_project = ?
           AND ctl.custrecord_bc_ctl_timing_type = ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') <= ?
         GROUP BY
             CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
                  THEN 'CO: ' || NVL(cr2.custrecord_bc_change_order_number, 'Change Order')
@@ -173,7 +181,159 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         ORDER BY flow_direction DESC, cost_group, period
     `;
 
+    /**
+     * Bounds query for cost loader: earliest + latest period_date in the project's
+     * cost timing lines, ignoring any date filter. Used for picker min/max attrs.
+     */
+    const COST_BOUNDS_SQL = `
+        SELECT
+            TO_CHAR(MIN(ctl.custrecord_bc_ctl_period_date), 'YYYY-MM') AS min_period,
+            TO_CHAR(MAX(ctl.custrecord_bc_ctl_period_date), 'YYYY-MM') AS max_period
+        FROM customrecord_bc_cost_timing_line ctl
+        WHERE ctl.custrecord_bc_ctl_project = ?
+          AND ctl.custrecord_bc_ctl_timing_type = ?
+    `;
+
+    /**
+     * Project-total query for cost loader: SUM(amount) across all the project's
+     * cost timing lines, ignoring any date filter. Used for KPI sublines.
+     */
+    const COST_TOTAL_SQL = `
+        SELECT SUM(NVL(ctl.custrecord_bc_ctl_amount, 0)) AS total_amount
+        FROM customrecord_bc_cost_timing_line ctl
+        WHERE ctl.custrecord_bc_ctl_project = ?
+          AND ctl.custrecord_bc_ctl_timing_type = ?
+    `;
+
+    /** Bounds query for revenue loader — mirror of COST_BOUNDS_SQL on revenue timing lines. */
+    const REVENUE_BOUNDS_SQL = `
+        SELECT
+            TO_CHAR(MIN(rtl.custrecord_bc_rtl_period_date), 'YYYY-MM') AS min_period,
+            TO_CHAR(MAX(rtl.custrecord_bc_rtl_period_date), 'YYYY-MM') AS max_period
+        FROM customrecord_bc_revenue_timing_line rtl
+        WHERE rtl.custrecord_bc_rtl_project = ?
+          AND rtl.custrecord_bc_rtl_timing_type = ?
+    `;
+
+    /** Project-total query for revenue loader — mirror of COST_TOTAL_SQL on revenue timing lines. */
+    const REVENUE_TOTAL_SQL = `
+        SELECT SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS total_amount
+        FROM customrecord_bc_revenue_timing_line rtl
+        WHERE rtl.custrecord_bc_rtl_project = ?
+          AND rtl.custrecord_bc_rtl_timing_type = ?
+    `;
+
+    /**
+     * Per-line revenue total query: project-wide totals grouped by the
+     * same key as REVENUE_SQL, without any date filter. Used to derive
+     * project-total baseContract / changeOrders for KPI sublines.
+     */
+    const REVENUE_LINES_TOTAL_SQL = `
+        SELECT
+            CASE
+                WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO'
+                ELSE 'BASE'
+            END AS bucket,
+            SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount
+        FROM customrecord_bc_revenue_timing_line rtl
+        WHERE rtl.custrecord_bc_rtl_project = ?
+          AND rtl.custrecord_bc_rtl_timing_type = ?
+        GROUP BY CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO' ELSE 'BASE' END
+    `;
+
+    /**
+     * Pre-range cumulative net for combined action.
+     * Returns one row with rev_total and cost_total — both summed across
+     * periods STRICTLY BEFORE the supplied startPeriod. Caller computes
+     * net = rev_total - cost_total. Spec §3.5.
+     */
+    const CUMULATIVE_BEFORE_SQL = `
+        SELECT
+            (SELECT NVL(SUM(rtl.custrecord_bc_rtl_amount), 0)
+               FROM customrecord_bc_revenue_timing_line rtl
+              WHERE rtl.custrecord_bc_rtl_project = ?
+                AND rtl.custrecord_bc_rtl_timing_type = ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') < ?) AS rev_total,
+            (SELECT NVL(SUM(ctl.custrecord_bc_ctl_amount), 0)
+               FROM customrecord_bc_cost_timing_line ctl
+              WHERE ctl.custrecord_bc_ctl_project = ?
+                AND ctl.custrecord_bc_ctl_timing_type = ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') < ?) AS cost_total
+        FROM dual
+    `;
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // ── Date range helpers ────────────────────────────────────────────────────
+
+    const _YYYYMM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+    /** Strict YYYY-MM format check. */
+    const _validateYYYYMM = (s) => typeof s === 'string' && _YYYYMM_RE.test(s);
+
+    /**
+     * Add N months (positive or negative) to a YYYY-MM string.
+     * Uses UTC Date math to avoid timezone drift on month boundaries.
+     */
+    const _addMonths = (yyyymm, n) => {
+        const parts = yyyymm.split('-');
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = new Date(Date.UTC(y, (m - 1) + n, 1));
+        const ny = d.getUTCFullYear();
+        const nm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        return ny + '-' + nm;
+    };
+
+    /**
+     * Inclusive month count between two YYYY-MM strings (start <= end assumed).
+     * monthsBetween('2026-01', '2026-12') → 12
+     * monthsBetween('2026-05', '2026-05') → 1
+     */
+    const _monthsBetween = (start, end) => {
+        const [sy, sm] = start.split('-').map(Number);
+        const [ey, em] = end.split('-').map(Number);
+        return (ey - sy) * 12 + (em - sm) + 1;
+    };
+
+    /**
+     * Default rolling window per spec D1: current month -3 → current month +8 = 12 months inclusive.
+     * Example: today May 2026 → { startPeriod: '2026-02', endPeriod: '2027-01' }.
+     */
+    const _defaultRange = () => {
+        const now = new Date();
+        const curYYYYMM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        return {
+            startPeriod: _addMonths(curYYYYMM, -3),
+            endPeriod:   _addMonths(curYYYYMM, 8)
+        };
+    };
+
+    /**
+     * Resolve raw request params into an effective range, applying defaults
+     * and validating per spec §3.1. Returns either:
+     *   { ok: true,  startPeriod, endPeriod }
+     *   { ok: false, error: '...' }
+     */
+    const _resolveRange = (rawStart, rawEnd) => {
+        const hasStart = rawStart != null && rawStart !== '';
+        const hasEnd   = rawEnd   != null && rawEnd   !== '';
+
+        if (!hasStart && !hasEnd) return Object.assign({ ok: true }, _defaultRange());
+
+        if (hasStart && !_validateYYYYMM(rawStart)) return { ok: false, error: 'Invalid period format' };
+        if (hasEnd   && !_validateYYYYMM(rawEnd))   return { ok: false, error: 'Invalid period format' };
+
+        const startPeriod = hasStart ? rawStart : _addMonths(rawEnd,   -11);
+        const endPeriod   = hasEnd   ? rawEnd   : _addMonths(rawStart, 11);
+
+        if (startPeriod > endPeriod) return { ok: false, error: 'startPeriod must be <= endPeriod' };
+        if (_monthsBetween(startPeriod, endPeriod) > 24) {
+            return { ok: false, error: 'Date range exceeds 24-month limit' };
+        }
+
+        return { ok: true, startPeriod, endPeriod };
+    };
 
     /** 'YYYY-MM' → 'Apr 2026' */
     const _periodLabel = (yyyymm) => {
@@ -267,31 +427,102 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      *   kpis: { totalRevenue: number, totalCost: number, netCashFlow: number, margin: number }
      * }}
      */
-    const _loadCombined = (projectId, mode) => {
+    const _loadCombined = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
+        const { startPeriod, endPeriod } = range;
 
         let rows;
         try {
             rows = query.runSuiteQL({
                 query: COMBINED_SQL,
-                params: [projectId, timingType, projectId, timingType]
+                params: [
+                    projectId, timingType, startPeriod, endPeriod,  // revenue leg
+                    projectId, timingType, startPeriod, endPeriod   // cost leg
+                ]
             }).asMappedResults();
         } catch (e) {
             log.error({ title: MODULE + '._loadCombined', details: e.message + '\n' + (e.stack || '') });
             rows = [];
         }
 
-        // Collect sorted unique periods across both directions
-        const periodsSet = new Set();
-        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
-        const periods = Array.from(periodsSet).sort();
+        // availableBounds — union of revenue + cost bounds (no date filter)
+        let revBoundsRow, costBoundsRow;
+        try {
+            revBoundsRow = query.runSuiteQL({
+                query: REVENUE_BOUNDS_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (rev bounds)', details: e.message + '\n' + (e.stack || '') });
+            revBoundsRow = {};
+        }
+        try {
+            costBoundsRow = query.runSuiteQL({
+                query: COST_BOUNDS_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (cost bounds)', details: e.message + '\n' + (e.stack || '') });
+            costBoundsRow = {};
+        }
+        const _curYYYYMM = (new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0');
+        const allMins = [revBoundsRow.min_period, costBoundsRow.min_period].filter(Boolean);
+        const allMaxs = [revBoundsRow.max_period, costBoundsRow.max_period].filter(Boolean);
+        const availableBounds = {
+            minPeriod: allMins.length ? allMins.sort()[0] : _curYYYYMM,
+            maxPeriod: allMaxs.length ? allMaxs.sort()[allMaxs.length - 1] : _curYYYYMM
+        };
+
+        // projectTotals — both revenue + cost (no date filter)
+        let revTotalRow, costTotalRow;
+        try {
+            revTotalRow = query.runSuiteQL({
+                query: REVENUE_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (rev total)', details: e.message + '\n' + (e.stack || '') });
+            revTotalRow = {};
+        }
+        try {
+            costTotalRow = query.runSuiteQL({
+                query: COST_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (cost total)', details: e.message + '\n' + (e.stack || '') });
+            costTotalRow = {};
+        }
+        const projectTotals = {
+            revenue: Number(revTotalRow.total_amount) || 0,
+            cost:    Number(costTotalRow.total_amount) || 0
+        };
+
+        // cumulativeBefore — net flow accumulated in periods strictly before startPeriod
+        let cumRow;
+        try {
+            cumRow = query.runSuiteQL({
+                query: CUMULATIVE_BEFORE_SQL,
+                params: [
+                    projectId, timingType, startPeriod,  // revenue subquery
+                    projectId, timingType, startPeriod   // cost subquery
+                ]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCombined (cumBefore)', details: e.message + '\n' + (e.stack || '') });
+            cumRow = {};
+        }
+        const cumulativeBefore = (Number(cumRow.rev_total) || 0) - (Number(cumRow.cost_total) || 0);
+
+        // Build full period list from the range so months with no data still render as $0 columns.
+        const periods = [];
+        let _p = startPeriod;
+        while (_p <= endPeriod) { periods.push(_p); _p = _addMonths(_p, 1); }
 
         const revRows  = rows.filter((r) => r.flow_direction === 'Revenue');
         const costRows = rows.filter((r) => r.flow_direction === 'Cost');
 
-        // 'Base Bid' hoist key is a fallback for rows where SO tranid was NULL; normally tranid labels sort alphabetically.
         const revenue = _pivotDirection(revRows,  periods, 'Base Bid');
-        // Cost side: no hoist — tranid/CO labels sort alphabetically (PO1234 before PO5678 etc.)
         const cost    = _pivotDirection(costRows, periods, null);
 
         const totalRevenue = revenue.grandTotal;
@@ -304,7 +535,11 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         return {
             periods: periods.map(_periodLabel),
             categories: { revenue, cost },
-            kpis: { totalRevenue, totalCost, netCashFlow, margin }
+            kpis: { totalRevenue, totalCost, netCashFlow, margin },
+            range: { startPeriod, endPeriod },
+            availableBounds,
+            projectTotals,
+            cumulativeBefore
         };
     };
     /**
@@ -321,32 +556,61 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      *   kpis: { totalCost: number, currentMonth: number, peakMonth: number, remaining: number }
      * }}
      */
-    const _loadCost = (projectId, mode) => {
+    const _loadCost = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
+        const { startPeriod, endPeriod } = range;
 
         let rows;
         try {
             rows = query.runSuiteQL({
                 query: COST_SQL,
-                params: [projectId, timingType]
+                params: [projectId, timingType, startPeriod, endPeriod]
             }).asMappedResults();
         } catch (e) {
             log.error({ title: MODULE + '._loadCost', details: e.message + '\n' + (e.stack || '') });
             rows = [];
         }
 
-        // Collect sorted unique YYYY-MM periods
-        const periodsSet = new Set();
-        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
-        const periods = Array.from(periodsSet).sort();
+        // availableBounds — single-row result with MIN/MAX of period_date across all timing lines (no date filter)
+        let boundsRow;
+        try {
+            boundsRow = query.runSuiteQL({
+                query: COST_BOUNDS_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCost (bounds)', details: e.message + '\n' + (e.stack || '') });
+            boundsRow = {};
+        }
+        const _curYYYYMM = (new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0');
+        const availableBounds = {
+            minPeriod: boundsRow.min_period || _curYYYYMM,
+            maxPeriod: boundsRow.max_period || _curYYYYMM
+        };
 
-        // No hoist — alphabetical places CO/vendor lines naturally (mockup §3.6 shows vendor lines lead)
+        // projectTotals.cost — single-row SUM(amount) across all timing lines (no date filter)
+        let totalRow;
+        try {
+            totalRow = query.runSuiteQL({
+                query: COST_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCost (total)', details: e.message + '\n' + (e.stack || '') });
+            totalRow = {};
+        }
+        const projectTotals = { cost: Number(totalRow.total_amount) || 0 };
+
+        // Build full period list from the range so months with no data still render as $0 columns.
+        const periods = [];
+        let _p = startPeriod;
+        while (_p <= endPeriod) { periods.push(_p); _p = _addMonths(_p, 1); }
+
         const cost = _pivotDirection(rows, periods, null);
 
         // KPI: current YYYY-MM derived from runtime clock
         const now = new Date();
-        const curYYYYMM = now.getFullYear() + '-'
-            + String(now.getMonth() + 1).padStart(2, '0');
+        const curYYYYMM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
 
         const curIdx = periods.indexOf(curYYYYMM);
         const currentMonth = curIdx !== -1 ? (cost.total[curIdx] || 0) : 0;
@@ -367,7 +631,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                 currentMonth,
                 peakMonth,
                 remaining
-            }
+            },
+            range: { startPeriod, endPeriod },
+            availableBounds,
+            projectTotals
         };
     };
     /**
@@ -385,33 +652,77 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
      *   kpis: { totalRevenue: number, baseContract: number, changeOrders: number, peakMonth: number }
      * }}
      */
-    const _loadRevenue = (projectId, mode) => {
+    const _loadRevenue = (projectId, mode, range) => {
         const timingType = modeToTimingType(mode);
+        const { startPeriod, endPeriod } = range;
 
         let rows;
         try {
             rows = query.runSuiteQL({
                 query: REVENUE_SQL,
-                params: [projectId, timingType]
+                params: [projectId, timingType, startPeriod, endPeriod]
             }).asMappedResults();
         } catch (e) {
             log.error({ title: MODULE + '._loadRevenue', details: e.message + '\n' + (e.stack || '') });
             rows = [];
         }
 
-        // Collect sorted unique YYYY-MM periods
-        const periodsSet = new Set();
-        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
-        const periods = Array.from(periodsSet).sort();
+        // availableBounds
+        let boundsRow;
+        try {
+            boundsRow = query.runSuiteQL({
+                query: REVENUE_BOUNDS_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadRevenue (bounds)', details: e.message + '\n' + (e.stack || '') });
+            boundsRow = {};
+        }
+        const _curYYYYMM = (new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0');
+        const availableBounds = {
+            minPeriod: boundsRow.min_period || _curYYYYMM,
+            maxPeriod: boundsRow.max_period || _curYYYYMM
+        };
 
-        // No hoist key — SO tranid labels vary; alphabetical order puts SOs before COs naturally.
-        // 'Base Bid' hoist kept as fallback for rows where tranid was NULL.
+        // projectTotals.revenue
+        let totalRow;
+        try {
+            totalRow = query.runSuiteQL({
+                query: REVENUE_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadRevenue (total)', details: e.message + '\n' + (e.stack || '') });
+            totalRow = {};
+        }
+        // Bucket project-wide revenue into baseContract vs changeOrders
+        let bucketRows;
+        try {
+            bucketRows = query.runSuiteQL({
+                query: REVENUE_LINES_TOTAL_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults();
+        } catch (e) {
+            log.error({ title: MODULE + '._loadRevenue (buckets)', details: e.message + '\n' + (e.stack || '') });
+            bucketRows = [];
+        }
+        const baseTotal = (bucketRows.find((r) => r.bucket === 'BASE') || {}).amount || 0;
+        const coTotal   = (bucketRows.find((r) => r.bucket === 'CO')   || {}).amount || 0;
+        const projectTotals = {
+            revenue:       Number(totalRow.total_amount) || 0,
+            baseContract:  Number(baseTotal) || 0,
+            changeOrders:  Number(coTotal) || 0
+        };
+
+        // Build full period list from the range so months with no data still render as $0 columns.
+        const periods = [];
+        let _p = startPeriod;
+        while (_p <= endPeriod) { periods.push(_p); _p = _addMonths(_p, 1); }
+
         const revenue = _pivotDirection(rows, periods, 'Base Bid');
 
-        // KPIs
         const totalRevenue = revenue.grandTotal;
 
-        // baseContract = sum of all non-CO lines (SO tranid labels, or 'Base Bid' fallback)
         const baseContract = revenue.lines
             .filter((l) => !l.id.startsWith('CO: '))
             .reduce((sum, l) => sum + l.total, 0);
@@ -427,7 +738,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         return {
             periods: periods.map(_periodLabel),
             categories: { revenue },
-            kpis: { totalRevenue, baseContract, changeOrders, peakMonth }
+            kpis: { totalRevenue, baseContract, changeOrders, peakMonth },
+            range: { startPeriod, endPeriod },
+            availableBounds,
+            projectTotals
         };
     };
 
@@ -440,18 +754,24 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             const action = params.action;
             const projectId = params.projectId;
             const mode = params.mode || 'cash';
+            const rawStart = params.startPeriod;
+            const rawEnd   = params.endPeriod;
 
             if (!action) return sendError(res, 'Missing action parameter');
             if (!projectId) return sendError(res, 'Missing projectId parameter');
             if (mode !== 'cash' && mode !== 'accrual') return sendError(res, `Invalid mode: ${mode}`);
 
+            const resolved = api._resolveRange(rawStart, rawEnd);
+            if (!resolved.ok) return sendError(res, resolved.error);
+            const range = { startPeriod: resolved.startPeriod, endPeriod: resolved.endPeriod };
+
             let data;
             // Dispatch through `api` so Jest spies on the returned object intercept the call
             // (referencing closure-scoped functions directly would bypass the spy).
             // `module.exports` is undefined in NetSuite's AMD runtime — never reference it here.
-            if (action === 'combined')      data = api._loadCombined(projectId, mode);
-            else if (action === 'cost')     data = api._loadCost(projectId, mode);
-            else if (action === 'revenue')  data = api._loadRevenue(projectId, mode);
+            if (action === 'combined')      data = api._loadCombined(projectId, mode, range);
+            else if (action === 'cost')     data = api._loadCost(projectId, mode, range);
+            else if (action === 'revenue')  data = api._loadRevenue(projectId, mode, range);
             else return sendError(res, `Unknown action: ${action}`);
 
             sendJSON(res, Object.assign({ ok: true, mode }, data));
@@ -463,7 +783,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
 
     // Single exports object — `onRequest` dispatches through it so Jest spies work in tests
     // AND NetSuite's AMD runtime loads it cleanly (no `module.exports` reference needed).
-    const api = { _loadCombined, _loadCost, _loadRevenue };
+    const api = {
+        _loadCombined, _loadCost, _loadRevenue,
+        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange
+    };
     api.onRequest = onRequest;
     return api;
 });

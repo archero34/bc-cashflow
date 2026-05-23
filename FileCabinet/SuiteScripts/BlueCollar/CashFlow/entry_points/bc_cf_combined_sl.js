@@ -29,6 +29,49 @@ define([
     const DATA_SCRIPT_ID  = 'customscript_bc_cf_data_sl';
     const DATA_DEPLOY_ID  = 'customdeploy_bc_cf_data_sl';
 
+    // ─── Date range helpers (mirror of bc_cf_data_sl helpers; intentional duplication per spec §3.2) ────
+
+    const _YYYYMM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+    const _validateYYYYMM = (s) => typeof s === 'string' && _YYYYMM_RE.test(s);
+    const _addMonths = (yyyymm, n) => {
+        const [y, m] = yyyymm.split('-').map(Number);
+        const d = new Date(Date.UTC(y, (m - 1) + n, 1));
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+    };
+    const _monthsBetween = (s, e) => {
+        const [sy, sm] = s.split('-').map(Number);
+        const [ey, em] = e.split('-').map(Number);
+        return (ey - sy) * 12 + (em - sm) + 1;
+    };
+    const _defaultRange = () => {
+        const now = new Date();
+        const cur = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        return { startPeriod: _addMonths(cur, -3), endPeriod: _addMonths(cur, 8) };
+    };
+    /**
+     * Server-side range resolution for the report SL: if request params are
+     * present + valid, use them; otherwise fall back to the default rolling
+     * window. Unlike the data SL's _resolveRange, this NEVER errors — bad
+     * params just degrade to defaults so the HTML page still renders.
+     */
+    const _resolveRangeOrDefault = (rawStart, rawEnd) => {
+        const hasStart = rawStart && _validateYYYYMM(rawStart);
+        const hasEnd   = rawEnd   && _validateYYYYMM(rawEnd);
+        if (!hasStart && !hasEnd) return _defaultRange();
+        const startPeriod = hasStart ? rawStart : _addMonths(rawEnd, -11);
+        const endPeriod   = hasEnd   ? rawEnd   : _addMonths(rawStart, 11);
+        if (startPeriod > endPeriod) return _defaultRange();
+        if (_monthsBetween(startPeriod, endPeriod) > 24) return _defaultRange();
+        return { startPeriod, endPeriod };
+    };
+
+    /** 'YYYY-MM' → 'Mar 2026' for the picker pill label. */
+    const _periodLabelShort = (yyyymm) => {
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const [y, m] = yyyymm.split('-');
+        return MONTHS[Number(m) - 1] + ' ' + y;
+    };
+
     // ─── Server-side helpers ──────────────────────────────────────────────────
 
     /**
@@ -36,15 +79,17 @@ define([
      * returnExternalUrl: false → same-domain session cookies flow correctly
      * inside the iframe.
      */
-    const resolveDataUrl = (projectId, mode) => {
+    const resolveDataUrl = (projectId, mode, range) => {
         const base = url.resolveScript({
             scriptId:     DATA_SCRIPT_ID,
             deploymentId: DATA_DEPLOY_ID,
             returnExternalUrl: false,
             params: {
-                action:    'combined',
-                projectId: String(projectId),
-                mode:      mode || 'cash'
+                action:      'combined',
+                projectId:   String(projectId),
+                mode:        mode || 'cash',
+                startPeriod: range.startPeriod,
+                endPeriod:   range.endPeriod
             }
         });
         return base;
@@ -53,10 +98,51 @@ define([
     // ─── Skeleton regions ─────────────────────────────────────────────────────
 
     /**
+     * Server-render the date range picker with the effective range as initial state.
+     * The `min`/`max` attributes on the month inputs are left blank — the client
+     * sets them once availableBounds arrives from the JSON fetch. Spec §3.2.
+     */
+    const buildPicker = (range) => {
+        const label = `${_periodLabelShort(range.startPeriod)} – ${_periodLabelShort(range.endPeriod)}`;
+        const months = _monthsBetween(range.startPeriod, range.endPeriod);
+        const activeChip = (months === 8 || months === 12 || months === 18 || months === 24) ? String(months) : '';
+        const chip = (n) => `<button type="button" data-preset="${n}"${activeChip === String(n) ? ' class="active"' : ''}>${n} months</button>`;
+        return `
+            <div class="bccf-daterange" id="bccf-daterange"
+                 data-start="${UI.esc(range.startPeriod)}"
+                 data-end="${UI.esc(range.endPeriod)}">
+                <button type="button" class="bccf-daterange-trigger" data-action="open-daterange">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span class="bccf-daterange-label">${UI.esc(label)}</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="bccf-daterange-panel" style="display:none">
+                    <h4>Quick ranges</h4>
+                    <div class="bccf-daterange-presets">${chip(8)}${chip(12)}${chip(18)}${chip(24)}</div>
+                    <h4>Custom range</h4>
+                    <div class="bccf-daterange-custom">
+                        <div>
+                            <label>From</label>
+                            <input type="month" data-input="from" value="${UI.esc(range.startPeriod)}" />
+                        </div>
+                        <div>
+                            <label>To</label>
+                            <input type="month" data-input="to" value="${UI.esc(range.endPeriod)}" />
+                        </div>
+                    </div>
+                    <div class="bccf-daterange-actions">
+                        <span class="bccf-daterange-hint">Limit: 24 months</span>
+                        <button type="button" class="bccf-btn bccf-btn-pri" data-action="apply-daterange">Apply</button>
+                    </div>
+                </div>
+            </div>`;
+    };
+
+    /**
      * Header panel — fully rendered server-side (cheap chrome, no data needed).
      * No in-iframe nav tabs per spec §3.5 amendment 2026-05-23.
      */
-    const buildHeader = (projectId, mode) => {
+    const buildHeader = (projectId, mode, range) => {
         const modeLabel = mode === 'accrual' ? 'Accrual' : 'Cash';
         const pill = `<span class="bccf-badge brand bccf-title-pill">${UI.esc(modeLabel)} basis</span>`;
         const toggle = UI.toggle({
@@ -78,6 +164,7 @@ define([
 
         const headerRight = `
             <div style="display:flex;align-items:center;gap:8px">
+                ${buildPicker(range)}
                 ${toggle}
                 <button type="button" class="bccf-btn" data-action="refresh" title="Refresh">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -217,38 +304,45 @@ define([
      * Per spec §3.6, §3.7, §3.15.5 — bccf-k / bccf-v / bccf-sub inner classes.
      * No KPI ever colors .bccf-v green/red — only Net uses accent.
      */
-    function renderKpis(kpis) {
+    function renderKpis(kpis, projectTotals) {
+        projectTotals = projectTotals || { revenue: 0, cost: 0 };
+
+        var projectNet = (projectTotals.revenue || 0) - (projectTotals.cost || 0);
+        var projectMargin = projectTotals.revenue
+            ? (projectNet / projectTotals.revenue) * 100
+            : 0;
+
         var netColor = kpis.netCashFlow >= 0
             ? 'var(--bccf-success-500)'
             : 'var(--bccf-danger-500)';
 
         var cards = [
-            // 1. Total Revenue — navy value per §3.7
+            // 1. Total Revenue (range) — subline shows project total
             '<div class="bccf-kpi">'
                 + '<div class="bccf-k">Total Revenue</div>'
                 + '<div class="bccf-v" style="color:var(--bccf-brand-500)">' + esc(fmtCurrency(kpis.totalRevenue)) + '</div>'
-                + '<div class="bccf-sub">Forecast</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(projectTotals.revenue)) + ' project total</div>'
             + '</div>',
 
-            // 2. Total Cost — coral value per §3.7 (cost identity color)
+            // 2. Total Cost (range) — subline shows project total
             '<div class="bccf-kpi">'
                 + '<div class="bccf-k">Total Cost</div>'
                 + '<div class="bccf-v" style="color:var(--bccf-cost-500)">' + esc(fmtCurrency(kpis.totalCost)) + '</div>'
-                + '<div class="bccf-sub">Forecast</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(projectTotals.cost)) + ' project total</div>'
             + '</div>',
 
-            // 3. Net Cash Flow — accent class, net color on value per §3.7 + §3.15.5
+            // 3. Net Cash Flow (range) — subline shows project net + margin
             '<div class="bccf-kpi accent">'
                 + '<div class="bccf-k">Net Cash Flow</div>'
                 + '<div class="bccf-v" style="color:' + netColor + '">' + esc(fmtCurrency(kpis.netCashFlow)) + '</div>'
-                + '<div class="bccf-sub">' + (kpis.netCashFlow >= 0 ? 'Positive' : 'Negative') + '</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(projectNet)) + ' project / ' + esc(fmtPct(projectMargin)) + ' overall</div>'
             + '</div>',
 
-            // 4. Margin % — default ink color
+            // 4. Margin (range) — subline shows project margin
             '<div class="bccf-kpi">'
                 + '<div class="bccf-k">Margin</div>'
                 + '<div class="bccf-v">' + esc(fmtPct(kpis.margin)) + '</div>'
-                + '<div class="bccf-sub">Net / Revenue</div>'
+                + '<div class="bccf-sub">' + esc(fmtPct(projectMargin)) + ' project overall</div>'
             + '</div>'
         ];
 
@@ -265,7 +359,7 @@ define([
      * Heights normalized to largest single-bar amount in the dataset.
      * Spec §3.8.
      */
-    function renderChart(periods, categories) {
+    function renderChart(periods, categories, cumulativeBefore) {
         var revTotal = categories.revenue.total;
         var costTotal = categories.cost.total;
         var BAR_MAX_H = 140; // px
@@ -283,31 +377,21 @@ define([
         var cols = periods.map(function(label, i) {
             var rev   = revTotal[i]  || 0;
             var cost  = costTotal[i] || 0;
-            var net   = rev - cost;
             var isNow = labelToYYYYMM(label) === curYYYYMM;
 
-            var netColor  = net >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-            var netLabel  = fmtCurrency(net);
             var haloStyle = isNow
                 ? 'background:var(--bccf-brand-50);border-radius:6px;padding:4px 6px 6px;'
                 : '';
-            var monthLabel = isNow
-                ? '<span style="font-weight:700;color:var(--bccf-brand-500)">&#9650; ' + esc(label) + '</span>'
-                : '<span>' + esc(label) + '</span>';
+            // Current-month signal is the brand-50 halo behind the column; no caret/bold needed.
+            var monthLabel = '<span>' + esc(label) + '</span>';
 
             var revH  = barH(rev);
             var costH = barH(cost);
 
             return '<div class="' + (isNow ? 'now' : '') + '" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:48px;' + haloStyle + '">'
-                // Net amount label above bars
-                + '<div style="font-size:11px;font-weight:600;color:' + netColor + ';margin-bottom:4px;white-space:nowrap;font-variant-numeric:tabular-nums">'
-                    + esc(netLabel)
-                + '</div>'
-                // Paired bars — hover via .bccf-bar:hover CSS rule (spec §3.8: CSS-only, no JS)
+                // Paired bars — Revenue/Cost values surfaced via title hover.
                 + '<div style="display:flex;align-items:flex-end;gap:2px;height:' + BAR_MAX_H + 'px">'
-                    // Revenue bar (navy)
                     + '<div class="bccf-bar" title="Revenue: ' + esc(fmtCurrency(rev)) + '" style="width:16px;height:' + revH + 'px;background:var(--bccf-brand-500);border-radius:3px 3px 0 0"></div>'
-                    // Cost bar (coral)
                     + '<div class="bccf-bar" title="Cost: ' + esc(fmtCurrency(cost)) + '" style="width:16px;height:' + costH + 'px;background:var(--bccf-cost-500);border-radius:3px 3px 0 0"></div>'
                 + '</div>'
                 // Month label below
@@ -317,19 +401,27 @@ define([
 
         // ── Cumulative net trend line ────────────────────────────────────────
         var net = periods.map(function(_, i) { return (revTotal[i] || 0) - (costTotal[i] || 0); });
-        var cumNet = net.reduce(function(acc, n) { acc.push((acc[acc.length - 1] || 0) + n); return acc; }, []);
+        var carry = Number(cumulativeBefore) || 0;
+        var cumNet = net.reduce(function(acc, n) {
+            var prev = acc.length === 0 ? carry : acc[acc.length - 1];
+            acc.push(prev + n);
+            return acc;
+        }, []);
         var cumMax = Math.max(0, Math.max.apply(null, cumNet));
         var cumMin = Math.min(0, Math.min.apply(null, cumNet));
         var cumRange = (cumMax - cumMin) || 1;
         var trendPoints = cumNet.map(function(v, i) {
             var x = (i + 0.5) / periods.length * 100;
             var y = 100 - ((v - cumMin) / cumRange) * 100;
-            return { x: x, y: y, value: v };
+            return { x: x, y: y, value: v, label: periods[i] };
         });
         var polyPoints = trendPoints.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+        // Dots are hoverable — CSS-based tooltip (.bccf-trend-dot::after) shows cumulative net.
+        // Native title attribute is unreliable inside NetSuite iframes; CSS hover is immediate.
         var dotsHtml = trendPoints.map(function(p) {
             var color = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
-            return '<span style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);pointer-events:none;"></span>';
+            var tip = fmtCurrency(p.value);
+            return '<span class="bccf-trend-dot" data-tip="' + esc(tip) + '" style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);"></span>';
         }).join('');
         // Final-period cumulative label removed — Net Cash Flow KPI already surfaces this value.
         var svgOverlay = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible">'
@@ -344,10 +436,10 @@ define([
             + '<span style="display:inline-flex;align-items:center;gap:6px"><svg width="18" height="6" viewBox="0 0 18 6" style="display:block"><line x1="0" y1="3" x2="18" y2="3" stroke="var(--bccf-success-500)" stroke-width="2" /><circle cx="9" cy="3" r="1.6" fill="var(--bccf-success-500)" /></svg>Cumulative Net</span>'
         + '</div>';
 
-        var headerHtml = '<div style="display:flex;align-items:center;justify-content:space-between">'
-            + '<div style="font-weight:600">Monthly cash flow</div>'
-            + legend
-        + '</div>';
+        // .bccf-panel-header is already display:flex / justify-content:space-between, so just emit
+        // the title and legend as siblings — wrapping them in an inner flex container shrinks to
+        // content width and crowds them together.
+        var headerHtml = '<div style="font-weight:600">Monthly cash flow</div>' + legend;
 
         var barsHtml = '<div style="position:relative">'
             + '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">'
@@ -548,13 +640,14 @@ define([
             })
             .then(function(data) {
                 if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
+                applyBoundsToPicker(data.availableBounds);
 
                 // Bug 1: use innerHTML on stable wrapper divs (IDs never destroyed)
                 var kpiEl = document.getElementById('bccf-kpis');
-                if (kpiEl) kpiEl.innerHTML = renderKpis(data.kpis);
+                if (kpiEl) kpiEl.innerHTML = renderKpis(data.kpis, data.projectTotals);
 
                 var chartEl = document.getElementById('bccf-chart');
-                if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.categories);
+                if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.categories, data.cumulativeBefore);
 
                 var tableEl = document.getElementById('bccf-table');
                 if (tableEl) tableEl.innerHTML = renderTable(data.periods, data.categories);
@@ -581,6 +674,164 @@ define([
         return u.toString();
     }
 
+    // ── Date range picker (E1 spec §3.2) ─────────────────────────────────────
+
+    /**
+     * Add N months to a YYYY-MM string. UTC-safe.
+     */
+    function addMonths(yyyymm, n) {
+        var parts = yyyymm.split('-');
+        var y = Number(parts[0]);
+        var m = Number(parts[1]);
+        var d = new Date(Date.UTC(y, (m - 1) + n, 1));
+        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+    }
+
+    function monthsBetween(s, e) {
+        var sp = s.split('-').map(Number);
+        var ep = e.split('-').map(Number);
+        return (ep[0] - sp[0]) * 12 + (ep[1] - sp[1]) + 1;
+    }
+
+    /** Center N-month window around the current month: -floor(N/4) / +(N - floor(N/4) - 1) per spec preset behavior. */
+    function presetWindow(n) {
+        var now = new Date();
+        var cur = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '00');
+        var back = Math.floor(n / 4);  // 8->2, 12->3, 18->4, 24->6
+        return { startPeriod: addMonths(cur, -back), endPeriod: addMonths(cur, n - back - 1) };
+    }
+
+    function pickerEl() { return document.getElementById('bccf-daterange'); }
+    function pickerPanel() { var p = pickerEl(); return p ? p.querySelector('.bccf-daterange-panel') : null; }
+    function pickerFrom()  { var p = pickerEl(); return p ? p.querySelector('[data-input="from"]') : null; }
+    function pickerTo()    { var p = pickerEl(); return p ? p.querySelector('[data-input="to"]')   : null; }
+    function pickerApply() { var p = pickerEl(); return p ? p.querySelector('[data-action="apply-daterange"]') : null; }
+
+    function setActivePreset(n) {
+        var p = pickerEl();
+        if (!p) return;
+        p.querySelectorAll('[data-preset]').forEach(function(b) {
+            b.classList.toggle('active', String(n) === b.dataset.preset);
+        });
+    }
+
+    function clearActivePreset() {
+        var p = pickerEl();
+        if (!p) return;
+        p.querySelectorAll('[data-preset]').forEach(function(b) { b.classList.remove('active'); });
+    }
+
+    /**
+     * Validate the custom From/To inputs. Returns null if valid (then enables Apply),
+     * or a short message if invalid (then disables Apply).
+     */
+    function validatePickerInputs() {
+        var from = pickerFrom();
+        var to   = pickerTo();
+        var apply = pickerApply();
+        if (!from || !to || !apply) return 'init';
+        var f = from.value;
+        var t = to.value;
+        var ok = /^\\d{4}-(0[1-9]|1[0-2])$/.test(f) && /^\\d{4}-(0[1-9]|1[0-2])$/.test(t);
+        if (!ok) {
+            apply.disabled = true;
+            return 'Invalid month';
+        }
+        if (f > t) {
+            apply.disabled = true;
+            return 'From must be on or before To';
+        }
+        if (monthsBetween(f, t) > 24) {
+            apply.disabled = true;
+            return 'Maximum 24 months';
+        }
+        apply.disabled = false;
+        return null;
+    }
+
+    function openPicker() {
+        var panel = pickerPanel();
+        if (panel) panel.style.display = 'block';
+    }
+    function closePicker() {
+        var panel = pickerPanel();
+        if (panel) panel.style.display = 'none';
+    }
+
+    function applyPicker() {
+        var from = pickerFrom();
+        var to   = pickerTo();
+        if (!from || !to) return;
+        if (validatePickerInputs() !== null) return;  // re-check
+        var u = new URL(window.location.href);
+        u.searchParams.set('startPeriod', from.value);
+        u.searchParams.set('endPeriod',   to.value);
+        window.location.replace(u.toString());
+    }
+
+    // Wire picker events
+    document.addEventListener('click', function(e) {
+        // Open/close on trigger
+        var trigger = e.target.closest('[data-action="open-daterange"]');
+        if (trigger) {
+            var panel = pickerPanel();
+            var isOpen = panel && panel.style.display === 'block';
+            if (isOpen) closePicker(); else openPicker();
+            return;
+        }
+        // Apply
+        if (e.target.closest('[data-action="apply-daterange"]')) {
+            applyPicker();
+            return;
+        }
+        // Preset chip
+        var preset = e.target.closest('[data-preset]');
+        if (preset) {
+            var n = Number(preset.dataset.preset);
+            var win = presetWindow(n);
+            var from = pickerFrom();
+            var to   = pickerTo();
+            if (from) from.value = win.startPeriod;
+            if (to)   to.value   = win.endPeriod;
+            setActivePreset(n);
+            validatePickerInputs();
+            return;
+        }
+        // Outside click closes panel
+        var p = pickerEl();
+        if (p && !p.contains(e.target)) closePicker();
+    }, true);
+
+    // Custom input edits clear preset + revalidate
+    document.addEventListener('input', function(e) {
+        if (!e.target.matches('[data-input="from"], [data-input="to"]')) return;
+        clearActivePreset();
+        validatePickerInputs();
+    });
+
+    // Esc closes panel
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePicker();
+    });
+
+    /**
+     * After the JSON fetch resolves, clamp the from/to inputs to availableBounds
+     * so the native month-picker UI honors the project's actual data window.
+     */
+    function applyBoundsToPicker(availableBounds) {
+        if (!availableBounds) return;
+        var from = pickerFrom();
+        var to   = pickerTo();
+        if (from) {
+            from.setAttribute('min', availableBounds.minPeriod);
+            from.setAttribute('max', availableBounds.maxPeriod);
+        }
+        if (to) {
+            to.setAttribute('min', availableBounds.minPeriod);
+            to.setAttribute('max', availableBounds.maxPeriod);
+        }
+    }
+
     // ── Event delegation ─────────────────────────────────────────────────────
 
     document.addEventListener('click', function(e) {
@@ -597,6 +848,13 @@ define([
             });
             var newUrl = swapModeUrl(_lastDataUrl, newMode);
             loadData(newUrl);
+            // Sync the iframe's own URL bar so the picker's Apply (which reads window.location.href)
+            // preserves the active mode across the reload.
+            try {
+                var iframeUrl = new URL(window.location.href);
+                iframeUrl.searchParams.set('mode', newMode);
+                history.replaceState(null, '', iframeUrl.toString());
+            } catch (err) { /* iframe history may be restricted; non-fatal */ }
             return;
         }
 
@@ -645,6 +903,10 @@ define([
         try {
             const projectId = request.parameters.projectId;
             const mode      = request.parameters.mode === 'accrual' ? 'accrual' : 'cash';
+            const range = _resolveRangeOrDefault(
+                request.parameters.startPeriod,
+                request.parameters.endPeriod
+            );
 
             if (!projectId) {
                 response.write(
@@ -654,7 +916,7 @@ define([
                 return;
             }
 
-            const dataUrl = resolveDataUrl(projectId, mode);
+            const dataUrl = resolveDataUrl(projectId, mode, range);
 
             const html = `<!doctype html>
 <html lang="en">
@@ -676,7 +938,7 @@ define([
 <body data-data-url="${UI.esc(dataUrl)}">
     <div id="bccf-toast-host"></div>
     <div class="bccf-layout">
-        ${buildHeader(projectId, mode)}
+        ${buildHeader(projectId, mode, range)}
         ${buildSkeletonKpis()}
         ${buildSkeletonChart()}
         ${buildSkeletonTable()}

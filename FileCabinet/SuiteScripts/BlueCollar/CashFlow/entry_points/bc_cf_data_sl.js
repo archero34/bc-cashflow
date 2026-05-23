@@ -252,7 +252,9 @@ define(['N/log', 'N/query'], function (log, query) {
         const costRows = rows.filter((r) => r.flow_direction === 'Cost');
 
         const revenue = _pivotDirection(revRows,  periods, 'Base Bid');
-        const cost    = _pivotDirection(costRows, periods, 'Other Cost');
+        // Cost side: no hoist — let alphabetical place CO/vendor lines naturally
+        // (hoisting 'Other Cost' would put the catch-all bucket first; mockup §3.6 shows vendor lines lead)
+        const cost    = _pivotDirection(costRows, periods, null);
 
         const totalRevenue = revenue.grandTotal;
         const totalCost    = cost.grandTotal;
@@ -300,7 +302,8 @@ define(['N/log', 'N/query'], function (log, query) {
         rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
         const periods = Array.from(periodsSet).sort();
 
-        const cost = _pivotDirection(rows, periods, 'Other Cost');
+        // No hoist — alphabetical places CO/vendor lines naturally (mockup §3.6 shows vendor lines lead)
+        const cost = _pivotDirection(rows, periods, null);
 
         // KPI: current YYYY-MM derived from runtime clock
         const now = new Date();

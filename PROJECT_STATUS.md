@@ -1,12 +1,28 @@
 # BC Cash Flow Forecasting — Project Status
 
-## Current Phase: v1 Redesign Complete · Customer Sandbox Deploy Ready
+## Current Phase: v1.5 Enhancements — E1 (Date Range Filter) Spec Approved, Plan Pending
 
 **Date**: 2026-05-23
 **Account**: TD2984799 — BlueCollar Demo Trailing (dev)
 **Repo**: https://github.com/archero34/bc-cashflow
 **Demo Project**: Data Airflow - Cash Flow Demo (ID: 1807)
-**Active branch**: `feature/v1-redesign` (30+ commits, ahead of `main`; PR pending)
+**Active branch**: `feature/v1.5-enhancements` (1 commit ahead of `main` — the E1 spec)
+**`main` status**: up to date with v1 redesign (PR #1 merged at `034c9de`)
+
+---
+
+## Resume here for next session
+
+1. **Check out the branch**:
+   ```bash
+   git checkout feature/v1.5-enhancements && git pull
+   ```
+2. **Read the E1 spec**: `docs/superpowers/specs/2026-05-23-cashflow-report-date-range-filter-design.md` (commit `6a944ba`) — fully approved during 2026-05-23 brainstorm.
+3. **Invoke `superpowers:writing-plans`** to generate the implementation plan for E1. The spec is already organized into 15 candidate task buckets (§6 in the spec doc) that the plan can fold into.
+4. **Execute the plan** via `superpowers:subagent-driven-development` (same pattern as v1 redesign — worked well).
+5. **After E1 ships**: separately brainstorm E2 (portfolio Suitelet), which is the larger lift. E1's picker component + URL contract were designed for E2 to reuse — see spec §7.
+
+---
 
 ---
 
@@ -150,33 +166,41 @@ npm run deploy:dryrun
 
 ---
 
-## Phase 2 backlog — enhancement requests (NEW, captured 2026-05-23)
+## v1.5 enhancements — status
 
-### E1 — Date range filtering on report Suitelets
+### E1 — Date range filtering on report Suitelets · **SPEC APPROVED, plan pending**
 
-**Request:** Add a date range selector to Revenue / Cost / Combined reports. Currently the reports show all periods present in the underlying timing lines. User needs to view any combination of periods.
+- **Brainstormed**: 2026-05-23 (this session)
+- **Spec**: `docs/superpowers/specs/2026-05-23-cashflow-report-date-range-filter-design.md` (commit `6a944ba`)
+- **Status**: Spec approved by user, ready for `superpowers:writing-plans` to generate the implementation plan.
 
-**Notes:**
-- The selector should allow picking arbitrary start/end periods, not just preset ranges.
-- Consider a max period count limit (e.g. 18 months) to prevent column-cramping on long horizons.
-- Both `mode=cash` and `mode=accrual` should respect the same range.
-- The `bc_cf_data_sl` JSON contract may need a `startPeriod` / `endPeriod` filter param — bake server-side or filter client-side after fetch.
+**Key locked decisions** (full detail in spec §2):
+- Default view: rolling window, current month −3 / +9 = 12 months
+- Hard cap: 24 months (server-side guard + client picker disables Apply)
+- Picker UI: pill button → dropdown panel with 4 preset chips (8/12/18/24) + custom `<input type="month">` From/To + Apply button (Option C from brainstorm)
+- Filter location: server-side via SuiteQL `AND TO_CHAR(period_date, 'YYYY-MM') BETWEEN ? AND ?`
+- New `bc_cf_data_sl` query params: `startPeriod` / `endPeriod` (both optional, regex-validated)
+- Response shape additions: `range`, `availableBounds`, `projectTotals`, plus `cumulativeBefore` on the Combined action (for trend line carry-forward)
+- KPI semantics under filter: KPI value = sum in range; subline = project total
+- Cumulative net trend line: starts at `cumulativeBefore` (not $0) when range starts mid-project
+- Persistence: URL-encoded `?startPeriod=YYYY-MM&endPeriod=YYYY-MM` on the iframe Suitelet URL — bookmarkable, shareable
 
-**Mocks**: TBD. Place the selector in the report header next to the Cash/Accrual toggle.
+**Reusability**: the picker component + URL contract + `availableBounds` server response are designed so E2 (below) can reuse them without changes.
 
-### E2 — Consolidated portfolio Suitelet
+### E2 — Consolidated portfolio Suitelet · **BACKLOG — own brainstorm cycle**
 
 **Request:** A new top-level Suitelet that rolls up all BC projects into a single cash-flow view. The earlier "consolidated reporting" thread did NOT mean consolidating the 3 SuiteApps (Combined / Cost / Revenue) into one — it meant a portfolio view across all projects.
 
-**Notes:**
-- Each project = one row showing revenue + cost across the period columns.
-- Header KPIs + charting that aggregate across all visible projects (total revenue, total cost, net, etc.).
-- Multi-select project picker (filter to a subset of projects).
-- Date range filter (same component as E1 — reusable).
-- Cash / Accrual toggle (same primitive as the report SLs).
-- This is a new Suitelet, not modifications to the existing project-level reports. Probably `bc_cf_portfolio_sl` + a new INLINEHTML mount point or a standalone NS menu entry.
+**Sketch (refine in dedicated brainstorm):**
+- Each project = one row showing revenue + cost across period columns
+- Header KPIs + charting that aggregate across visible projects (total revenue, total cost, net, margin)
+- Multi-select project picker (filter to a subset of projects)
+- Date range filter — reuses E1's picker component verbatim
+- Cash / Accrual toggle — same primitive as report SLs
+- Architecture: new shell SL `bc_cf_portfolio_sl` + new `?action=portfolio` route on the existing `bc_cf_data_sl`
+- Mount point: TBD (standalone NS menu entry vs. INLINEHTML on a list view)
 
-**Architecture**: likely a new shell SL (HTML + skeleton) + the existing `bc_cf_data_sl` extended with a `?action=portfolio` action returning the multi-project rollup.
+**Start E2 after E1 ships and is verified in customer sandbox.**
 
 ### E3 — Existing tracked items (Phase 2, unchanged from earlier sessions)
 
@@ -203,11 +227,12 @@ npm run deploy:dryrun
 - **2026-03-25/26 overnight**: POC built from scratch. Demo to Data Airflow — success.
 - **2026-03-26 post-demo**: Actuals integration started (bills, invoices, payments). Unresolved correctness issues.
 - **2026-05-22 → 2026-05-23**: Brainstormed + designed the v1 redesign. Wrote spec (`docs/superpowers/specs/2026-05-22-cashflow-ui-redesign-design.md`) and 31-task plan (`docs/superpowers/plans/2026-05-22-cashflow-ui-redesign.md`). Executed all 31 tasks + 4 polish passes via subagent-driven development. Deployed continuously to TD2984799 sandbox. Committed everything to `feature/v1-redesign` branch on GitHub. Portability audit + fixes. Ready for customer sandbox.
+- **2026-05-23 (continued)**: PR #1 merged `feature/v1-redesign` into `main` at commit `034c9de`. Cut new branch `feature/v1.5-enhancements` off main. Brainstormed E1 (date range filter). Wrote spec at `docs/superpowers/specs/2026-05-23-cashflow-report-date-range-filter-design.md`, commit `6a944ba`. Next session: invoke `superpowers:writing-plans` against the spec.
 
 ---
 
-## Open questions / decisions to make next session
+## Open questions / decisions for next session
 
-1. **Merge `feature/v1-redesign` to `main`?** Pending PR review on https://github.com/archero34/bc-cashflow/pull/new/feature/v1-redesign. Local `main` is currently equal to the branch (since dev commits went directly to main earlier in the session). Decide: reset local `main` to `origin/main` and merge via PR, or fast-forward both?
-2. **Customer sandbox deploy procedure** — first-deploy runbook: install BC SuiteApp prerequisites, then SDF deploy this project. The 4 portability fixes from 2026-05-23 should make this clean.
-3. **E1 + E2 brainstorming** — pick up next session with the brainstorming skill to design these two features. E2 (portfolio view) is the bigger lift and should probably go through its own spec + plan cycle.
+1. **Run `superpowers:writing-plans`** against the E1 spec to produce the implementation plan, then execute via `superpowers:subagent-driven-development`. The spec is approved; nothing else gates start.
+2. **Customer sandbox deploy** — still pending. The 4 portability fixes (`59b9656`) should make it clean. Decide whether to deploy current `main` (v1 redesign) to the customer sandbox NOW, before E1 lands, or wait for v1.5. **Recommendation**: deploy v1 now so the customer can start using it; E1 lands as an additive enhancement later.
+3. **E2 brainstorming** — pick up after E1 ships. E2 will reuse E1's picker component + URL contract per spec §7.

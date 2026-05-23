@@ -219,3 +219,73 @@ describe('bc_cf_combined_sl — shell structure', () => {
         });
     });
 });
+
+describe('bc_cf_combined_sl — date range picker (E1)', () => {
+
+    it('passes startPeriod and endPeriod through to data SL URL when present', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({
+            request: GET({ projectId: '1807', mode: 'cash', startPeriod: '2026-03', endPeriod: '2026-08' }),
+            response: res
+        });
+        const body = res.getBody();
+        expect(body).toMatch(/startPeriod=2026-03/);
+        expect(body).toMatch(/endPeriod=2026-08/);
+    });
+
+    it('renders picker pill with default rolling window when no range params provided', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({
+            request: GET({ projectId: '1807' }),
+            response: res
+        });
+        const body = res.getBody();
+        expect(body).toContain('class="bccf-daterange"');
+        expect(body).toContain('class="bccf-daterange-trigger"');
+        expect(body).toContain('class="bccf-daterange-label"');
+        // Both default startPeriod and endPeriod hit the data SL URL
+        expect(body).toMatch(/startPeriod=\d{4}-\d{2}/);
+        expect(body).toMatch(/endPeriod=\d{4}-\d{2}/);
+    });
+
+    it('renders 4 preset chips (8/12/18/24) in panel', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toContain('data-preset="8"');
+        expect(body).toContain('data-preset="12"');
+        expect(body).toContain('data-preset="18"');
+        expect(body).toContain('data-preset="24"');
+    });
+
+    it('renders custom From/To month inputs', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toContain('data-input="from"');
+        expect(body).toContain('data-input="to"');
+        expect(body).toMatch(/type="month"/);
+    });
+
+    it('renders 24-month cap hint in panel footer', () => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        const body = res.getBody();
+        expect(body).toContain('24 months');
+    });
+
+    it('falls back to default rolling window when range params are malformed', () => {
+        const res = mockResponse();
+        // Bad input: should render anyway with defaults (not an error page)
+        Suitelet.onRequest({
+            request: GET({ projectId: '1807', startPeriod: 'garbage', endPeriod: '2026-13' }),
+            response: res
+        });
+        const body = res.getBody();
+        // The SL still serves an HTML page
+        expect(body).toMatch(/<!doctype html>/i);
+        // Bad inputs don't appear verbatim in the resolved data URL
+        expect(body).not.toMatch(/startPeriod=garbage/);
+        expect(body).not.toMatch(/endPeriod=2026-13/);
+    });
+});

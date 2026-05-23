@@ -56,59 +56,6 @@ define([
         return { rows: results, periods: Array.from(periodSet).sort() };
     };
 
-    const fetchCostActuals = (projectId) => {
-        const allRows = [];
-        const periodSet = new Set();
-
-        // Query 1: Vendor Bills (billed costs)
-        try {
-            const billSql = `
-                SELECT
-                    NVL(NVL(e.entitytitle, e.entityid), 'Vendor') AS cost_group,
-                    TO_CHAR(t.trandate, 'YYYY-MM') AS period,
-                    SUM(tl.foreignamount) AS amount
-                FROM transaction t
-                JOIN transactionline tl ON tl.transaction = t.id
-                LEFT JOIN entity e ON e.id = t.entity
-                WHERE t.type = 'VendBill'
-                  AND tl.cseg_bc_project = ?
-                  AND tl.mainline = 'F'
-                  AND tl.taxline = 'F'
-                GROUP BY NVL(NVL(e.entitytitle, e.entityid), 'Vendor'), TO_CHAR(t.trandate, 'YYYY-MM')
-            `;
-            const billRows = query.runSuiteQL({ query: billSql, params: [projectId] }).asMappedResults() || [];
-            billRows.forEach((r) => { allRows.push(r); periodSet.add(r.period); });
-        } catch (e) {
-            log.error({ title: MODULE + '.fetchCostActuals.bills', details: e.message });
-        }
-
-        // Query 2: Vendor Payments (independent — failure doesn't kill bills)
-        try {
-            const pmtSql = `
-                SELECT
-                    'Paid' AS cost_group,
-                    TO_CHAR(pmt.trandate, 'YYYY-MM') AS period,
-                    SUM(pmt.foreigntotal) AS amount
-                FROM transaction pmt
-                WHERE pmt.type = 'VendPmt'
-                  AND pmt.createdfrom IN (
-                    SELECT DISTINCT bill.id FROM transaction bill
-                    JOIN transactionline billl ON billl.transaction = bill.id
-                    WHERE bill.type = 'VendBill'
-                      AND billl.cseg_bc_project = ?
-                      AND billl.mainline = 'F'
-                  )
-                GROUP BY TO_CHAR(pmt.trandate, 'YYYY-MM')
-            `;
-            const pmtRows = query.runSuiteQL({ query: pmtSql, params: [projectId] }).asMappedResults() || [];
-            pmtRows.forEach((r) => { allRows.push(r); periodSet.add(r.period); });
-        } catch (e) {
-            log.error({ title: MODULE + '.fetchCostActuals.payments', details: e.message });
-        }
-
-        return { rows: allRows, periods: Array.from(periodSet).sort() };
-    };
-
     // ─── Entry Point ──────────────────────────────────────────────────────────
 
     const onRequest = (context) => {
@@ -125,10 +72,9 @@ define([
 
             log.debug({ title: MODULE, details: `Rendering cost report: project=${projectId}, timingType=${timingTypeId}` });
 
-            // 1. Fetch forecast + actuals
+            // 1. Fetch forecast
             const data = fetchCostData(Number(projectId), timingTypeId);
-            const actualsData = fetchCostActuals(Number(projectId));
-            const allPeriods = Array.from(new Set([...data.periods, ...actualsData.periods])).sort();
+            const allPeriods = [...data.periods];
 
             // 2. Empty state
             if (!data.rows.length) {
@@ -138,37 +84,18 @@ define([
 
             // 3. Pivot
             const forecast = utils.pivot(data.rows, allPeriods, 'Other');
-            const hasActuals = actualsData.rows.length > 0;
-            const actuals = hasActuals ? utils.pivot(actualsData.rows, allPeriods) : null;
 
             // 4. KPI calculations
             const curMonth = utils.currentYYYYMM();
-            let paidToDate = 0;
-            if (actuals && actuals.groups['Paid']) {
-                paidToDate = Object.values(actuals.groups['Paid']).reduce((s, v) => s + Math.abs(v), 0);
-            }
             const dueThisMonth = forecast.totals[curMonth] || 0;
-            const paidPct = forecast.grandTotal ? Math.round((paidToDate / forecast.grandTotal) * 100) + '%' : '0%';
             const duePct = forecast.grandTotal ? Math.round((dueThisMonth / forecast.grandTotal) * 100) + '%' : '0%';
-
-            // Actual billed = all non-Paid actual groups
-            let actualBilled = 0;
-            if (actuals) {
-                Object.keys(actuals.groupTotals).forEach((g) => {
-                    if (g !== 'Paid') actualBilled += Math.abs(actuals.groupTotals[g]);
-                });
-            }
 
             // 5. Build KPI cards
             const kpiItems = [
                 { label: 'Total Cost Forecast', value: forecast.grandTotal, hero: true, accent: BRAND.GOLD },
-                { label: 'Paid to Date', value: paidToDate, badge: paidPct, badgeColor: BRAND.GREY_LIGHT, accent: BRAND.NAVY },
                 { label: 'Due This Month', value: dueThisMonth, badge: duePct, badgeColor: BRAND.GREY_LIGHT, accent: BRAND.NAVY }
             ];
-            const actualsKpi = hasActuals && actualBilled > 0
-                ? [{ label: 'Actual Billed', value: actualBilled, accent: BRAND.RED }]
-                : null;
-            const kpiHtml = utils.buildKPICards(kpiItems, actualsKpi);
+            const kpiHtml = utils.buildKPICards(kpiItems);
 
             // 6. Build chart
             const chartHtml = utils.buildChart({
@@ -180,13 +107,6 @@ define([
 
             // 7. Build table
             const forecastGroups = Object.keys(forecast.groups).sort();
-            const actualsConfig = hasActuals ? {
-                sectionLabel: 'Cost Actuals',
-                groups: actuals.groups,
-                groupOrder: Object.keys(actuals.groups).sort(),
-                groupTotals: actuals.groupTotals
-            } : null;
-
             const tableHtml = utils.buildTable({
                 columnHeader: 'Cost Group',
                 periods: allPeriods,
@@ -195,8 +115,7 @@ define([
                 groupTotals: forecast.groupTotals,
                 totals: forecast.totals,
                 grandTotal: forecast.grandTotal,
-                groupSourceMap: forecast.groupSourceMap,
-                actuals: actualsConfig
+                groupSourceMap: forecast.groupSourceMap
             });
 
             // 8. Build CSV + export bar

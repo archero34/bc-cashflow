@@ -220,6 +220,32 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         };
     };
 
+    /**
+     * Resolve raw request params into an effective range, applying defaults
+     * and validating per spec §3.1. Returns either:
+     *   { ok: true,  startPeriod, endPeriod }
+     *   { ok: false, error: '...' }
+     */
+    const _resolveRange = (rawStart, rawEnd) => {
+        const hasStart = rawStart != null && rawStart !== '';
+        const hasEnd   = rawEnd   != null && rawEnd   !== '';
+
+        if (!hasStart && !hasEnd) return Object.assign({ ok: true }, _defaultRange());
+
+        if (hasStart && !_validateYYYYMM(rawStart)) return { ok: false, error: 'Invalid period format' };
+        if (hasEnd   && !_validateYYYYMM(rawEnd))   return { ok: false, error: 'Invalid period format' };
+
+        const startPeriod = hasStart ? rawStart : _addMonths(rawEnd,   -11);
+        const endPeriod   = hasEnd   ? rawEnd   : _addMonths(rawStart, 11);
+
+        if (startPeriod > endPeriod) return { ok: false, error: 'startPeriod must be <= endPeriod' };
+        if (_monthsBetween(startPeriod, endPeriod) > 24) {
+            return { ok: false, error: 'Date range exceeds 24-month limit' };
+        }
+
+        return { ok: true, startPeriod, endPeriod };
+    };
+
     /** 'YYYY-MM' → 'Apr 2026' */
     const _periodLabel = (yyyymm) => {
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -510,7 +536,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     // AND NetSuite's AMD runtime loads it cleanly (no `module.exports` reference needed).
     const api = {
         _loadCombined, _loadCost, _loadRevenue,
-        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange
+        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange
     };
     api.onRequest = onRequest;
     return api;

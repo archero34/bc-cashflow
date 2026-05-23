@@ -161,4 +161,51 @@ describe('bc_cf_data_sl YYYY-MM helpers', () => {
         expect(r.endPeriod).toMatch(/^\d{4}-(0[1-9]|1[0-2])$/);
         expect(Suitelet._monthsBetween(r.startPeriod, r.endPeriod)).toBe(12);
     });
+    it('_resolveRange uses default when both params omitted', () => {
+        const r = Suitelet._resolveRange(undefined, undefined);
+        expect(r.ok).toBe(true);
+        expect(Suitelet._monthsBetween(r.startPeriod, r.endPeriod)).toBe(12);
+    });
+    it('_resolveRange extends end when only start provided', () => {
+        const r = Suitelet._resolveRange('2026-04', undefined);
+        expect(r.ok).toBe(true);
+        expect(r.startPeriod).toBe('2026-04');
+        expect(r.endPeriod).toBe('2027-03');
+    });
+    it('_resolveRange extends start when only end provided', () => {
+        const r = Suitelet._resolveRange(undefined, '2026-12');
+        expect(r.ok).toBe(true);
+        expect(r.startPeriod).toBe('2026-01');
+        expect(r.endPeriod).toBe('2026-12');
+    });
+    it('_resolveRange accepts both when valid', () => {
+        const r = Suitelet._resolveRange('2026-03', '2027-02');
+        expect(r.ok).toBe(true);
+        expect(r.startPeriod).toBe('2026-03');
+        expect(r.endPeriod).toBe('2027-02');
+    });
+    it('_resolveRange rejects malformed startPeriod', () => {
+        const r = Suitelet._resolveRange('2026-13', '2026-12');
+        expect(r.ok).toBe(false);
+        expect(r.error).toMatch(/invalid period format/i);
+    });
+    it('_resolveRange rejects malformed endPeriod', () => {
+        const r = Suitelet._resolveRange('2026-01', '2026/12');
+        expect(r.ok).toBe(false);
+        expect(r.error).toMatch(/invalid period format/i);
+    });
+    it('_resolveRange rejects start > end', () => {
+        const r = Suitelet._resolveRange('2026-12', '2026-01');
+        expect(r.ok).toBe(false);
+        expect(r.error).toMatch(/startPeriod must be <= endPeriod/i);
+    });
+    it('_resolveRange rejects range > 24 months', () => {
+        const r = Suitelet._resolveRange('2026-01', '2028-02');
+        expect(r.ok).toBe(false);
+        expect(r.error).toMatch(/24-month/i);
+    });
+    it('_resolveRange accepts exactly 24 months', () => {
+        const r = Suitelet._resolveRange('2026-01', '2027-12');
+        expect(r.ok).toBe(true);
+    });
 });

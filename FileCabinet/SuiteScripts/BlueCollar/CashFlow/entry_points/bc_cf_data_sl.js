@@ -65,6 +65,44 @@ define(['N/log', 'N/query'], function (log, query) {
      * Forecast-only combined query: revenue timing lines UNION cost timing lines.
      * No VendBill / VendPmt / CustInvc / CustPymt joins — forecast data only.
      */
+    /**
+     * Forecast-only revenue query: revenue timing lines only.
+     * No CustInvc / CustPymt joins — forecast data only.
+     */
+    const REVENUE_SQL = `
+        SELECT
+            CASE
+                WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
+                    THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
+                ELSE 'Base Bid'
+            END AS cost_group,
+            TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') AS period,
+            SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount,
+            CASE
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN MIN(rtl.custrecord_bc_rtl_change_order)
+                ELSE MIN(rtl.custrecord_bc_rtl_transaction)
+            END AS source_id,
+            CASE
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN 'cr'
+                ELSE 'so'
+            END AS source_type
+        FROM customrecord_bc_revenue_timing_line rtl
+        LEFT JOIN customrecord_bc_change_req cr
+            ON cr.id = rtl.custrecord_bc_rtl_change_order
+        WHERE rtl.custrecord_bc_rtl_project = ?
+          AND rtl.custrecord_bc_rtl_timing_type = ?
+        GROUP BY
+            CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
+                 THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
+                 ELSE 'Base Bid' END,
+            TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
+        ORDER BY cost_group, period
+    `;
+
+    /**
+     * Forecast-only combined query: revenue timing lines UNION cost timing lines.
+     * No VendBill / VendPmt / CustInvc / CustPymt joins — forecast data only.
+     */
     const COMBINED_SQL = `
         SELECT
             'Revenue' AS flow_direction,
@@ -332,9 +370,62 @@ define(['N/log', 'N/query'], function (log, query) {
             }
         };
     };
+    /**
+     * Load forecast-only revenue data and shape it into the standard JSON contract.
+     * No actuals (CustInvc / CustPymt) — forecast timing lines only.
+     * 'Base Bid' is hoisted to first position per spec §3.6 revenue KPI mockup.
+     *
+     * @param {string} projectId - internal ID of the BC Project
+     * @param {string} mode - 'cash' | 'accrual'
+     * @returns {{
+     *   periods: string[],
+     *   categories: {
+     *     revenue: { lines: Object[], total: number[], grandTotal: number }
+     *   },
+     *   kpis: { totalRevenue: number, baseContract: number, changeOrders: number, peakMonth: number }
+     * }}
+     */
     const _loadRevenue = (projectId, mode) => {
-        // Phase 3 stub: real implementation lands in Task 13.
-        return { periods: [], categories: {}, kpis: {} };
+        const timingType = modeToTimingType(mode);
+
+        let rows;
+        try {
+            rows = query.runSuiteQL({
+                query: REVENUE_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults();
+        } catch (e) {
+            log.error({ title: MODULE + '._loadRevenue', details: e.message + '\n' + (e.stack || '') });
+            rows = [];
+        }
+
+        // Collect sorted unique YYYY-MM periods
+        const periodsSet = new Set();
+        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
+        const periods = Array.from(periodsSet).sort();
+
+        // Hoist 'Base Bid' first (spec §3.6 revenue mockup — Base Contract leads, CO rows follow)
+        const revenue = _pivotDirection(rows, periods, 'Base Bid');
+
+        // KPIs
+        const totalRevenue = revenue.grandTotal;
+
+        const baseLine = revenue.lines.find((l) => l.id === 'Base Bid');
+        const baseContract = baseLine ? baseLine.total : 0;
+
+        const changeOrders = revenue.lines
+            .filter((l) => l.id.startsWith('CO: '))
+            .reduce((sum, l) => sum + l.total, 0);
+
+        const peakMonth = revenue.total.length > 0
+            ? Math.max.apply(null, revenue.total)
+            : 0;
+
+        return {
+            periods: periods.map(_periodLabel),
+            categories: { revenue },
+            kpis: { totalRevenue, baseContract, changeOrders, peakMonth }
+        };
     };
 
     const onRequest = (context) => {

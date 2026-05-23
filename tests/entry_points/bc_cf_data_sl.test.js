@@ -86,3 +86,22 @@ describe('bc_cf_data_sl combined action shape', () => {
         expect(body.kpis).toHaveProperty('netCashFlow');
     });
 });
+
+describe('bc_cf_data_sl cost action shape', () => {
+    it('returns cost categories + kpis with currentMonth/peakMonth/remaining', () => {
+        jest.spyOn(Suitelet, '_loadCost').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            categories: { cost: { lines: [], total: [0, 0], grandTotal: 0 } },
+            kpis: { totalCost: 0, currentMonth: 0, peakMonth: 0, remaining: 0 },
+        });
+        const req = { method: 'GET', parameters: { action: 'cost', projectId: '1807' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(true);
+        expect(body.categories.cost).toBeDefined();
+        expect(body.kpis).toHaveProperty('currentMonth');
+        expect(body.kpis).toHaveProperty('peakMonth');
+        expect(body.kpis).toHaveProperty('remaining');
+    });
+});

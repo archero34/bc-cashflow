@@ -23,6 +23,45 @@ define(['N/log', 'N/query'], function (log, query) {
     const modeToTimingType = (mode) => (mode === 'accrual' ? 2 : 1);
 
     /**
+     * Forecast-only cost query: cost timing lines only.
+     * No VendBill / VendPmt joins — forecast data only.
+     */
+    const COST_SQL = `
+        SELECT
+            CASE
+                WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
+                    THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
+                WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
+                    THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
+                ELSE 'Other Cost'
+            END AS cost_group,
+            TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') AS period,
+            SUM(NVL(ctl.custrecord_bc_ctl_amount, 0)) AS amount,
+            CASE
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN MIN(ctl.custrecord_bc_ctl_change_order)
+                ELSE MIN(ctl.custrecord_bc_ctl_transaction)
+            END AS source_id,
+            CASE
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN 'cr'
+                ELSE 'po'
+            END AS source_type
+        FROM customrecord_bc_cost_timing_line ctl
+        LEFT JOIN transaction t ON t.id = ctl.custrecord_bc_ctl_transaction
+        LEFT JOIN entity e ON e.id = t.entity
+        LEFT JOIN customrecord_bc_change_req cr ON cr.id = ctl.custrecord_bc_ctl_change_order
+        WHERE ctl.custrecord_bc_ctl_project = ?
+          AND ctl.custrecord_bc_ctl_timing_type = ?
+        GROUP BY
+            CASE WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
+                 THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
+                 WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
+                 THEN NVL(NVL(e.entitytitle, e.entityid), 'Vendor')
+                 ELSE 'Other Cost' END,
+            TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
+        ORDER BY cost_group, period
+    `;
+
+    /**
      * Forecast-only combined query: revenue timing lines UNION cost timing lines.
      * No VendBill / VendPmt / CustInvc / CustPymt joins — forecast data only.
      */
@@ -228,9 +267,67 @@ define(['N/log', 'N/query'], function (log, query) {
             kpis: { totalRevenue, totalCost, netCashFlow, margin }
         };
     };
+    /**
+     * Load forecast-only cost data and shape it into the standard JSON contract.
+     * No actuals (VendBill / VendPmt) — forecast timing lines only.
+     *
+     * @param {string} projectId - internal ID of the BC Project
+     * @param {string} mode - 'cash' | 'accrual'
+     * @returns {{
+     *   periods: string[],
+     *   categories: {
+     *     cost: { lines: Object[], total: number[], grandTotal: number }
+     *   },
+     *   kpis: { totalCost: number, currentMonth: number, peakMonth: number, remaining: number }
+     * }}
+     */
     const _loadCost = (projectId, mode) => {
-        // Phase 3 stub: real implementation lands in Task 12.
-        return { periods: [], categories: {}, kpis: {} };
+        const timingType = modeToTimingType(mode);
+
+        let rows;
+        try {
+            rows = query.runSuiteQL({
+                query: COST_SQL,
+                params: [projectId, timingType]
+            }).asMappedResults();
+        } catch (e) {
+            log.error({ title: MODULE + '._loadCost', details: e.message + '\n' + (e.stack || '') });
+            rows = [];
+        }
+
+        // Collect sorted unique YYYY-MM periods
+        const periodsSet = new Set();
+        rows.forEach((r) => { if (r.period) periodsSet.add(r.period); });
+        const periods = Array.from(periodsSet).sort();
+
+        const cost = _pivotDirection(rows, periods, 'Other Cost');
+
+        // KPI: current YYYY-MM derived from runtime clock
+        const now = new Date();
+        const curYYYYMM = now.getFullYear() + '-'
+            + String(now.getMonth() + 1).padStart(2, '0');
+
+        const curIdx = periods.indexOf(curYYYYMM);
+        const currentMonth = curIdx !== -1 ? (cost.total[curIdx] || 0) : 0;
+
+        const peakMonth = cost.total.length > 0
+            ? Math.max.apply(null, cost.total)
+            : 0;
+
+        const remaining = periods.reduce((sum, p, i) => {
+            return p >= curYYYYMM ? sum + (cost.total[i] || 0) : sum;
+        }, 0);
+
+        return {
+            periods: periods.map(_periodLabel),
+            categories: { cost },
+            kpis: {
+                totalCost: cost.grandTotal,
+                currentMonth,
+                peakMonth,
+                remaining
+            }
+        };
     };
     const _loadRevenue = (projectId, mode) => {
         // Phase 3 stub: real implementation lands in Task 13.

@@ -9,9 +9,31 @@
  * Returns `{ ok: true, periods, categories, kpis, ... }` or `{ ok: false, error }`.
  * Spec §3.1 architecture; §3.16 loading.
  */
-define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, query, Constants) {
+define(['N/log', 'N/query', 'N/url', '../modules/bc_timing_constants'], function (log, query, url, Constants) {
 
     const MODULE = 'bc_cf_data_sl';
+
+    // ── BC Project record metadata (looked up 2026-05-24 via NS Main Demo MCP) ──
+    //
+    // Field IDs from customrecord_cseg_bc_project — the BC SuiteApp's project
+    // record. Update if a future SuiteApp release renames these.
+    //
+    // E2 design pivot 2026-05-24: the SuiteApp's custrecord_bc_proj_status
+    // tracks workflow stages (WO Approval / Survey / Manufacturing / etc.),
+    // NOT lifecycle states. For the portfolio filter we use the built-in
+    // `isinactive` boolean instead — Active-only toggle on by default;
+    // off = show all projects including inactive. No status list-value
+    // lookup needed.
+    const BC_PROJECT = {
+        rectype: 'customrecord_cseg_bc_project',
+        fields: {
+            name:       'name',                            // built-in
+            customer:   'custrecord_bc_proj_customer',
+            manager:    'custrecord_bc_proj_manager',
+            subsidiary: 'custrecord_bc_proj_subsidiary',
+            created:    'created'                          // built-in
+        }
+    };
 
     // ── SuiteQL ───────────────────────────────────────────────────────────────
 
@@ -269,6 +291,217 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         GROUP BY CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO' ELSE 'BASE' END
     `;
 
+    // ── Portfolio (E2) option-list queries ───────────────────────────────────
+
+    /**
+     * Projects that appear on at least one revenue or cost timing line.
+     * Used to populate the Filters pill's Project multi-select dropdown.
+     * Returns id + name, alphabetical.
+     */
+    const AVAILABLE_PROJECTS_SQL = `
+        SELECT p.id AS id, p.${BC_PROJECT.fields.name} AS name
+        FROM ${BC_PROJECT.rectype} p
+        WHERE EXISTS (
+            SELECT 1 FROM customrecord_bc_revenue_timing_line rtl
+            WHERE rtl.custrecord_bc_rtl_project = p.id
+        )
+        OR EXISTS (
+            SELECT 1 FROM customrecord_bc_cost_timing_line ctl
+            WHERE ctl.custrecord_bc_ctl_project = p.id
+        )
+        ORDER BY p.${BC_PROJECT.fields.name}
+    `;
+
+    /**
+     * Project managers (employees) that appear on at least one BC project
+     * with timing data. Returns id + entityid (the displayable name).
+     */
+    const AVAILABLE_MANAGERS_SQL = `
+        SELECT e.id AS id, e.entityid AS name
+        FROM employee e
+        WHERE e.id IN (
+            SELECT DISTINCT p.${BC_PROJECT.fields.manager}
+            FROM ${BC_PROJECT.rectype} p
+            WHERE p.${BC_PROJECT.fields.manager} IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM customrecord_bc_revenue_timing_line rtl WHERE rtl.custrecord_bc_rtl_project = p.id
+                  UNION
+                  SELECT 1 FROM customrecord_bc_cost_timing_line ctl WHERE ctl.custrecord_bc_ctl_project = p.id
+              )
+        )
+        ORDER BY e.entityid
+    `;
+
+    /**
+     * Customers that appear on at least one BC project with timing data.
+     */
+    const AVAILABLE_CUSTOMERS_SQL = `
+        SELECT c.id AS id, c.entityid AS name
+        FROM customer c
+        WHERE c.id IN (
+            SELECT DISTINCT p.${BC_PROJECT.fields.customer}
+            FROM ${BC_PROJECT.rectype} p
+            WHERE p.${BC_PROJECT.fields.customer} IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM customrecord_bc_revenue_timing_line rtl WHERE rtl.custrecord_bc_rtl_project = p.id
+                  UNION
+                  SELECT 1 FROM customrecord_bc_cost_timing_line ctl WHERE ctl.custrecord_bc_ctl_project = p.id
+              )
+        )
+        ORDER BY c.entityid
+    `;
+
+    /**
+     * Subsidiaries that appear on at least one BC project with timing data.
+     */
+    const AVAILABLE_SUBSIDIARIES_SQL = `
+        SELECT s.id AS id, s.name AS name
+        FROM subsidiary s
+        WHERE s.id IN (
+            SELECT DISTINCT p.${BC_PROJECT.fields.subsidiary}
+            FROM ${BC_PROJECT.rectype} p
+            WHERE p.${BC_PROJECT.fields.subsidiary} IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM customrecord_bc_revenue_timing_line rtl WHERE rtl.custrecord_bc_rtl_project = p.id
+                  UNION
+                  SELECT 1 FROM customrecord_bc_cost_timing_line ctl WHERE ctl.custrecord_bc_ctl_project = p.id
+              )
+        )
+        ORDER BY s.name
+    `;
+
+    // ── PORTFOLIO_SQL — main per-project per-period rev+cost aggregator (E2) ──
+
+    /**
+     * Returns one row per (flow_direction, project, period) tuple, summed.
+     * UNION ALL of revenue leg + cost leg. Each leg joins BC_PROJECT for
+     * project metadata + filter dimensions.
+     *
+     * Filter clauses use the (? = 1 OR <field> ...) disable-flag pattern:
+     * pass 1 to disable that filter dimension, 0 (plus values) to enable.
+     *
+     * - active flag: pass 0 to filter to isinactive='F' projects, 1 to disable
+     * - 4 multi-select dimensions (projects/managers/customers/subsidiaries)
+     *   accept fixed-width ID lists with disable-flag padding (10 for projects,
+     *   5 for others). Padding with the first value is harmless because
+     *   `IN (?, ?, ?, ?, ?)` matches if the field equals ANY of the supplied values.
+     */
+    const PORTFOLIO_SQL = `
+        SELECT
+            'Revenue' AS flow_direction,
+            p.id AS project_id,
+            p.${BC_PROJECT.fields.name} AS project_name,
+            TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') AS period,
+            SUM(NVL(rtl.custrecord_bc_rtl_amount, 0)) AS amount,
+            TO_CHAR(MIN(p.${BC_PROJECT.fields.created}), 'YYYY-MM-DD') AS project_created
+        FROM ${BC_PROJECT.rectype} p
+        JOIN customrecord_bc_revenue_timing_line rtl ON rtl.custrecord_bc_rtl_project = p.id
+        WHERE rtl.custrecord_bc_rtl_timing_type = ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') <= ?
+          AND (? = 1 OR p.isinactive = 'F')
+          AND (? = 1 OR p.id IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+          AND (? = 1 OR p.${BC_PROJECT.fields.manager} IN (?, ?, ?, ?, ?))
+          AND (? = 1 OR p.${BC_PROJECT.fields.customer} IN (?, ?, ?, ?, ?))
+          AND (? = 1 OR p.${BC_PROJECT.fields.subsidiary} IN (?, ?, ?, ?, ?))
+        GROUP BY p.id, p.${BC_PROJECT.fields.name},
+                 TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
+
+        UNION ALL
+
+        SELECT
+            'Cost' AS flow_direction,
+            p.id AS project_id,
+            p.${BC_PROJECT.fields.name} AS project_name,
+            TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') AS period,
+            SUM(NVL(ctl.custrecord_bc_ctl_amount, 0)) AS amount,
+            TO_CHAR(MIN(p.${BC_PROJECT.fields.created}), 'YYYY-MM-DD') AS project_created
+        FROM ${BC_PROJECT.rectype} p
+        JOIN customrecord_bc_cost_timing_line ctl ON ctl.custrecord_bc_ctl_project = p.id
+        WHERE ctl.custrecord_bc_ctl_timing_type = ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') >= ?
+          AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') <= ?
+          AND (? = 1 OR p.isinactive = 'F')
+          AND (? = 1 OR p.id IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+          AND (? = 1 OR p.${BC_PROJECT.fields.manager} IN (?, ?, ?, ?, ?))
+          AND (? = 1 OR p.${BC_PROJECT.fields.customer} IN (?, ?, ?, ?, ?))
+          AND (? = 1 OR p.${BC_PROJECT.fields.subsidiary} IN (?, ?, ?, ?, ?))
+        GROUP BY p.id, p.${BC_PROJECT.fields.name},
+                 TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
+
+        ORDER BY project_created DESC NULLS LAST, project_name, period
+    `;
+
+    /**
+     * Earliest + latest period_date across both timing-line tables, ignoring
+     * filters. Powers the date picker's min/max attrs.
+     */
+    const PORTFOLIO_BOUNDS_SQL = `
+        SELECT
+            TO_CHAR(MIN(period), 'YYYY-MM') AS min_period,
+            TO_CHAR(MAX(period), 'YYYY-MM') AS max_period
+        FROM (
+            SELECT rtl.custrecord_bc_rtl_period_date AS period
+              FROM customrecord_bc_revenue_timing_line rtl
+            UNION ALL
+            SELECT ctl.custrecord_bc_ctl_period_date AS period
+              FROM customrecord_bc_cost_timing_line ctl
+        ) all_periods
+    `;
+
+    /**
+     * Unfiltered portfolio totals within the active date range. Powers the
+     * KPI sublines ("$210K portfolio total"). Takes startPeriod + endPeriod
+     * as the only params — does NOT respect the active/project/etc. filters.
+     */
+    const PORTFOLIO_TOTALS_SQL = `
+        SELECT
+            (SELECT NVL(SUM(rtl.custrecord_bc_rtl_amount), 0)
+               FROM customrecord_bc_revenue_timing_line rtl
+              WHERE rtl.custrecord_bc_rtl_timing_type = ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') >= ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') <= ?) AS rev_total,
+            (SELECT NVL(SUM(ctl.custrecord_bc_ctl_amount), 0)
+               FROM customrecord_bc_cost_timing_line ctl
+              WHERE ctl.custrecord_bc_ctl_timing_type = ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') >= ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') <= ?) AS cost_total
+        FROM dual
+    `;
+
+    /**
+     * Pre-range cumulative net across the FILTERED project set.
+     * Returns rev_total + cost_total for periods strictly before startPeriod,
+     * respecting the same active + project/manager/customer/subsidiary filters
+     * as PORTFOLIO_SQL. Caller computes net = rev_total - cost_total.
+     *
+     * Same disable-flag pattern as PORTFOLIO_SQL, twice (one set per subquery).
+     */
+    const PORTFOLIO_CUM_BEFORE_SQL = `
+        SELECT
+            (SELECT NVL(SUM(rtl.custrecord_bc_rtl_amount), 0)
+               FROM customrecord_bc_revenue_timing_line rtl
+               JOIN ${BC_PROJECT.rectype} p ON p.id = rtl.custrecord_bc_rtl_project
+              WHERE rtl.custrecord_bc_rtl_timing_type = ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') < ?
+                AND (? = 1 OR p.isinactive = 'F')
+                AND (? = 1 OR p.id IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.manager} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.customer} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.subsidiary} IN (?, ?, ?, ?, ?))) AS rev_total,
+            (SELECT NVL(SUM(ctl.custrecord_bc_ctl_amount), 0)
+               FROM customrecord_bc_cost_timing_line ctl
+               JOIN ${BC_PROJECT.rectype} p ON p.id = ctl.custrecord_bc_ctl_project
+              WHERE ctl.custrecord_bc_ctl_timing_type = ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') < ?
+                AND (? = 1 OR p.isinactive = 'F')
+                AND (? = 1 OR p.id IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.manager} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.customer} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.subsidiary} IN (?, ?, ?, ?, ?))) AS cost_total
+        FROM dual
+    `;
+
     /**
      * Pre-range cumulative net for combined action.
      * Returns one row with rev_total and cost_total — both summed across
@@ -363,6 +596,47 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         return { ok: true, startPeriod, endPeriod };
     };
 
+    /**
+     * Parse + validate portfolio filter params from the URL request. Returns
+     *   { ok: true, filters: {...} }
+     *   { ok: false, error: '...' }
+     *
+     * active param: default true. To disable active-only filter (show all
+     * projects including inactive), pass active=0 or active=false.
+     */
+    const _parseFilters = (params) => {
+        // active: default true; '0' or 'false' (case-insensitive) → false; everything else → true.
+        const rawActive = params.active;
+        const active = !(rawActive === '0' || (typeof rawActive === 'string' && rawActive.toLowerCase() === 'false'));
+
+        const ID_CSV = /^(\d+)(,\d+)*$/;
+        const parseIds = (raw, dim) => {
+            if (raw == null || raw === '') return { ok: true, ids: [] };
+            if (!ID_CSV.test(raw)) return { ok: false, error: 'Invalid ' + dim + ' filter format' };
+            return { ok: true, ids: raw.split(',').map(Number) };
+        };
+
+        const p = parseIds(params.projects,     'projects');
+        if (!p.ok) return p;
+        const m = parseIds(params.managers,     'managers');
+        if (!m.ok) return m;
+        const c = parseIds(params.customers,    'customers');
+        if (!c.ok) return c;
+        const s = parseIds(params.subsidiaries, 'subsidiaries');
+        if (!s.ok) return s;
+
+        return {
+            ok: true,
+            filters: {
+                active,
+                projects:     p.ids,
+                managers:     m.ids,
+                customers:    c.ids,
+                subsidiaries: s.ids
+            }
+        };
+    };
+
     /** 'YYYY-MM' → 'Apr 2026' */
     const _periodLabel = (yyyymm) => {
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -444,6 +718,235 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         const grandTotal = total.reduce((s, v) => s + v, 0);
 
         return { lines, total, grandTotal };
+    };
+
+    /**
+     * Load portfolio data — per-project per-period revenue + cost, aggregated
+     * across all projects matching the supplied filters and date range.
+     *
+     * @param {string} mode - 'cash' | 'accrual'
+     * @param {{startPeriod, endPeriod}} range
+     * @param {Object} filters
+     *   - active: boolean — default true. true → only isinactive='F' projects.
+     *   - projects/managers/customers/subsidiaries: arrays of internal IDs (empty = no filter)
+     */
+    const _loadPortfolio = (mode, range, filters) => {
+        const timingType = modeToTimingType(mode);
+        const { startPeriod, endPeriod } = range;
+
+        // Build active-flag SQL params: pass [0] to enable filter, [1] to disable.
+        const activeParams = filters.active === false ? [1] : [0];
+
+        // Multi-select filter dimensions: [disableFlag, ...paddedIds].
+        // disableFlag = 1 means "ignore this dimension"; otherwise 0 + a fixed-width
+        // value list. Pad with first ID (harmless — IN matches if field equals ANY value).
+        const buildIdFilter = (ids, cap) => {
+            if (!ids || !ids.length) {
+                return [1].concat(Array(cap).fill(0));
+            }
+            const padded = ids.slice(0, cap);
+            while (padded.length < cap) padded.push(ids[0]);
+            return [0].concat(padded);
+        };
+
+        const projectParams    = buildIdFilter(filters.projects, 10);
+        const managerParams    = buildIdFilter(filters.managers, 5);
+        const customerParams   = buildIdFilter(filters.customers, 5);
+        const subsidiaryParams = buildIdFilter(filters.subsidiaries, 5);
+
+        // SQL params per leg, in PORTFOLIO_SQL's ? order:
+        // timingType, startPeriod, endPeriod, active(1), projects(11), managers(6),
+        // customers(6), subsidiaries(6) = 34 per leg.
+        const legParams = [timingType, startPeriod, endPeriod]
+            .concat(activeParams)
+            .concat(projectParams)
+            .concat(managerParams)
+            .concat(customerParams)
+            .concat(subsidiaryParams);
+
+        // Both UNION legs get the same param set.
+        const allParams = legParams.concat(legParams);
+
+        let rows;
+        try {
+            rows = query.runSuiteQL({
+                query: PORTFOLIO_SQL,
+                params: allParams
+            }).asMappedResults();
+        } catch (e) {
+            log.error({ title: MODULE + '._loadPortfolio', details: e.message + '\n' + (e.stack || '') });
+            rows = [];
+        }
+
+        // ── availableBounds ──
+        let boundsRow;
+        try {
+            boundsRow = query.runSuiteQL({
+                query: PORTFOLIO_BOUNDS_SQL,
+                params: []
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadPortfolio (bounds)', details: e.message + '\n' + (e.stack || '') });
+            boundsRow = {};
+        }
+        const _curYYYYMM = (new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0');
+        const availableBounds = {
+            minPeriod: boundsRow.min_period || _curYYYYMM,
+            maxPeriod: boundsRow.max_period || _curYYYYMM
+        };
+
+        // ── portfolioTotals (unfiltered, within range) ──
+        let totalsRow;
+        try {
+            totalsRow = query.runSuiteQL({
+                query: PORTFOLIO_TOTALS_SQL,
+                params: [timingType, startPeriod, endPeriod, timingType, startPeriod, endPeriod]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadPortfolio (totals)', details: e.message + '\n' + (e.stack || '') });
+            totalsRow = {};
+        }
+        const portfRevenue = Number(totalsRow.rev_total) || 0;
+        const portfCost    = Number(totalsRow.cost_total) || 0;
+        const portfolioTotals = {
+            revenue: portfRevenue,
+            cost:    portfCost,
+            net:     portfRevenue - portfCost,
+            margin:  portfRevenue !== 0 ? ((portfRevenue - portfCost) / portfRevenue) * 100 : 0
+        };
+
+        // ── availableProjects / Managers / Customers / Subsidiaries ──
+        const runOptionList = (sqlConst, label) => {
+            try {
+                return query.runSuiteQL({ query: sqlConst, params: [] }).asMappedResults()
+                    .map((r) => ({ id: Number(r.id), name: r.name || '' }));
+            } catch (e) {
+                log.error({ title: MODULE + '._loadPortfolio (' + label + ')', details: e.message + '\n' + (e.stack || '') });
+                return [];
+            }
+        };
+        const availableProjects     = runOptionList(AVAILABLE_PROJECTS_SQL,     'projects');
+        const availableManagers     = runOptionList(AVAILABLE_MANAGERS_SQL,     'managers');
+        const availableCustomers    = runOptionList(AVAILABLE_CUSTOMERS_SQL,    'customers');
+        const availableSubsidiaries = runOptionList(AVAILABLE_SUBSIDIARIES_SQL, 'subsidiaries');
+
+        // ── cumulativeBefore — pre-range net across the FILTERED project set ──
+        // Build the cum-before params per subquery. SAME filter dimensions as
+        // PORTFOLIO_SQL but WITHOUT endPeriod (the < startPeriod clause replaces
+        // the date BETWEEN). Per subquery: timingType + startPeriod + active + 4 dims.
+        const cumSubqueryParams = [timingType, startPeriod]
+            .concat(activeParams)
+            .concat(projectParams)
+            .concat(managerParams)
+            .concat(customerParams)
+            .concat(subsidiaryParams);
+        let cumRow;
+        try {
+            cumRow = query.runSuiteQL({
+                query: PORTFOLIO_CUM_BEFORE_SQL,
+                params: cumSubqueryParams.concat(cumSubqueryParams)
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadPortfolio (cumBefore)', details: e.message + '\n' + (e.stack || '') });
+            cumRow = {};
+        }
+        const cumulativeBefore = (Number(cumRow.rev_total) || 0) - (Number(cumRow.cost_total) || 0);
+
+        // Build period list from the range (every month renders even if empty).
+        const periods = [];
+        let _p = startPeriod;
+        while (_p <= endPeriod) { periods.push(_p); _p = _addMonths(_p, 1); }
+
+        // Group rows by project, pivot rev+cost onto the period array.
+        const byProject = {};
+        rows.forEach((r) => {
+            const pid = String(r.project_id);
+            if (!byProject[pid]) {
+                byProject[pid] = {
+                    id: Number(r.project_id),
+                    name: r.project_name || '(Unnamed)',
+                    createdDate: r.project_created || null,
+                    revenuePerPeriod: {},
+                    costPerPeriod: {}
+                };
+            }
+            const bucket = r.flow_direction === 'Revenue' ? 'revenuePerPeriod' : 'costPerPeriod';
+            byProject[pid][bucket][r.period] = (byProject[pid][bucket][r.period] || 0) + (Number(r.amount) || 0);
+        });
+
+        // Materialize the projects array, sort by createdDate DESC NULLS LAST.
+        const projectList = Object.keys(byProject).map((pid) => {
+            const proj = byProject[pid];
+            const revenue = periods.map((p) => proj.revenuePerPeriod[p] || 0);
+            const cost    = periods.map((p) => proj.costPerPeriod[p] || 0);
+            const net     = revenue.map((v, i) => v - (cost[i] || 0));
+            // custrecordentry.nl needs the numeric internal rectype id for
+            // custom-segment-backing records (not the scriptid). Let N/url
+            // resolve the correct path per project.
+            let _projUrl = null;
+            try {
+                _projUrl = url.resolveRecord({
+                    recordType: BC_PROJECT.rectype,
+                    recordId: proj.id,
+                    isEditMode: false
+                });
+            } catch (e) {
+                log.error({ title: MODULE + '._loadPortfolio (resolveRecord)', details: e.message });
+            }
+            return {
+                id: proj.id,
+                name: proj.name,
+                createdDate: proj.createdDate,
+                recordUrl: _projUrl,
+                revenue, cost, net,
+                revenueTotal: revenue.reduce((s, v) => s + v, 0),
+                costTotal:    cost.reduce((s, v) => s + v, 0),
+                netTotal:     net.reduce((s, v) => s + v, 0)
+            };
+        });
+
+        projectList.sort((a, b) => {
+            if (a.createdDate == null && b.createdDate == null) {
+                return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0);
+            }
+            if (a.createdDate == null) return 1;
+            if (b.createdDate == null) return -1;
+            return a.createdDate < b.createdDate ? 1 : (a.createdDate > b.createdDate ? -1 : 0);
+        });
+
+        // Aggregate per-period series across the filtered projects (drives the chart).
+        const portfolioRevenuePerPeriod = periods.map((_, i) =>
+            projectList.reduce((s, p) => s + (p.revenue[i] || 0), 0)
+        );
+        const portfolioCostPerPeriod = periods.map((_, i) =>
+            projectList.reduce((s, p) => s + (p.cost[i] || 0), 0)
+        );
+        const portfolioNetPerPeriod = portfolioRevenuePerPeriod.map((v, i) =>
+            v - (portfolioCostPerPeriod[i] || 0)
+        );
+
+        // KPIs — sum across the filtered subset.
+        const totalRevenue = projectList.reduce((s, p) => s + p.revenueTotal, 0);
+        const totalCost    = projectList.reduce((s, p) => s + p.costTotal, 0);
+        const netCashFlow  = totalRevenue - totalCost;
+        const margin       = totalRevenue !== 0 ? (netCashFlow / totalRevenue) * 100 : 0;
+
+        return {
+            periods: periods.map(_periodLabel),
+            projects: projectList,
+            kpis: { totalRevenue, totalCost, netCashFlow, margin },
+            range: { startPeriod, endPeriod },
+            availableBounds,
+            portfolioTotals,
+            portfolioRevenuePerPeriod,
+            portfolioCostPerPeriod,
+            portfolioNetPerPeriod,
+            cumulativeBefore,
+            availableProjects,
+            availableManagers,
+            availableCustomers,
+            availableSubsidiaries
+        };
     };
 
     // ── JSON helpers ──────────────────────────────────────────────────────────
@@ -802,12 +1305,19 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             const rawEnd   = params.endPeriod;
 
             if (!action) return sendError(res, 'Missing action parameter');
-            if (!projectId) return sendError(res, 'Missing projectId parameter');
+            if (!projectId && action !== 'portfolio') return sendError(res, 'Missing projectId parameter');
             if (mode !== 'cash' && mode !== 'accrual') return sendError(res, `Invalid mode: ${mode}`);
 
             const resolved = api._resolveRange(rawStart, rawEnd);
             if (!resolved.ok) return sendError(res, resolved.error);
             const range = { startPeriod: resolved.startPeriod, endPeriod: resolved.endPeriod };
+
+            let filters = null;
+            if (action === 'portfolio') {
+                const parsedFilters = api._parseFilters(params);
+                if (!parsedFilters.ok) return sendError(res, parsedFilters.error);
+                filters = parsedFilters.filters;
+            }
 
             let data;
             // Dispatch through `api` so Jest spies on the returned object intercept the call
@@ -816,6 +1326,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             if (action === 'combined')      data = api._loadCombined(projectId, mode, range);
             else if (action === 'cost')     data = api._loadCost(projectId, mode, range);
             else if (action === 'revenue')  data = api._loadRevenue(projectId, mode, range);
+            else if (action === 'portfolio') data = api._loadPortfolio(mode, range, filters);
             else return sendError(res, `Unknown action: ${action}`);
 
             sendJSON(res, Object.assign({ ok: true, mode }, data));
@@ -828,9 +1339,13 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     // Single exports object — `onRequest` dispatches through it so Jest spies work in tests
     // AND NetSuite's AMD runtime loads it cleanly (no `module.exports` reference needed).
     const api = {
-        _loadCombined, _loadCost, _loadRevenue,
+        _loadCombined, _loadCost, _loadRevenue, _loadPortfolio,
         _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange,
-        _pivotDirection
+        _pivotDirection, _parseFilters,
+        BC_PROJECT,
+        AVAILABLE_PROJECTS_SQL, AVAILABLE_MANAGERS_SQL,
+        AVAILABLE_CUSTOMERS_SQL, AVAILABLE_SUBSIDIARIES_SQL,
+        PORTFOLIO_SQL, PORTFOLIO_BOUNDS_SQL, PORTFOLIO_TOTALS_SQL, PORTFOLIO_CUM_BEFORE_SQL
     };
     api.onRequest = onRequest;
     return api;

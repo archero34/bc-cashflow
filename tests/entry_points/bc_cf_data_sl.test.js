@@ -397,3 +397,172 @@ describe('bc_cf_data_sl _pivotDirection', () => {
         expect(result.grandTotal).toBe(600);
     });
 });
+
+describe('bc_cf_data_sl BC_PROJECT constants (E2)', () => {
+    it('exports BC_PROJECT metadata on api', () => {
+        expect(Suitelet.BC_PROJECT).toBeDefined();
+        expect(Suitelet.BC_PROJECT.rectype).toBe('customrecord_cseg_bc_project');
+    });
+    it('has the 5 field IDs E2 needs (name/customer/manager/subsidiary/created)', () => {
+        const f = Suitelet.BC_PROJECT.fields;
+        expect(f.name).toBe('name');
+        expect(f.customer).toBe('custrecord_bc_proj_customer');
+        expect(f.manager).toBe('custrecord_bc_proj_manager');
+        expect(f.subsidiary).toBe('custrecord_bc_proj_subsidiary');
+        expect(f.created).toBe('created');
+    });
+    it('does NOT carry a status field (Active-only toggle uses isinactive instead)', () => {
+        expect(Suitelet.BC_PROJECT.fields.status).toBeUndefined();
+        expect(Suitelet.BC_PROJECT.statusValues).toBeUndefined();
+    });
+});
+
+describe('bc_cf_data_sl portfolio option-list SQL constants (E2)', () => {
+    it('defines AVAILABLE_PROJECTS_SQL', () => {
+        expect(Suitelet.AVAILABLE_PROJECTS_SQL).toBeDefined();
+        expect(typeof Suitelet.AVAILABLE_PROJECTS_SQL).toBe('string');
+        expect(Suitelet.AVAILABLE_PROJECTS_SQL).toMatch(/customrecord_cseg_bc_project/);
+    });
+    it('defines AVAILABLE_MANAGERS_SQL', () => {
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toBeDefined();
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toMatch(/employee/);
+    });
+    it('defines AVAILABLE_CUSTOMERS_SQL', () => {
+        expect(Suitelet.AVAILABLE_CUSTOMERS_SQL).toBeDefined();
+        expect(Suitelet.AVAILABLE_CUSTOMERS_SQL).toMatch(/customer/);
+    });
+    it('defines AVAILABLE_SUBSIDIARIES_SQL', () => {
+        expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toBeDefined();
+        expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toMatch(/subsidiary/i);
+    });
+    it('AVAILABLE_MANAGERS_SQL chains through projects with timing data', () => {
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toMatch(/EXISTS/);
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toMatch(/customrecord_bc_revenue_timing_line/);
+    });
+    it('AVAILABLE_CUSTOMERS_SQL chains through projects with timing data', () => {
+        expect(Suitelet.AVAILABLE_CUSTOMERS_SQL).toMatch(/EXISTS/);
+    });
+    it('AVAILABLE_SUBSIDIARIES_SQL chains through projects with timing data', () => {
+        expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toMatch(/EXISTS/);
+    });
+});
+
+describe('bc_cf_data_sl portfolio action (_loadPortfolio) — first-pass shape (E2)', () => {
+    it('exports _loadPortfolio on api', () => {
+        expect(typeof Suitelet._loadPortfolio).toBe('function');
+    });
+
+    it('returns projects + kpis envelope via dispatch (mocked loader)', () => {
+        jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            projects: [
+                {
+                    id: 1807, name: 'Bolder Construction', createdDate: '2026-03-15',
+                    revenue: [7500, 4500], cost: [500, 5526], net: [7000, -1026],
+                    revenueTotal: 12000, costTotal: 6026, netTotal: 5974
+                }
+            ],
+            kpis: { totalRevenue: 12000, totalCost: 6026, netCashFlow: 5974, margin: 49.8 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-05' }
+        });
+        const req = { method: 'GET', parameters: { action: 'portfolio' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(true);
+        expect(Array.isArray(body.projects)).toBe(true);
+        expect(body.projects[0].id).toBe(1807);
+        expect(body.kpis.netCashFlow).toBe(5974);
+    });
+
+    it('returns availableBounds, portfolioTotals, availableProjects/managers/customers/subsidiaries', () => {
+        jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: ['Apr 2026'],
+            projects: [],
+            kpis: { totalRevenue: 0, totalCost: 0, netCashFlow: 0, margin: 0 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-04' },
+            availableBounds: { minPeriod: '2026-01', maxPeriod: '2027-12' },
+            portfolioTotals: { revenue: 210000, cost: 158000, net: 52000, margin: 24.8 },
+            availableProjects: [{id: 1807, name: 'Bolder'}],
+            availableManagers: [{id: 42, name: 'Sarah Chen'}],
+            availableCustomers: [{id: 197, name: 'Bolder Construction Inc.'}],
+            availableSubsidiaries: [{id: 1, name: 'Main'}]
+        });
+        const req = { method: 'GET', parameters: { action: 'portfolio' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.availableBounds.minPeriod).toBe('2026-01');
+        expect(body.portfolioTotals.revenue).toBe(210000);
+        expect(body.availableProjects).toHaveLength(1);
+        expect(body.availableManagers[0].name).toBe('Sarah Chen');
+    });
+
+    it('returns portfolio chart series + cumulativeBefore', () => {
+        jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            projects: [],
+            kpis: { totalRevenue: 0, totalCost: 0, netCashFlow: 0, margin: 0 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-05' },
+            availableBounds: { minPeriod: '2026-01', maxPeriod: '2027-12' },
+            portfolioTotals: { revenue: 0, cost: 0, net: 0, margin: 0 },
+            availableProjects: [], availableManagers: [], availableCustomers: [], availableSubsidiaries: [],
+            portfolioRevenuePerPeriod: [12500, 8000],
+            portfolioCostPerPeriod:    [4500, 6800],
+            portfolioNetPerPeriod:     [8000, 1200],
+            cumulativeBefore: 5500
+        });
+        const req = { method: 'GET', parameters: { action: 'portfolio' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.portfolioRevenuePerPeriod).toEqual([12500, 8000]);
+        expect(body.portfolioNetPerPeriod).toEqual([8000, 1200]);
+        expect(body.cumulativeBefore).toBe(5500);
+    });
+
+    it('rejects malformed IDs CSV with ok:false', () => {
+        const req = { method: 'GET', parameters: { action: 'portfolio', projects: '1807,abc,2104' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(false);
+        expect(body.error).toMatch(/projects/i);
+    });
+
+    it('passes resolved filters to _loadPortfolio', () => {
+        const spy = jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: [], projects: [], kpis: {}, range: {}, availableBounds: {}, portfolioTotals: {},
+            portfolioRevenuePerPeriod: [], portfolioCostPerPeriod: [], portfolioNetPerPeriod: [], cumulativeBefore: 0,
+            availableProjects: [], availableManagers: [], availableCustomers: [], availableSubsidiaries: []
+        });
+        const req = { method: 'GET', parameters: {
+            action: 'portfolio',
+            active: '0',
+            projects: '1807,2104',
+            managers: '42',
+            customers: '',
+            subsidiaries: '1,2,3'
+        } };
+        Suitelet.onRequest({ request: req, response: mockResponse() });
+        expect(spy).toHaveBeenCalledWith('cash', expect.any(Object), {
+            active: false,
+            projects: [1807, 2104],
+            managers: [42],
+            customers: [],
+            subsidiaries: [1, 2, 3]
+        });
+        spy.mockRestore();
+    });
+
+    it('defaults active to true when omitted', () => {
+        const spy = jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: [], projects: [], kpis: {}, range: {}, availableBounds: {}, portfolioTotals: {},
+            portfolioRevenuePerPeriod: [], portfolioCostPerPeriod: [], portfolioNetPerPeriod: [], cumulativeBefore: 0,
+            availableProjects: [], availableManagers: [], availableCustomers: [], availableSubsidiaries: []
+        });
+        Suitelet.onRequest({ request: { method: 'GET', parameters: { action: 'portfolio' } }, response: mockResponse() });
+        expect(spy).toHaveBeenCalledWith('cash', expect.any(Object), expect.objectContaining({ active: true }));
+        spy.mockRestore();
+    });
+});

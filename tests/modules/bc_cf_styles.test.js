@@ -84,6 +84,16 @@ describe('bc_cf_styles', () => {
             expect(out).toMatch(/\.bccf-kpi\s+\.bccf-v\s*\{[^}]*font-size:\s*var\(--bccf-text-xl\)/);
         });
 
+        it('defines bccf-filters primitives (E2 spec §3.6)', () => {
+            const out = Styles.getStyles();
+            expect(out).toMatch(/\.bccf-filters\b/);
+            expect(out).toMatch(/\.bccf-filters-trigger\b/);
+            expect(out).toMatch(/\.bccf-filters-panel\b/);
+            expect(out).toMatch(/\.bccf-filters-chips\b/);
+            expect(out).toMatch(/\.bccf-chip\b/);
+            expect(out).toMatch(/\.bccf-filters-actions\b/);
+        });
+
         it('namespaces every class with bccf- prefix', () => {
             const out = Styles.getStyles();
             // Match only top-level class selectors: a dot preceded by whitespace, comma, or { (not chained

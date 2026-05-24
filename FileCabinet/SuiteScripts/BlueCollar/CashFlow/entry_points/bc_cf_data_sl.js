@@ -418,6 +418,43 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     `;
 
     /**
+     * Earliest + latest period_date across both timing-line tables, ignoring
+     * filters. Powers the date picker's min/max attrs.
+     */
+    const PORTFOLIO_BOUNDS_SQL = `
+        SELECT
+            TO_CHAR(MIN(period), 'YYYY-MM') AS min_period,
+            TO_CHAR(MAX(period), 'YYYY-MM') AS max_period
+        FROM (
+            SELECT rtl.custrecord_bc_rtl_period_date AS period
+              FROM customrecord_bc_revenue_timing_line rtl
+            UNION ALL
+            SELECT ctl.custrecord_bc_ctl_period_date AS period
+              FROM customrecord_bc_cost_timing_line ctl
+        ) all_periods
+    `;
+
+    /**
+     * Unfiltered portfolio totals within the active date range. Powers the
+     * KPI sublines ("$210K portfolio total"). Takes startPeriod + endPeriod
+     * as the only params — does NOT respect the active/project/etc. filters.
+     */
+    const PORTFOLIO_TOTALS_SQL = `
+        SELECT
+            (SELECT NVL(SUM(rtl.custrecord_bc_rtl_amount), 0)
+               FROM customrecord_bc_revenue_timing_line rtl
+              WHERE rtl.custrecord_bc_rtl_timing_type = ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') >= ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') <= ?) AS rev_total,
+            (SELECT NVL(SUM(ctl.custrecord_bc_ctl_amount), 0)
+               FROM customrecord_bc_cost_timing_line ctl
+              WHERE ctl.custrecord_bc_ctl_timing_type = ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') >= ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') <= ?) AS cost_total
+        FROM dual
+    `;
+
+    /**
      * Pre-range cumulative net for combined action.
      * Returns one row with rev_total and cost_total — both summed across
      * periods STRICTLY BEFORE the supplied startPeriod. Caller computes
@@ -652,6 +689,58 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             rows = [];
         }
 
+        // ── availableBounds ──
+        let boundsRow;
+        try {
+            boundsRow = query.runSuiteQL({
+                query: PORTFOLIO_BOUNDS_SQL,
+                params: []
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadPortfolio (bounds)', details: e.message + '\n' + (e.stack || '') });
+            boundsRow = {};
+        }
+        const _curYYYYMM = (new Date()).getFullYear() + '-' + String((new Date()).getMonth() + 1).padStart(2, '0');
+        const availableBounds = {
+            minPeriod: boundsRow.min_period || _curYYYYMM,
+            maxPeriod: boundsRow.max_period || _curYYYYMM
+        };
+
+        // ── portfolioTotals (unfiltered, within range) ──
+        let totalsRow;
+        try {
+            totalsRow = query.runSuiteQL({
+                query: PORTFOLIO_TOTALS_SQL,
+                params: [timingType, startPeriod, endPeriod, timingType, startPeriod, endPeriod]
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadPortfolio (totals)', details: e.message + '\n' + (e.stack || '') });
+            totalsRow = {};
+        }
+        const portfRevenue = Number(totalsRow.rev_total) || 0;
+        const portfCost    = Number(totalsRow.cost_total) || 0;
+        const portfolioTotals = {
+            revenue: portfRevenue,
+            cost:    portfCost,
+            net:     portfRevenue - portfCost,
+            margin:  portfRevenue !== 0 ? ((portfRevenue - portfCost) / portfRevenue) * 100 : 0
+        };
+
+        // ── availableProjects / Managers / Customers / Subsidiaries ──
+        const runOptionList = (sqlConst, label) => {
+            try {
+                return query.runSuiteQL({ query: sqlConst, params: [] }).asMappedResults()
+                    .map((r) => ({ id: Number(r.id), name: r.name || '' }));
+            } catch (e) {
+                log.error({ title: MODULE + '._loadPortfolio (' + label + ')', details: e.message + '\n' + (e.stack || '') });
+                return [];
+            }
+        };
+        const availableProjects     = runOptionList(AVAILABLE_PROJECTS_SQL,     'projects');
+        const availableManagers     = runOptionList(AVAILABLE_MANAGERS_SQL,     'managers');
+        const availableCustomers    = runOptionList(AVAILABLE_CUSTOMERS_SQL,    'customers');
+        const availableSubsidiaries = runOptionList(AVAILABLE_SUBSIDIARIES_SQL, 'subsidiaries');
+
         // Build period list from the range (every month renders even if empty).
         const periods = [];
         let _p = startPeriod;
@@ -710,7 +799,13 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             periods: periods.map(_periodLabel),
             projects: projectList,
             kpis: { totalRevenue, totalCost, netCashFlow, margin },
-            range: { startPeriod, endPeriod }
+            range: { startPeriod, endPeriod },
+            availableBounds,
+            portfolioTotals,
+            availableProjects,
+            availableManagers,
+            availableCustomers,
+            availableSubsidiaries
         };
     };
 
@@ -1103,7 +1198,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         BC_PROJECT,
         AVAILABLE_PROJECTS_SQL, AVAILABLE_MANAGERS_SQL,
         AVAILABLE_CUSTOMERS_SQL, AVAILABLE_SUBSIDIARIES_SQL,
-        PORTFOLIO_SQL
+        PORTFOLIO_SQL, PORTFOLIO_BOUNDS_SQL, PORTFOLIO_TOTALS_SQL
     };
     api.onRequest = onRequest;
     return api;

@@ -464,4 +464,27 @@ describe('bc_cf_data_sl portfolio action (_loadPortfolio) — first-pass shape (
         expect(body.projects[0].id).toBe(1807);
         expect(body.kpis.netCashFlow).toBe(5974);
     });
+
+    it('returns availableBounds, portfolioTotals, availableProjects/managers/customers/subsidiaries', () => {
+        jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: ['Apr 2026'],
+            projects: [],
+            kpis: { totalRevenue: 0, totalCost: 0, netCashFlow: 0, margin: 0 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-04' },
+            availableBounds: { minPeriod: '2026-01', maxPeriod: '2027-12' },
+            portfolioTotals: { revenue: 210000, cost: 158000, net: 52000, margin: 24.8 },
+            availableProjects: [{id: 1807, name: 'Bolder'}],
+            availableManagers: [{id: 42, name: 'Sarah Chen'}],
+            availableCustomers: [{id: 197, name: 'Bolder Construction Inc.'}],
+            availableSubsidiaries: [{id: 1, name: 'Main'}]
+        });
+        const req = { method: 'GET', parameters: { action: 'portfolio' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.availableBounds.minPeriod).toBe('2026-01');
+        expect(body.portfolioTotals.revenue).toBe(210000);
+        expect(body.availableProjects).toHaveLength(1);
+        expect(body.availableManagers[0].name).toBe('Sarah Chen');
+    });
 });

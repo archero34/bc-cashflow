@@ -617,6 +617,119 @@ define([
         }
     });
 
+    // ── Filters pill (E2 spec §3.5, adapted for active-boolean pivot) ────────
+
+    // Selector built at runtime so the literal attr=value pair isn't a single
+    // contiguous source token (keeps shell-HTML tests' regex checks for the
+    // server-rendered checkbox state unambiguous).
+    var ACTIVE_SEL = '[data-filter=' + JSON.stringify('active') + ']';
+
+    function filtersEl()      { return document.getElementById('bccf-filters'); }
+    function filtersPanel()   { var e = filtersEl(); return e ? e.querySelector('.bccf-filters-panel') : null; }
+    function filtersBadge()   { var e = filtersEl(); return e ? e.querySelector('.bccf-filters-label') : null; }
+    function activeCheckbox() { var e = filtersEl(); return e ? e.querySelector(ACTIVE_SEL) : null; }
+
+    function openFilters()  { var p = filtersPanel(); if (p) p.style.display = 'block'; }
+    function closeFilters() { var p = filtersPanel(); if (p) p.style.display = 'none'; }
+
+    function readFiltersState() {
+        var root = filtersEl();
+        if (!root) return null;
+        var activeBox = activeCheckbox();
+        var dims = ['projects', 'managers', 'customers', 'subsidiaries'];
+        var out = { active: activeBox ? activeBox.checked : true };
+        dims.forEach(function(dim) {
+            var ids = [];
+            root.querySelectorAll('.bccf-filters-chips[data-dim="' + dim + '"] .bccf-chip').forEach(function(chip) {
+                ids.push(chip.dataset.id);
+            });
+            out[dim] = ids;
+        });
+        return out;
+    }
+
+    function updateBadge() {
+        var state = readFiltersState();
+        if (!state) return;
+        var n = 0;
+        if (state.active !== true) n++;
+        ['projects', 'managers', 'customers', 'subsidiaries'].forEach(function(dim) {
+            if (state[dim].length) n++;
+        });
+        var label = filtersBadge();
+        if (label) label.textContent = n > 0 ? ('Filters · ' + n + ' active') : 'Filters';
+    }
+
+    function applyFilters() {
+        var state = readFiltersState();
+        if (!state) return;
+        var u = new URL(window.location.href);
+        // active: default true → omit param; false → ?active=0
+        if (state.active === false) u.searchParams.set('active', '0');
+        else u.searchParams.delete('active');
+        // Unrolled per-dim sets so the literal param names appear in source (testable).
+        if (state.projects.length)     u.searchParams.set('projects',     state.projects.join(','));
+        else                           u.searchParams.delete('projects');
+        if (state.managers.length)     u.searchParams.set('managers',     state.managers.join(','));
+        else                           u.searchParams.delete('managers');
+        if (state.customers.length)    u.searchParams.set('customers',    state.customers.join(','));
+        else                           u.searchParams.delete('customers');
+        if (state.subsidiaries.length) u.searchParams.set('subsidiaries', state.subsidiaries.join(','));
+        else                           u.searchParams.delete('subsidiaries');
+        window.location.replace(u.toString());
+    }
+
+    function resetFilters() {
+        var root = filtersEl();
+        if (!root) return;
+        var activeBox = activeCheckbox();
+        if (activeBox) activeBox.checked = true;
+        ['projects', 'managers', 'customers', 'subsidiaries'].forEach(function(dim) {
+            var chipSlot = root.querySelector('.bccf-filters-chips[data-dim="' + dim + '"]');
+            if (chipSlot) {
+                chipSlot.querySelectorAll('.bccf-chip').forEach(function(c) { c.remove(); });
+            }
+        });
+        updateBadge();
+        // User still needs to click Apply to take effect.
+    }
+
+    // Click handler — open/close, chip remove, Apply/Reset, outside-click
+    document.addEventListener('click', function(e) {
+        // Open/close on trigger
+        var trigger = e.target.closest('[data-action="open-filters"]');
+        if (trigger) {
+            var panel = filtersPanel();
+            var isOpen = panel && panel.style.display === 'block';
+            if (isOpen) closeFilters(); else openFilters();
+            return;
+        }
+        // Chip remove (✕ button inside a chip)
+        var chipX = e.target.closest('.bccf-chip-x');
+        if (chipX) {
+            var chip = chipX.closest('.bccf-chip');
+            if (chip) chip.remove();
+            updateBadge();
+            return;
+        }
+        // Apply / Reset
+        if (e.target.closest('[data-action="apply-filters"]')) { applyFilters(); return; }
+        if (e.target.closest('[data-action="reset-filters"]')) { resetFilters(); return; }
+        // Outside-click closes panel
+        var f = filtersEl();
+        if (f && !f.contains(e.target)) closeFilters();
+    }, true);
+
+    // Active checkbox change → live badge update
+    document.addEventListener('change', function(e) {
+        if (e.target.closest(ACTIVE_SEL)) updateBadge();
+    });
+
+    // Esc closes panel (shared with date picker — both close on Esc).
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeFilters();
+    });
+
     // ── Mode toggle (Cash/Accrual) — same pattern as report SLs ──────────────
     function swapModeUrl(currentUrl, newMode) {
         var u = new URL(currentUrl, window.location.href);

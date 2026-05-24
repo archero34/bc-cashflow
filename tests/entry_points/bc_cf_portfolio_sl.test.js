@@ -133,6 +133,21 @@ describe('bc_cf_portfolio_sl — shell structure', () => {
         it('wires sort click handler for [data-sort-col]', () => {
             expect(body).toMatch(/closest\(['"]\[data-sort-col\]['"]\)/);
         });
+
+        it('wires Filters pill open/close handler', () => {
+            expect(body).toMatch(/data-action="open-filters"/);
+            expect(body).toMatch(/Escape|keydown/);
+        });
+
+        it('wires Filters Apply → rebuild URL → reload', () => {
+            expect(body).toMatch(/data-action="apply-filters"/);
+            expect(body).toMatch(/searchParams\.(set|delete)\(['"]active['"]/);
+            expect(body).toMatch(/searchParams\.set\(['"]projects['"]/);
+        });
+
+        it('wires Reset all', () => {
+            expect(body).toMatch(/data-action="reset-filters"/);
+        });
     });
 
     describe('with active=0 + projects=1807,2104', () => {

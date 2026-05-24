@@ -416,3 +416,23 @@ describe('bc_cf_data_sl BC_PROJECT constants (E2)', () => {
         expect(Suitelet.BC_PROJECT.statusValues).toBeUndefined();
     });
 });
+
+describe('bc_cf_data_sl portfolio option-list SQL constants (E2)', () => {
+    it('defines AVAILABLE_PROJECTS_SQL', () => {
+        expect(Suitelet.AVAILABLE_PROJECTS_SQL).toBeDefined();
+        expect(typeof Suitelet.AVAILABLE_PROJECTS_SQL).toBe('string');
+        expect(Suitelet.AVAILABLE_PROJECTS_SQL).toMatch(/customrecord_cseg_bc_project/);
+    });
+    it('defines AVAILABLE_MANAGERS_SQL', () => {
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toBeDefined();
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toMatch(/employee/);
+    });
+    it('defines AVAILABLE_CUSTOMERS_SQL', () => {
+        expect(Suitelet.AVAILABLE_CUSTOMERS_SQL).toBeDefined();
+        expect(Suitelet.AVAILABLE_CUSTOMERS_SQL).toMatch(/customer/);
+    });
+    it('defines AVAILABLE_SUBSIDIARIES_SQL', () => {
+        expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toBeDefined();
+        expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toMatch(/subsidiary/i);
+    });
+});

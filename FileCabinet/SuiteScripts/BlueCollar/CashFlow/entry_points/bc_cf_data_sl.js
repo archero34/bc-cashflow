@@ -291,6 +291,70 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         GROUP BY CASE WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL THEN 'CO' ELSE 'BASE' END
     `;
 
+    // ── Portfolio (E2) option-list queries ───────────────────────────────────
+
+    /**
+     * Projects that appear on at least one revenue or cost timing line.
+     * Used to populate the Filters pill's Project multi-select dropdown.
+     * Returns id + name, alphabetical.
+     */
+    const AVAILABLE_PROJECTS_SQL = `
+        SELECT p.id AS id, p.${BC_PROJECT.fields.name} AS name
+        FROM ${BC_PROJECT.rectype} p
+        WHERE EXISTS (
+            SELECT 1 FROM customrecord_bc_revenue_timing_line rtl
+            WHERE rtl.custrecord_bc_rtl_project = p.id
+        )
+        OR EXISTS (
+            SELECT 1 FROM customrecord_bc_cost_timing_line ctl
+            WHERE ctl.custrecord_bc_ctl_project = p.id
+        )
+        ORDER BY p.${BC_PROJECT.fields.name}
+    `;
+
+    /**
+     * Project managers (employees) that appear on at least one BC project
+     * with timing data. Returns id + entityid (the displayable name).
+     */
+    const AVAILABLE_MANAGERS_SQL = `
+        SELECT e.id AS id, e.entityid AS name
+        FROM employee e
+        WHERE e.id IN (
+            SELECT DISTINCT p.${BC_PROJECT.fields.manager}
+            FROM ${BC_PROJECT.rectype} p
+            WHERE p.${BC_PROJECT.fields.manager} IS NOT NULL
+        )
+        ORDER BY e.entityid
+    `;
+
+    /**
+     * Customers that appear on at least one BC project with timing data.
+     */
+    const AVAILABLE_CUSTOMERS_SQL = `
+        SELECT c.id AS id, c.entityid AS name
+        FROM customer c
+        WHERE c.id IN (
+            SELECT DISTINCT p.${BC_PROJECT.fields.customer}
+            FROM ${BC_PROJECT.rectype} p
+            WHERE p.${BC_PROJECT.fields.customer} IS NOT NULL
+        )
+        ORDER BY c.entityid
+    `;
+
+    /**
+     * Subsidiaries that appear on at least one BC project with timing data.
+     */
+    const AVAILABLE_SUBSIDIARIES_SQL = `
+        SELECT s.id AS id, s.name AS name
+        FROM subsidiary s
+        WHERE s.id IN (
+            SELECT DISTINCT p.${BC_PROJECT.fields.subsidiary}
+            FROM ${BC_PROJECT.rectype} p
+            WHERE p.${BC_PROJECT.fields.subsidiary} IS NOT NULL
+        )
+        ORDER BY s.name
+    `;
+
     /**
      * Pre-range cumulative net for combined action.
      * Returns one row with rev_total and cost_total — both summed across
@@ -853,7 +917,9 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         _loadCombined, _loadCost, _loadRevenue,
         _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange,
         _pivotDirection,
-        BC_PROJECT
+        BC_PROJECT,
+        AVAILABLE_PROJECTS_SQL, AVAILABLE_MANAGERS_SQL,
+        AVAILABLE_CUSTOMERS_SQL, AVAILABLE_SUBSIDIARIES_SQL
     };
     api.onRequest = onRequest;
     return api;

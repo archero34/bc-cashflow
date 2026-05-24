@@ -16,11 +16,11 @@ It lives entirely inside NetSuite. No external dashboards to log into, no spread
 
 | Surface | Where it lives | What it shows |
 |---|---|---|
-| **PO Schedule editor** | Schedule subtab on Purchase Orders | Cost timing for a single PO |
-| **SO Schedule editor** | Schedule subtab on Sales Orders | Revenue timing for a single contract |
-| **CR Schedule editor** | Schedule subtab on Change Requests | Change-order timing (contract and estimate) |
+| **PO schedule editor** | Cash Flow subtab on Purchase Orders | Cost timing for a single PO |
+| **SO schedule editor** | Cash Flow subtab on Sales Orders | Revenue timing for a single contract |
+| **CR schedule editor** | Cash Flow subtab on Change Requests | Change-order timing (contract and estimate) |
 | **Per-project reports** | Cash Flow subtab on the BC Project record (Combined / Cost / Revenue children) | Single project's forecast, three angles |
-| **Portfolio Cash Flow** | Reports → BlueCollar → Portfolio Cash Flow | Every BC project, rolled up, with filters |
+| **Portfolio Cash Flow** | BlueCollar → Project Control Center → Cash Flow Portfolio | Every BC project, rolled up, with filters |
 
 ### Universal controls
 
@@ -44,17 +44,17 @@ Everything is in NetSuite. Drilling stays in NetSuite.
 
 ## 2. Building schedules: Purchase Orders, Sales Orders, Change Requests
 
-Every cash flow number starts with a schedule. Open the Schedule subtab on a Purchase Order, Sales Order, or Change Request, and tell the system when the dollars on that document should land.
+Every cash flow number starts with a schedule. Open the Cash Flow subtab on a Purchase Order, Sales Order, or Change Request, and tell the system when the dollars on that document should land.
 
 Take $15,000 on PO16241, or the $30,000 base contract on SO0631, and spread it across the months you expect work to happen. Pick the shape that fits the job.
 
 The PO editor is the simplest case, so we'll walk it first. The Sales Order editor and the Change Request editor are the same surface with one wrinkle each. Those wrinkles come after the PO walkthrough.
 
-![Schedule subtab on a PO before any timing has been entered. Calculator toolbar at top, empty grid below.](screenshots/po-schedule-empty.png)
+![Cash Flow subtab on a PO before any timing has been entered. Calculator toolbar at top, empty grid below.](screenshots/po-schedule-empty.png)
 
 ### The calculator toolbar
 
-Across the top of the Schedule subtab is a row of controls. They do not change anything until you press **Generate**. Think of them as a recipe you're composing.
+Across the top of the Cash Flow subtab is a row of controls. They do not change anything until you press **Generate**. Think of them as a recipe you're composing.
 
 - **Distribution.** The shape of the spread:
   - *S-curve* (default): slow start, ramped middle, tapered tail. Matches how most construction phases actually consume budget.
@@ -105,7 +105,7 @@ You can also rebalance manually by hand-editing more rows. Rebalance is just a c
 
 ### The save bar
 
-Pinned to the bottom of the Schedule subtab is the save bar. It has three states, signaled by a colored dot:
+Pinned to the bottom of the Cash Flow subtab is the save bar. It has three states, signaled by a colored dot:
 
 - **Green dot, "Saved".** Your changes are persisted.
 - **Pulsing slate dot, "Unsaved changes".** You have edits and the totals are balanced. Safe to save.
@@ -119,7 +119,7 @@ The bar carries three buttons:
 
 ### Sales Order schedules (the revenue side)
 
-Open any Sales Order and you'll find the same Schedule subtab: Distribution, Periods, Interval, Generate, live preview, validation badge, Discard / Rebalance / Save schedules. The Schedule subtab on a Sales Order uses the same editor pictured above on the PO, so we're not re-showing the screenshots.
+Open any Sales Order and you'll find the same Cash Flow subtab: Distribution, Periods, Interval, Generate, live preview, validation badge, Discard / Rebalance / Save schedules. The Cash Flow subtab on a Sales Order uses the same editor pictured above on the PO, so we're not re-showing the screenshots.
 
 What changes is what the editor is allocating:
 
@@ -140,7 +140,7 @@ Change Orders are the most interesting case. Every approved Change Request can c
 - **Contract.** When the customer will be billed for the change.
 - **Estimate.** What executing the change is forecasted to cost.
 
-The CR Schedule subtab presents both behind a single **Contract / Estimate pill toggle** in the header. Contract is the navy theme (matches Revenue elsewhere), Estimate is the slate theme. Clicking either button swaps which schedule is visible. Both schedules are saved together when you press Save schedules, regardless of which pane is showing. This replaced the older stacked dual-pane layout in the v1 redesign: same data, one pane on screen at a time.
+The CR Cash Flow subtab presents both behind a single **Contract / Estimate pill toggle** in the header. Contract is the navy theme (matches Revenue elsewhere), Estimate is the coral theme (matches Cost elsewhere). Clicking either button swaps which schedule is visible. Both schedules are saved together when you press Save schedules, regardless of which pane is showing. This replaced the older stacked dual-pane layout in the v1 redesign: same data, one pane on screen at a time.
 
 The toggle buttons also show each side's total in their label, like `Contract ($12,000)` next to `Estimate ($10,000)`, so you can see the markup at a glance without flipping panes.
 
@@ -232,7 +232,7 @@ A PM doing a weekly check-in usually lives in Combined. A controller chasing a b
 
 The Portfolio Cash Flow Suitelet aggregates every active BC project into a single view. No PM wants to click into thirty project records to know what the company looks like next month. This is the place to start.
 
-Open it from **Reports → BlueCollar → Portfolio Cash Flow**.
+Open it from **BlueCollar → Project Control Center → Cash Flow Portfolio**.
 
 ### Two stories, one view
 
@@ -384,7 +384,7 @@ If a report's totals don't match what you think they should:
 4. **Refresh**. Confirm you're looking at the latest data, not a stale render.
 5. Check the **sort state**. If you sorted on a period column, the order in the table won't match the chart's chronological order. That's not a discrepancy; it's expected.
 
-If the numbers still look off, the source of truth is the Schedule subtab on each contributing document. Open the SO, PO, or CR, verify the schedule, and confirm the Balanced badge is green. Unsaved or off-target schedules will not be reflected in the forecast.
+If the numbers still look off, the source of truth is the Cash Flow subtab on each contributing document. Open the SO, PO, or CR, verify the schedule, and confirm the Balanced badge is green. Unsaved or off-target schedules will not be reflected in the forecast.
 
 ---
 

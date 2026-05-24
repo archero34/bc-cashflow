@@ -1,0 +1,1196 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Purchase Order Schedule — Mock</title>
+    <style>
+        :root {
+            /* Backgrounds */
+            --bccf-bg-50: #f7f8fa;
+            --bccf-bg-100: #eef0f4;
+            --bccf-surface: #ffffff;
+            --bccf-border: #e2e6ec;
+            /* Ink */
+            --bccf-ink-500: #5b6472;
+            --bccf-ink-700: #2f3742;
+            --bccf-ink-900: #121821;
+            /* Brand */
+            --bccf-brand-500: #1f3b5e;
+            --bccf-brand-600: #16304d;
+            --bccf-brand-50: #eaeef4;
+            /* Status */
+            --bccf-success-500: #1f9d55;
+            --bccf-success-50: #e7f6ec;
+            --bccf-warn-500: #c97a0b;
+            --bccf-warn-50: #fdf4e3;
+            --bccf-danger-500: #c2361d;
+            --bccf-danger-50: #fbeceb;
+            /* Cost identity */
+            --bccf-cost-500: #f97316;
+            --bccf-cost-50:  #fff7ed;
+            /* Type scale */
+            --bccf-text-xs: 12px;
+            --bccf-text-sm: 13px;
+            --bccf-text-base: 14px;
+            --bccf-text-lg: 16px;
+            --bccf-text-xl: 20px;
+            --bccf-text-2xl: 26px;
+            /* Spacing */
+            --bccf-s-1: 4px;  --bccf-s-2: 8px;  --bccf-s-3: 12px;
+            --bccf-s-4: 16px; --bccf-s-5: 20px; --bccf-s-6: 24px; --bccf-s-8: 32px;
+            /* Radius */
+            --bccf-r-sm: 4px; --bccf-r-md: 6px; --bccf-r-lg: 10px; --bccf-r-full: 999px;
+            /* Shadow + motion */
+            --bccf-shadow-1: 0 1px 2px rgba(18,24,33,.04), 0 1px 1px rgba(18,24,33,.02);
+            --bccf-shadow-2: 0 -4px 12px rgba(18,24,33,.04);
+            --bccf-t-fast: 120ms;
+        }
+        body { font-family: "Inter", "Inter Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; color: var(--bccf-ink-900); background: var(--bccf-bg-50); color-scheme: light; }
+    
+        /* Panel */
+        .bccf-panel { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); box-shadow: var(--bccf-shadow-1); }
+        .bccf-panel-header { padding: 14px 18px; border-bottom: 1px solid var(--bccf-border); display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+        .bccf-panel-body { padding: 14px 18px; }
+        .bccf-panel-footer { padding: 12px 18px; background: var(--bccf-bg-50); border-top: 1px solid var(--bccf-border); display: flex; justify-content: flex-end; gap: 8px; }
+
+        /* Buttons */
+        .bccf-btn { font-size: var(--bccf-text-sm); background: var(--bccf-surface); border: 1px solid var(--bccf-border); padding: 7px 14px; border-radius: var(--bccf-r-md); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; transition: box-shadow var(--bccf-t-fast); }
+        .bccf-btn:hover { box-shadow: var(--bccf-shadow-1); }
+        .bccf-btn-pri { background: var(--bccf-brand-500); color: #fff; border-color: var(--bccf-brand-500); }
+        .bccf-btn-pri:hover { background: var(--bccf-brand-600); }
+        .bccf-btn-ghost { background: transparent; border-color: transparent; color: var(--bccf-brand-500); }
+        .bccf-btn-danger-ghost { background: transparent; border-color: transparent; color: var(--bccf-danger-500); padding: 4px 8px; min-height: 0; }
+        .bccf-btn-sm { min-height: 28px; padding: 4px 10px; font-size: var(--bccf-text-xs); }
+        .bccf-add-row-btn { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: transparent; border: 1px dashed var(--bccf-border); color: var(--bccf-ink-500); border-radius: var(--bccf-r-md); font-size: var(--bccf-text-sm); font-weight: 500; cursor: pointer; }
+        .bccf-add-row-btn:hover { background: var(--bccf-bg-50); color: var(--bccf-brand-500); border-color: var(--bccf-brand-500); }
+
+        /* Toggle / segmented control */
+        .bccf-toggle { background: var(--bccf-bg-50); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-full); padding: 3px; display: inline-flex; gap: 2px; }
+        .bccf-toggle button { font-size: var(--bccf-text-xs); padding: 4px 12px; border-radius: var(--bccf-r-full); color: var(--bccf-ink-500); border: 0; background: transparent; font-weight: 500; cursor: pointer; }
+        .bccf-toggle button.active { background: var(--bccf-brand-500); color: #fff; }
+        .bccf-pane-toggle { display: inline-flex; padding: 3px; background: var(--bccf-bg-100); border-radius: var(--bccf-r-full); }
+        .bccf-pane-toggle button { font-size: var(--bccf-text-sm); padding: 6px 16px; border-radius: var(--bccf-r-full); background: transparent; border: 0; color: var(--bccf-ink-500); font-weight: 500; cursor: pointer; }
+        .bccf-pane-toggle button.active.contract { background: var(--bccf-brand-500); color: #fff; }
+        .bccf-pane-toggle button.active.estimate { background: var(--bccf-ink-700); color: #fff; }
+
+        /* Tabs (underline) */
+        .bccf-tabs { display: flex; gap: 4px; padding: 0 18px; border-bottom: 1px solid var(--bccf-border); background: var(--bccf-surface); }
+        .bccf-tabs a { padding: 12px 14px; font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; text-decoration: none; cursor: pointer; }
+        .bccf-tabs a.active.cashflow, .bccf-tabs a.active.brand { color: var(--bccf-brand-500); border-bottom-color: var(--bccf-brand-500); }
+        .bccf-tabs a.active.accrual { color: var(--bccf-ink-700); border-bottom-color: var(--bccf-ink-500); }
+
+        /* E1.5 slim KPI — reclaims sticky real estate for long forecasts */
+        .bccf-kpi { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 8px 12px; }
+        .bccf-kpi .bccf-k { font-size: var(--bccf-text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-ink-500); font-weight: 500; }
+        .bccf-kpi .bccf-v { font-size: var(--bccf-text-xl); font-weight: 600; color: var(--bccf-ink-900); letter-spacing: -0.01em; margin-top: 2px; line-height: 1.1; }
+        .bccf-kpi .bccf-sub { font-size: var(--bccf-text-xs); color: var(--bccf-ink-500); margin-top: 3px; }
+        .bccf-kpi.accent .bccf-v { color: var(--bccf-brand-500); }
+
+        /* Badge */
+        .bccf-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: var(--bccf-r-full); }
+        .bccf-badge.success { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+        .bccf-badge.warn { background: var(--bccf-warn-50); color: var(--bccf-warn-500); }
+        .bccf-badge.danger { background: var(--bccf-danger-50); color: var(--bccf-danger-500); }
+        .bccf-badge.brand { background: var(--bccf-brand-50); color: var(--bccf-brand-500); }
+        .bccf-badge.neutral { background: var(--bccf-bg-100); color: var(--bccf-ink-700); }
+
+        /* Inputs */
+        .bccf-input, .bccf-select, .bccf-date { font-size: var(--bccf-text-sm); padding: 7px 10px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); font-family: inherit; }
+        .bccf-input:focus, .bccf-select:focus, .bccf-date:focus { outline: 2px solid var(--bccf-brand-500); outline-offset: -1px; border-color: var(--bccf-brand-500); }
+        .bccf-input[readonly], .bccf-date[readonly] { background: var(--bccf-bg-100); color: var(--bccf-ink-700); cursor: default; }
+
+        /* Skeleton shimmer */
+        .bccf-skel { background: linear-gradient(90deg, #eef0f4 0%, #f7f8fa 50%, #eef0f4 100%); background-size: 200%; animation: bccf-shimmer 1.2s ease-in-out infinite; border-radius: var(--bccf-r-sm); display: inline-block; }
+        @keyframes bccf-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* Toast */
+        #bccf-toast-host { position: fixed; top: 16px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
+        .bccf-toast { background: var(--bccf-surface); border: 1px solid var(--bccf-border); box-shadow: var(--bccf-shadow-1); border-radius: var(--bccf-r-md); padding: 10px 14px; min-width: 320px; max-width: 440px; font-size: var(--bccf-text-sm); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; animation: bccf-toast-in 200ms ease-out; }
+        .bccf-toast.info { border-left: 4px solid var(--bccf-brand-500); }
+        .bccf-toast.warn { border-left: 4px solid var(--bccf-warn-500); }
+        .bccf-toast.danger { border-left: 4px solid var(--bccf-danger-500); }
+        .bccf-toast-close { background: transparent; border: 0; color: var(--bccf-ink-500); cursor: pointer; font-size: 14px; }
+        @keyframes bccf-toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* Modal / confirm */
+        .bccf-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,38,.55); display: flex; justify-content: center; padding-top: 60px; z-index: 100; }
+        .bccf-modal { background: var(--bccf-surface); border-radius: var(--bccf-r-lg); box-shadow: 0 16px 48px rgba(0,0,0,.18); max-width: 480px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+        .bccf-modal-headline-warn { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-warn-500); font-weight: 600; }
+        .bccf-modal-headline-danger { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-danger-500); font-weight: 600; }
+        .bccf-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* Error card */
+        .bccf-error-card { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-left: 4px solid var(--bccf-danger-500); border-radius: var(--bccf-r-md); padding: 14px 16px; margin: 12px 0; }
+        .bccf-error-card h4 { font-size: var(--bccf-text-base); color: var(--bccf-danger-500); margin: 0 0 6px; font-weight: 600; }
+        .bccf-error-card pre { font-size: 12px; color: var(--bccf-ink-700); white-space: pre-wrap; margin: 6px 0; }
+
+        /* Chart bar (used by report shell SLs to render KPI chart bars) */
+        .bccf-bar { width: 100%; border-radius: 3px 3px 0 0; transition: opacity var(--bccf-t-fast); cursor: default; }
+        .bccf-bar:hover { opacity: .85; }
+        .bccf-bar.revenue { background: var(--bccf-brand-500); }
+        .bccf-bar.cost { background: var(--bccf-cost-500); }
+
+        /* Title pill */
+        .bccf-title-pill { display: inline-flex; align-items: center; background: var(--bccf-brand-50); color: var(--bccf-brand-500); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--bccf-r-full); }
+
+        /* Date range picker (E1 spec §3.2) */
+        .bccf-daterange { position: relative; display: inline-block; }
+        .bccf-daterange-trigger { display: inline-flex; align-items: center; gap: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); padding: 6px 12px; font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; }
+        .bccf-daterange-trigger:hover { background: var(--bccf-bg-50); }
+        .bccf-daterange-trigger .bccf-daterange-label { color: var(--bccf-ink-900); }
+        .bccf-daterange-trigger[disabled] { opacity: 0.6; cursor: not-allowed; }
+        .bccf-daterange-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); box-shadow: 0 4px 16px rgba(18,24,33,.08); padding: 14px; min-width: 280px; z-index: 50; }
+        .bccf-daterange-panel h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; margin: 0 0 8px; }
+        .bccf-daterange-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+        .bccf-daterange-presets button { font-size: var(--bccf-text-xs); padding: 6px 10px; border-radius: var(--bccf-r-md); background: var(--bccf-bg-50); border: 1px solid var(--bccf-border); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; text-align: center; }
+        .bccf-daterange-presets button.active { background: var(--bccf-brand-500); color: #fff; border-color: var(--bccf-brand-500); }
+        .bccf-daterange-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .bccf-daterange-custom label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; margin-bottom: 3px; }
+        .bccf-daterange-custom input { width: 100%; padding: 6px 8px; font-size: var(--bccf-text-xs); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); font-family: inherit; }
+        .bccf-daterange-custom input:focus { outline: 2px solid var(--bccf-brand-500); outline-offset: -1px; border-color: var(--bccf-brand-500); }
+        .bccf-daterange-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bccf-bg-100); }
+        .bccf-daterange-hint { font-size: 11px; color: var(--bccf-ink-500); }
+        .bccf-daterange-actions button[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+        /* Hover tooltip on bars — same pseudo-element pattern as .bccf-trend-dot.
+           Used by all 3 report charts (Combined revenue+cost bars, Cost coral bars,
+           Revenue navy bars). The bar gets data-tip="..." and the tooltip surfaces
+           above it on hover. Replaces the old amount-always-visible-above-bar UI. */
+        .bccf-bar { position: relative; }
+        /* Hovered bar floats above its siblings so the ::after tooltip isn't
+           clipped by an adjacent bar (e.g. Combined's Revenue+Cost pair). */
+        .bccf-bar[data-tip]:hover { z-index: 10; }
+        .bccf-bar[data-tip]::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bccf-ink-900);
+            color: #fff;
+            padding: 5px 9px;
+            border-radius: var(--bccf-r-md);
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            margin-bottom: 6px;
+            transition: opacity var(--bccf-t-fast);
+            z-index: 10;
+        }
+        .bccf-bar[data-tip]:hover::after { opacity: 1; }
+
+        /* Trend-line dot with hover tooltip (Combined chart) */
+        .bccf-trend-dot { cursor: default; }
+        .bccf-trend-dot::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bccf-ink-900);
+            color: #fff;
+            padding: 5px 9px;
+            border-radius: var(--bccf-r-md);
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            margin-bottom: 8px;
+            transition: opacity var(--bccf-t-fast);
+            z-index: 10;
+        }
+        .bccf-trend-dot:hover::after { opacity: 1; }
+
+        /* E1.5 sticky layout — pins KPIs/chart/thead while tbody scrolls.
+           Header panel is intentionally NOT sticky (controls, not context). */
+        .bccf-layout #bccf-kpis {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: var(--bccf-bg-50);
+            padding-top: 4px;
+        }
+        .bccf-layout #bccf-chart {
+            position: sticky;
+            top: 78px;
+            z-index: 25;
+            background: var(--bccf-bg-50);
+        }
+        /* Sticky-thead intentionally not used: position:sticky on <th>/<thead>
+           interacts unpredictably with the .bccf-panel-body's overflow-x:auto
+           (which establishes the sticky scroll container) inside NetSuite iframes,
+           and reorders the thead row to the bottom of the table in observed cases.
+           KPIs + chart remain sticky as the primary "context stays visible" UX;
+           column headers scroll with the data. */
+
+        /* Filters pill (E2 spec §3.6) — modeled on .bccf-daterange */
+        .bccf-filters { position: relative; display: inline-block; }
+        .bccf-filters-trigger { display: inline-flex; align-items: center; gap: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); padding: 6px 12px; font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; }
+        .bccf-filters-trigger:hover { background: var(--bccf-bg-50); }
+        .bccf-filters-trigger .bccf-filters-label { color: var(--bccf-ink-900); }
+        .bccf-filters-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); box-shadow: 0 4px 16px rgba(18,24,33,.08); padding: 14px; min-width: 340px; max-width: 420px; z-index: 50; }
+        .bccf-filters-panel h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; margin: 0 0 8px; }
+
+        /* Active toggle (E2 pivot — single boolean checkbox-style chip).
+           Replaces the spec's 4-state status segmented control. */
+        .bccf-filters-active { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .bccf-filters-active input[type="checkbox"] { cursor: pointer; }
+        .bccf-filters-active label { font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); cursor: pointer; }
+
+        .bccf-filters-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+        .bccf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; background: var(--bccf-brand-50); color: var(--bccf-brand-500); border-radius: var(--bccf-r-full); font-size: var(--bccf-text-xs); font-weight: 500; }
+        .bccf-chip-x { background: transparent; border: 0; color: var(--bccf-brand-500); cursor: pointer; padding: 0 4px; line-height: 1; font-size: 14px; }
+        .bccf-chip-x:hover { color: var(--bccf-brand-600); }
+        .bccf-filters-add { font-size: var(--bccf-text-xs); padding: 4px 6px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); cursor: pointer; max-width: 220px; }
+
+        .bccf-filters-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bccf-bg-100); }
+    
+
+/* ====================================================================
+   Schedule editor -- surface-specific additions (extends bc_cf_styles)
+   ==================================================================== */
+
+/* Container + box-sizing reset */
+.bccf-container { overflow: hidden; position: relative; }
+.bccf-container *, .bccf-container *::before, .bccf-container *::after { box-sizing: border-box; }
+
+/* Header: gradient banner */
+.bccf-header { background: linear-gradient(135deg, var(--bccf-brand-500) 0%, #2a5080 100%); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.bccf-header-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+.bccf-header-title svg { flex-shrink: 0; }
+.bccf-header-meta { font-size: 12px; opacity: 0.8; display: flex; gap: 20px; flex-wrap: wrap; }
+.bccf-header-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.bccf-header-meta strong { font-weight: 600; opacity: 1; }
+
+/* Section: tab-driven show/hide */
+.bccf-section { margin: 20px 24px; padding-left: 20px; display: none; }
+.bccf-section.active { display: block; }
+.bccf-section-title { font-size: 16px; font-weight: 700; color: var(--bccf-ink-900); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.bccf-section-title .bccf-badge { margin-left: 6px; }
+
+/* Toolbar (template selector row) */
+.bccf-toolbar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bccf-bg-50); border-radius: var(--bccf-r-lg); margin-bottom: 16px; flex-wrap: wrap; border: 1px solid var(--bccf-border); }
+.bccf-toolbar label { font-size: 12px; font-weight: 600; color: var(--bccf-ink-500); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.bccf-toolbar select, .bccf-toolbar input[type="date"] { font-size: var(--bccf-text-sm); padding: 8px 12px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); outline: none; min-width: 0; }
+.bccf-toolbar select { min-width: 200px; max-width: 320px; flex: 1; }
+.bccf-toolbar select:focus, .bccf-toolbar input[type="date"]:focus { border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); }
+
+/* Grid wrapper */
+.bccf-grid-wrapper { overflow-x: auto; border-radius: var(--bccf-r-lg); border: 1px solid var(--bccf-border); margin-bottom: 12px; }
+
+/* Grid input variant: transparent at rest, hover reveals, focus ring */
+.bccf-grid { width: 100%; border-collapse: collapse; font-size: var(--bccf-text-sm); color: var(--bccf-ink-900); }
+.bccf-grid th, .bccf-grid td { padding: 8px 10px; border-bottom: 1px solid var(--bccf-bg-100); text-align: left; color: var(--bccf-ink-900); vertical-align: middle; }
+.bccf-grid th { background: var(--bccf-bg-50); color: var(--bccf-ink-500); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+.bccf-grid th.right, .bccf-grid td.right { text-align: right; }
+.bccf-grid th.center, .bccf-grid td.center { text-align: center; }
+.bccf-grid input { width: 100%; padding: 4px 6px; font-size: var(--bccf-text-sm); border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--bccf-ink-900); font-family: inherit; }
+.bccf-grid input:hover { background: var(--bccf-bg-50); border-color: var(--bccf-border); }
+.bccf-grid input:focus { outline: none; background: var(--bccf-surface); border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); }
+.bccf-grid input.right { text-align: right; }
+.bccf-grid input[type="date"] { min-width: 130px; }
+.bccf-grid input[type="number"] { text-align: right; min-width: 90px; -moz-appearance: textfield; }
+.bccf-grid input[type="number"]::-webkit-outer-spin-button, .bccf-grid input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bccf-grid .rownum { color: var(--bccf-ink-500); font-size: 11px; font-weight: 600; }
+.bccf-grid .cum { color: var(--bccf-ink-500); font-size: 12px; }
+.bccf-grid tfoot td { background: var(--bccf-bg-50); font-weight: 600; border-top: 1px solid var(--bccf-border); border-bottom: 0; }
+.bccf-grid tr:hover td { background: #fafbfc; }
+
+/* Validation badge in tfoot (spec §3.15.7) */
+.bccf-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 12px; transition: background 0.2s ease, color 0.2s ease; white-space: nowrap; }
+.bccf-badge.success { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+.bccf-badge.warn    { background: var(--bccf-warn-50);    color: var(--bccf-warn-500);    }
+/* Legacy validation classes (kept for backward compat in server-render path) */
+.bccf-validation { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; transition: all 0.3s ease; }
+.bccf-validation.valid { background: var(--bccf-success-50); color: var(--bccf-success-500); }
+.bccf-validation.invalid { background: var(--bccf-danger-50); color: var(--bccf-danger-500); }
+
+/* Save bar: sticky bottom, pulse on dirty */
+.bccf-save-bar { position: sticky; bottom: 0; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 12px 18px; box-shadow: var(--bccf-shadow-2); display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 10px; }
+.bccf-save-status { font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); display: inline-flex; align-items: center; gap: 6px; }
+.bccf-save-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bccf-ink-500); }
+.bccf-save-status.dirty-balanced .dot { background: var(--bccf-ink-500); animation: bccf-pulse 1.5s ease-in-out infinite; }
+.bccf-save-status.dirty-warn { color: var(--bccf-warn-500); }
+.bccf-save-status.dirty-warn .dot { background: var(--bccf-warn-500); animation: bccf-pulse 1.5s ease-in-out infinite; }
+.bccf-save-status.saved { color: var(--bccf-success-500); }
+.bccf-save-status.saved .dot { background: var(--bccf-success-500); }
+@keyframes bccf-pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.4 } }
+.bccf-save-actions { display: flex; gap: 8px; align-items: center; }
+.bccf-btn-rebalance { background: var(--bccf-warn-50); border-color: var(--bccf-warn-500); color: var(--bccf-warn-500); font-weight: 600; }
+/* Rebalance row flash — added by handleRebalance, removed after animation */
+@keyframes bccf-rebalanced-fade { from { background-color: #d1fae5; } to { background-color: transparent; } }
+.bccf-rebalanced td { animation: bccf-rebalanced-fade 1.5s ease forwards; }
+
+/* Skeleton shimmer rows — shown during save AJAX */
+@keyframes bccf-skel-shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+.bccf-skel { display: inline-block; border-radius: 4px; background: linear-gradient(90deg, var(--bccf-bg-100) 25%, var(--bccf-bg-50) 50%, var(--bccf-bg-100) 75%); background-size: 400px 100%; animation: bccf-skel-shimmer 1.2s ease-in-out infinite; }
+
+/* Field block (calculator + filter inputs) */
+.bccf-field { display: flex; flex-direction: column; gap: 4px; }
+.bccf-field label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; }
+
+/* Empty state */
+.bccf-empty-state { text-align: center; padding: 40px 24px; color: var(--bccf-ink-500); }
+.bccf-empty-state p { font-size: var(--bccf-text-base); margin: 0 0 6px; font-weight: 600; color: var(--bccf-ink-700); }
+.bccf-empty-state span { font-size: var(--bccf-text-sm); color: var(--bccf-ink-500); }
+
+/* Calculator toolbar additions */
+.bccf-toolbar input[type="number"] { font-size: var(--bccf-text-sm); padding: 8px 10px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); color: var(--bccf-ink-900); width: 70px; -moz-appearance: textfield; }
+.bccf-toolbar input[type="number"]::-webkit-outer-spin-button, .bccf-toolbar input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bccf-toolbar input[type="number"]:focus { border-color: var(--bccf-brand-500); box-shadow: 0 0 0 2px var(--bccf-brand-50); outline: none; }
+.bccf-toolbar input[readonly] { background: var(--bccf-bg-50); color: var(--bccf-ink-500); cursor: default; }
+.bccf-toolbar input[type="date"] { min-width: 140px; }
+
+/* Calculator preview panel */
+.bccf-calc-preview { background: var(--bccf-bg-50); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 12px 16px; margin-bottom: 16px; display: none; }
+.bccf-calc-preview.visible { display: block; }
+.bccf-calc-preview-meta { font-size: 12px; font-weight: 600; color: var(--bccf-ink-700); margin-bottom: 10px; }
+.bccf-calc-preview-bars { display: flex; align-items: flex-end; gap: 4px; height: 48px; margin-bottom: 10px; }
+.bccf-calc-preview-bars .bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+.bccf-calc-preview-bars .bar-lbl { font-size: 9px; color: var(--bccf-ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+.bccf-calc-preview-bars .bar { width: 100%; background: var(--bccf-brand-500); border-radius: 2px 2px 0 0; min-height: 2px; }
+.bccf-calc-preview table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bccf-calc-preview th { color: var(--bccf-ink-500); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; padding: 3px 6px; border-bottom: 1px solid var(--bccf-border); text-align: left; }
+.bccf-calc-preview td { padding: 3px 6px; color: var(--bccf-ink-700); border-bottom: 1px solid var(--bccf-bg-100); }
+.bccf-calc-preview td.right, .bccf-calc-preview th.right { text-align: right; }
+.bccf-calc-preview .more-rows { font-size: 11px; color: var(--bccf-ink-500); padding: 4px 6px; text-align: center; }
+
+/* Toast host */
+#bccf-toast-host { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.bccf-toast { background: var(--bccf-ink-900); color: #fff; padding: 10px 16px; border-radius: var(--bccf-r-md); font-size: var(--bccf-text-sm); font-weight: 500; box-shadow: var(--bccf-shadow-2); pointer-events: auto; transition: opacity 0.3s ease, transform 0.3s ease; opacity: 1; transform: translateY(0); }
+.bccf-toast.success { background: var(--bccf-success-500); }
+.bccf-toast.error { background: var(--bccf-danger-500); }
+.bccf-toast.warn { background: var(--bccf-warn-500); color: var(--bccf-ink-900); }
+
+/* Modal */
+.bccf-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 10000; display: flex; align-items: center; justify-content: center; }
+.bccf-modal { background: var(--bccf-surface); border-radius: var(--bccf-r-lg); padding: 24px 28px; min-width: 320px; max-width: 440px; box-shadow: var(--bccf-shadow-2); }
+.bccf-modal-headline { font-size: 16px; font-weight: 700; color: var(--bccf-ink-900); margin-bottom: 8px; }
+.bccf-modal-body { font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); margin-bottom: 20px; }
+.bccf-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+</style>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { padding: 16px; background: var(--bccf-bg-50); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .bccf-container { background: var(--bccf-surface); border-radius: var(--bccf-r-lg); box-shadow: var(--bccf-shadow-2); }
+        .state-switcher { position: fixed; top: 8px; right: 8px; z-index: 10000; display: flex; gap: 4px; background: rgba(255,255,255,0.95); padding: 4px; border-radius: var(--bccf-r-md); box-shadow: var(--bccf-shadow-2); font-size: 11px; }
+        .state-switcher a { padding: 4px 8px; border-radius: 4px; text-decoration: none; color: var(--bccf-ink-700); }
+        .state-switcher a.active { background: var(--bccf-brand-500); color: #fff; }
+        .state-switcher a:hover:not(.active) { background: var(--bccf-bg-50); }
+        @media print { .state-switcher { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="state-switcher" id="state-switcher">
+        <a href="?state=empty">Empty</a>
+        <a href="?state=configured">Configured</a>
+        <a href="?state=generated">Generated</a>
+        <a href="?state=dirty">Dirty</a>
+    </div>
+
+    <div id="state-empty" data-state="empty">
+<div class="bccf-container" id="po_sched_root">
+
+    <!-- Header (mirrors the deployed Schedule subtab banner) -->
+    <div class="bccf-header">
+        <div class="bccf-header-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Purchase Order PO16241 &mdash; Schedule
+        </div>
+        <div class="bccf-header-meta">
+            <span><strong>Vendor:</strong> Phoenix Mechanical Supply</span>
+            <span><strong>Project:</strong> PROJ0142 Lockhart Substation Retrofit</span>
+            <span><strong>Amount:</strong> $15,000.00</span>
+        </div>
+    </div>
+
+    <!-- Tab nav (Cash Flow only for POs in this mock) -->
+    <div class="bccf-tabs">
+        <a class="active cashflow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Cash Flow</a>
+    </div>
+
+    <!-- Section -->
+    <div class="bccf-section active" data-section-id="po_sched">
+        <div class="bccf-section-title">
+            Cash Flow Schedule
+            <span class="bccf-badge neutral">Cash Flow</span>
+            
+        </div>
+        
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
+    <div class="bccf-kpi">
+        <div class="bccf-k">Cash Flow Schedule Total</div>
+        <div class="bccf-v">$15,000.00</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Scheduled</div>
+        <div class="bccf-v">$0.00</div>
+        <div class="bccf-sub">0.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Remaining</div>
+        <div class="bccf-v">$15,000.00</div>
+        <div class="bccf-sub">100.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Completion</div>
+        <div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;">
+            <div style="height:100%;width:0%;background:var(--bccf-brand-500);border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div>
+        </div>
+        <div class="bccf-sub" style="margin-top:4px;">0.0%</div>
+    </div>
+</div>
+        
+<div class="bccf-toolbar" id="po_sched_calc_toolbar">
+    <div class="bccf-field">
+        <label for="po_sched_calc_dist">Distribution</label>
+        <select id="po_sched_calc_dist">
+            <option value="s_curve" selected>S-curve</option>
+            <option value="linear">Linear</option>
+            <option value="front_loaded">Front-loaded</option>
+            <option value="back_loaded">Back-loaded</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_periods">Periods</label>
+        <input type="number" id="po_sched_calc_periods" value="6" min="1" max="36">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_interval">Interval</label>
+        <select id="po_sched_calc_interval">
+            <option value="monthly" selected>Monthly</option>
+            <option value="bi_weekly">Bi-weekly</option>
+            <option value="weekly">Weekly</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Start date</label>
+        <input type="date" id="po_sched_calc_start" value="2026-05-24">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_end">End date</label>
+        <input type="date" id="po_sched_calc_end" readonly tabindex="-1" value="">
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:2px;">
+        <button type="button" class="bccf-btn bccf-btn-pri" id="po_sched_calc_generate">
+            Generate
+        </button>
+        <button type="button" class="bccf-btn" id="po_sched_calc_clear">
+            Clear all
+        </button>
+    </div>
+</div>
+        <div class="bccf-calc-preview" id="po_sched_calc_preview"></div>
+        <div id="po_sched_grid_container">
+<div class="bccf-grid-wrapper">
+    <table class="bccf-grid" id="po_sched_grid">
+        <thead><tr><th class="center" style="width:40px;">#</th><th>Period Date</th><th>Label</th><th class="right">Percentage</th><th class="right">Amount</th><th class="right">Total %</th><th class="right">Total Amount</th><th class="center" style="width:50px;"></th></tr></thead>
+        <tbody id="po_sched_tbody"><tr><td colspan="8" style="padding:32px 16px;text-align:center;color:var(--bccf-ink-500);font-size:var(--bccf-text-sm);">
+            <div style="font-weight:600;color:var(--bccf-ink-700);margin-bottom:4px;">No schedule lines yet</div>
+            <div>Configure the calculator above and click <strong>Generate</strong>, or use <strong>Add Line</strong> below.</div>
+        </td></tr></tbody>
+        <tfoot><tr><td colspan="1"></td><td colspan="2" style="text-align:right;">Total</td><td class="right">0.0%</td><td class="right">$0.00</td><td colspan="3" class="right"><span class="bccf-badge warn">&#9888; 0.0% allocated</span></td></tr></tfoot>
+    </table>
+</div>
+<button type="button" class="bccf-add-row-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Line
+</button></div>
+    </div>
+
+    <!-- Save Bar -->
+    
+<div class="bccf-save-bar" id="po_sched_save_bar">
+    <div class="bccf-save-status saved">
+        <span class="dot"></span>
+        <span class="bccf-save-status-text">Ready</span>
+    </div>
+    <div class="bccf-save-actions">
+        <button type="button" class="bccf-btn">Discard changes</button>
+        <button type="button" class="bccf-btn bccf-btn-rebalance" id="po_sched_rebalance"
+                style="display:none;">Rebalance</button>
+        <button type="button" class="bccf-btn bccf-btn-pri">Save schedule</button>
+    </div>
+</div>
+
+</div>
+<div id="bccf-toast-host"></div></div>
+    <div id="state-configured" data-state="configured" hidden>
+<div class="bccf-container" id="po_sched_root">
+
+    <!-- Header (mirrors the deployed Schedule subtab banner) -->
+    <div class="bccf-header">
+        <div class="bccf-header-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Purchase Order PO16241 &mdash; Schedule
+        </div>
+        <div class="bccf-header-meta">
+            <span><strong>Vendor:</strong> Phoenix Mechanical Supply</span>
+            <span><strong>Project:</strong> PROJ0142 Lockhart Substation Retrofit</span>
+            <span><strong>Amount:</strong> $15,000.00</span>
+        </div>
+    </div>
+
+    <!-- Tab nav (Cash Flow only for POs in this mock) -->
+    <div class="bccf-tabs">
+        <a class="active cashflow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Cash Flow</a>
+    </div>
+
+    <!-- Section -->
+    <div class="bccf-section active" data-section-id="po_sched">
+        <div class="bccf-section-title">
+            Cash Flow Schedule
+            <span class="bccf-badge neutral">Cash Flow</span>
+            
+        </div>
+        
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
+    <div class="bccf-kpi">
+        <div class="bccf-k">Cash Flow Schedule Total</div>
+        <div class="bccf-v">$15,000.00</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Scheduled</div>
+        <div class="bccf-v">$0.00</div>
+        <div class="bccf-sub">0.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Remaining</div>
+        <div class="bccf-v">$15,000.00</div>
+        <div class="bccf-sub">100.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Completion</div>
+        <div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;">
+            <div style="height:100%;width:0%;background:var(--bccf-brand-500);border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div>
+        </div>
+        <div class="bccf-sub" style="margin-top:4px;">0.0%</div>
+    </div>
+</div>
+        
+<div class="bccf-toolbar" id="po_sched_calc_toolbar">
+    <div class="bccf-field">
+        <label for="po_sched_calc_dist">Distribution</label>
+        <select id="po_sched_calc_dist">
+            <option value="s_curve" selected>S-curve</option>
+            <option value="linear">Linear</option>
+            <option value="front_loaded">Front-loaded</option>
+            <option value="back_loaded">Back-loaded</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_periods">Periods</label>
+        <input type="number" id="po_sched_calc_periods" value="8" min="1" max="36">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_interval">Interval</label>
+        <select id="po_sched_calc_interval">
+            <option value="monthly" selected>Monthly</option>
+            <option value="bi_weekly">Bi-weekly</option>
+            <option value="weekly">Weekly</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Start date</label>
+        <input type="date" id="po_sched_calc_start" value="2026-04-01">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_end">End date</label>
+        <input type="date" id="po_sched_calc_end" readonly tabindex="-1" value="2026-11-30">
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:2px;">
+        <button type="button" class="bccf-btn bccf-btn-pri" id="po_sched_calc_generate" style="box-shadow: 0 0 0 3px var(--bccf-brand-50), 0 4px 12px rgba(60,107,158,0.35); transform: translateY(-1px);">
+            Generate
+        </button>
+        <button type="button" class="bccf-btn" id="po_sched_calc_clear">
+            Clear all
+        </button>
+    </div>
+</div>
+        
+<div class="bccf-calc-preview visible" id="po_sched_calc_preview">
+    <div class="bccf-calc-preview-meta">
+        Preview: S-curve · 8 periods · Monthly · Apr 30, 2026 – Nov 30, 2026 · $15,000.00
+    </div>
+    <div class="bccf-calc-preview-bars"><div class="bar-wrap">
+            <div class="bar" style="height:8px"></div>
+            <div class="bar-lbl">Apr</div>
+        </div><div class="bar-wrap">
+            <div class="bar" style="height:17px"></div>
+            <div class="bar-lbl">May</div>
+        </div><div class="bar-wrap">
+            <div class="bar" style="height:30px"></div>
+            <div class="bar-lbl">Jun</div>
+        </div><div class="bar-wrap">
+            <div class="bar" style="height:40px"></div>
+            <div class="bar-lbl">Jul</div>
+        </div><div class="bar-wrap">
+            <div class="bar" style="height:40px"></div>
+            <div class="bar-lbl">Aug</div>
+        </div><div class="bar-wrap">
+            <div class="bar" style="height:30px"></div>
+            <div class="bar-lbl">Sep</div>
+        </div><div class="bar-wrap">
+            <div class="bar" style="height:17px"></div>
+            <div class="bar-lbl">Oct</div>
+        </div><div class="bar-wrap">
+            <div class="bar" style="height:8px"></div>
+            <div class="bar-lbl">Nov</div>
+        </div></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Label</th>
+                <th class="right">%</th>
+                <th class="right">Amount</th>
+                <th class="right">Total %</th>
+                <th class="right">Total Amt</th>
+            </tr>
+        </thead>
+        <tbody><tr>
+            <td>Apr 30, 2026</td>
+            <td>April 2026</td>
+            <td class="right">4.0%</td>
+            <td class="right">$600.00</td>
+            <td class="right">4.0%</td>
+            <td class="right">$600.00</td>
+        </tr><tr>
+            <td>May 31, 2026</td>
+            <td>May 2026</td>
+            <td class="right">9.0%</td>
+            <td class="right">$1,350.00</td>
+            <td class="right">13.0%</td>
+            <td class="right">$1,950.00</td>
+        </tr><tr>
+            <td>Jun 30, 2026</td>
+            <td>June 2026</td>
+            <td class="right">16.0%</td>
+            <td class="right">$2,400.00</td>
+            <td class="right">29.0%</td>
+            <td class="right">$4,350.00</td>
+        </tr><tr>
+            <td>Jul 31, 2026</td>
+            <td>July 2026</td>
+            <td class="right">21.0%</td>
+            <td class="right">$3,150.00</td>
+            <td class="right">50.0%</td>
+            <td class="right">$7,500.00</td>
+        </tr><tr>
+            <td>Aug 31, 2026</td>
+            <td>August 2026</td>
+            <td class="right">21.0%</td>
+            <td class="right">$3,150.00</td>
+            <td class="right">71.0%</td>
+            <td class="right">$10,650.00</td>
+        </tr><tr>
+            <td>Sep 30, 2026</td>
+            <td>September 2026</td>
+            <td class="right">16.0%</td>
+            <td class="right">$2,400.00</td>
+            <td class="right">87.0%</td>
+            <td class="right">$13,050.00</td>
+        </tr><tr>
+            <td>Oct 31, 2026</td>
+            <td>October 2026</td>
+            <td class="right">9.0%</td>
+            <td class="right">$1,350.00</td>
+            <td class="right">96.0%</td>
+            <td class="right">$14,400.00</td>
+        </tr><tr>
+            <td>Nov 30, 2026</td>
+            <td>November 2026</td>
+            <td class="right">4.0%</td>
+            <td class="right">$600.00</td>
+            <td class="right">100.0%</td>
+            <td class="right">$15,000.00</td>
+        </tr></tbody>
+    </table>
+    <div class="more-rows"></div>
+</div>
+        <div id="po_sched_grid_container">
+<div class="bccf-grid-wrapper">
+    <table class="bccf-grid" id="po_sched_grid">
+        <thead><tr><th class="center" style="width:40px;">#</th><th>Period Date</th><th>Label</th><th class="right">Percentage</th><th class="right">Amount</th><th class="right">Total %</th><th class="right">Total Amount</th><th class="center" style="width:50px;"></th></tr></thead>
+        <tbody id="po_sched_tbody"><tr><td colspan="8" style="padding:32px 16px;text-align:center;color:var(--bccf-ink-500);font-size:var(--bccf-text-sm);">
+            <div style="font-weight:600;color:var(--bccf-ink-700);margin-bottom:4px;">No schedule lines yet</div>
+            <div>Configure the calculator above and click <strong>Generate</strong>, or use <strong>Add Line</strong> below.</div>
+        </td></tr></tbody>
+        <tfoot><tr><td colspan="1"></td><td colspan="2" style="text-align:right;">Total</td><td class="right">0.0%</td><td class="right">$0.00</td><td colspan="3" class="right"><span class="bccf-badge warn">&#9888; 0.0% allocated</span></td></tr></tfoot>
+    </table>
+</div>
+<button type="button" class="bccf-add-row-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Line
+</button></div>
+    </div>
+
+    <!-- Save Bar -->
+    
+<div class="bccf-save-bar" id="po_sched_save_bar">
+    <div class="bccf-save-status saved">
+        <span class="dot"></span>
+        <span class="bccf-save-status-text">Ready</span>
+    </div>
+    <div class="bccf-save-actions">
+        <button type="button" class="bccf-btn">Discard changes</button>
+        <button type="button" class="bccf-btn bccf-btn-rebalance" id="po_sched_rebalance"
+                style="display:none;">Rebalance</button>
+        <button type="button" class="bccf-btn bccf-btn-pri">Save schedule</button>
+    </div>
+</div>
+
+</div>
+<div id="bccf-toast-host"></div></div>
+    <div id="state-generated" data-state="generated" hidden>
+<div class="bccf-container" id="po_sched_root">
+
+    <!-- Header (mirrors the deployed Schedule subtab banner) -->
+    <div class="bccf-header">
+        <div class="bccf-header-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Purchase Order PO16241 &mdash; Schedule
+        </div>
+        <div class="bccf-header-meta">
+            <span><strong>Vendor:</strong> Phoenix Mechanical Supply</span>
+            <span><strong>Project:</strong> PROJ0142 Lockhart Substation Retrofit</span>
+            <span><strong>Amount:</strong> $15,000.00</span>
+        </div>
+    </div>
+
+    <!-- Tab nav (Cash Flow only for POs in this mock) -->
+    <div class="bccf-tabs">
+        <a class="active cashflow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Cash Flow</a>
+    </div>
+
+    <!-- Section -->
+    <div class="bccf-section active" data-section-id="po_sched">
+        <div class="bccf-section-title">
+            Cash Flow Schedule
+            <span class="bccf-badge neutral">Cash Flow</span>
+            <span class="bccf-badge success">8 lines</span>
+        </div>
+        
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
+    <div class="bccf-kpi">
+        <div class="bccf-k">Cash Flow Schedule Total</div>
+        <div class="bccf-v">$15,000.00</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Scheduled</div>
+        <div class="bccf-v accent">$15,000.00</div>
+        <div class="bccf-sub">100.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Remaining</div>
+        <div class="bccf-v">$0.00</div>
+        <div class="bccf-sub">0.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Completion</div>
+        <div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;">
+            <div style="height:100%;width:100%;background:var(--bccf-success-500);border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div>
+        </div>
+        <div class="bccf-sub" style="margin-top:4px;">100.0%</div>
+    </div>
+</div>
+        
+<div class="bccf-toolbar" id="po_sched_calc_toolbar">
+    <div class="bccf-field">
+        <label for="po_sched_calc_dist">Distribution</label>
+        <select id="po_sched_calc_dist">
+            <option value="s_curve" selected>S-curve</option>
+            <option value="linear">Linear</option>
+            <option value="front_loaded">Front-loaded</option>
+            <option value="back_loaded">Back-loaded</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_periods">Periods</label>
+        <input type="number" id="po_sched_calc_periods" value="8" min="1" max="36">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_interval">Interval</label>
+        <select id="po_sched_calc_interval">
+            <option value="monthly" selected>Monthly</option>
+            <option value="bi_weekly">Bi-weekly</option>
+            <option value="weekly">Weekly</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Start date</label>
+        <input type="date" id="po_sched_calc_start" value="2026-04-01">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_end">End date</label>
+        <input type="date" id="po_sched_calc_end" readonly tabindex="-1" value="2026-11-30">
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:2px;">
+        <button type="button" class="bccf-btn bccf-btn-pri" id="po_sched_calc_generate">
+            Generate
+        </button>
+        <button type="button" class="bccf-btn" id="po_sched_calc_clear">
+            Clear all
+        </button>
+    </div>
+</div>
+        <div class="bccf-calc-preview" id="po_sched_calc_preview"></div>
+        <div id="po_sched_grid_container">
+<div class="bccf-grid-wrapper">
+    <table class="bccf-grid" id="po_sched_grid">
+        <thead><tr><th class="center" style="width:40px;">#</th><th>Period Date</th><th>Label</th><th class="right">Percentage</th><th class="right">Amount</th><th class="right">Total %</th><th class="right">Total Amount</th><th class="center" style="width:50px;"></th></tr></thead>
+        <tbody id="po_sched_tbody"><tr data-index="0">
+            <td class="center rownum">1</td>
+            <td><input type="date" value="2026-04-30"></td>
+            <td><input type="text" value="April 2026"></td>
+            <td class="right"><input type="number" value="4.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$600.00" style="text-align:right;"></td>
+            <td class="right cum">4.0%</td>
+            <td class="right cum">$600.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="1">
+            <td class="center rownum">2</td>
+            <td><input type="date" value="2026-05-31"></td>
+            <td><input type="text" value="May 2026"></td>
+            <td class="right"><input type="number" value="9.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$1,350.00" style="text-align:right;"></td>
+            <td class="right cum">13.0%</td>
+            <td class="right cum">$1,950.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="2">
+            <td class="center rownum">3</td>
+            <td><input type="date" value="2026-06-30"></td>
+            <td><input type="text" value="June 2026"></td>
+            <td class="right"><input type="number" value="16.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$2,400.00" style="text-align:right;"></td>
+            <td class="right cum">29.0%</td>
+            <td class="right cum">$4,350.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="3">
+            <td class="center rownum">4</td>
+            <td><input type="date" value="2026-07-31"></td>
+            <td><input type="text" value="July 2026"></td>
+            <td class="right"><input type="number" value="21.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$3,150.00" style="text-align:right;"></td>
+            <td class="right cum">50.0%</td>
+            <td class="right cum">$7,500.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="4">
+            <td class="center rownum">5</td>
+            <td><input type="date" value="2026-08-31"></td>
+            <td><input type="text" value="August 2026"></td>
+            <td class="right"><input type="number" value="21.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$3,150.00" style="text-align:right;"></td>
+            <td class="right cum">71.0%</td>
+            <td class="right cum">$10,650.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="5">
+            <td class="center rownum">6</td>
+            <td><input type="date" value="2026-09-30"></td>
+            <td><input type="text" value="September 2026"></td>
+            <td class="right"><input type="number" value="16.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$2,400.00" style="text-align:right;"></td>
+            <td class="right cum">87.0%</td>
+            <td class="right cum">$13,050.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="6">
+            <td class="center rownum">7</td>
+            <td><input type="date" value="2026-10-31"></td>
+            <td><input type="text" value="October 2026"></td>
+            <td class="right"><input type="number" value="9.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$1,350.00" style="text-align:right;"></td>
+            <td class="right cum">96.0%</td>
+            <td class="right cum">$14,400.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="7">
+            <td class="center rownum">8</td>
+            <td><input type="date" value="2026-11-30"></td>
+            <td><input type="text" value="November 2026"></td>
+            <td class="right"><input type="number" value="4.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$600.00" style="text-align:right;"></td>
+            <td class="right cum">100.0%</td>
+            <td class="right cum">$15,000.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr></tbody>
+        <tfoot><tr><td colspan="1"></td><td colspan="2" style="text-align:right;">Total</td><td class="right">100.0%</td><td class="right">$15,000.00</td><td colspan="3" class="right"><span class="bccf-badge success">&#10003; Balanced</span></td></tr></tfoot>
+    </table>
+</div>
+<button type="button" class="bccf-add-row-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Line
+</button></div>
+    </div>
+
+    <!-- Save Bar -->
+    
+<div class="bccf-save-bar" id="po_sched_save_bar">
+    <div class="bccf-save-status saved">
+        <span class="dot"></span>
+        <span class="bccf-save-status-text">Ready</span>
+    </div>
+    <div class="bccf-save-actions">
+        <button type="button" class="bccf-btn">Discard changes</button>
+        <button type="button" class="bccf-btn bccf-btn-rebalance" id="po_sched_rebalance"
+                style="display:none;">Rebalance</button>
+        <button type="button" class="bccf-btn bccf-btn-pri">Save schedule</button>
+    </div>
+</div>
+
+</div>
+<div id="bccf-toast-host"></div></div>
+    <div id="state-dirty" data-state="dirty" hidden>
+<div class="bccf-container" id="po_sched_root">
+
+    <!-- Header (mirrors the deployed Schedule subtab banner) -->
+    <div class="bccf-header">
+        <div class="bccf-header-title">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Purchase Order PO16241 &mdash; Schedule
+        </div>
+        <div class="bccf-header-meta">
+            <span><strong>Vendor:</strong> Phoenix Mechanical Supply</span>
+            <span><strong>Project:</strong> PROJ0142 Lockhart Substation Retrofit</span>
+            <span><strong>Amount:</strong> $15,000.00</span>
+        </div>
+    </div>
+
+    <!-- Tab nav (Cash Flow only for POs in this mock) -->
+    <div class="bccf-tabs">
+        <a class="active cashflow"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Cash Flow</a>
+    </div>
+
+    <!-- Section -->
+    <div class="bccf-section active" data-section-id="po_sched">
+        <div class="bccf-section-title">
+            Cash Flow Schedule
+            <span class="bccf-badge neutral">Cash Flow</span>
+            <span class="bccf-badge success">8 lines</span>
+        </div>
+        
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 18px;background:var(--bccf-bg-50);border-bottom:1px solid var(--bccf-border);">
+    <div class="bccf-kpi">
+        <div class="bccf-k">Cash Flow Schedule Total</div>
+        <div class="bccf-v">$15,000.00</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Scheduled</div>
+        <div class="bccf-v accent">$15,600.00</div>
+        <div class="bccf-sub">104.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Remaining</div>
+        <div class="bccf-v">$-600.00</div>
+        <div class="bccf-sub">-4.0%</div>
+    </div>
+    <div class="bccf-kpi">
+        <div class="bccf-k">Completion</div>
+        <div style="margin-top:6px;background:var(--bccf-bg-100);border-radius:var(--bccf-r-full);height:8px;overflow:hidden;">
+            <div style="height:100%;width:100%;background:var(--bccf-success-500);border-radius:var(--bccf-r-full);transition:width 0.5s ease;"></div>
+        </div>
+        <div class="bccf-sub" style="margin-top:4px;">104.0%</div>
+    </div>
+</div>
+        
+<div class="bccf-toolbar" id="po_sched_calc_toolbar">
+    <div class="bccf-field">
+        <label for="po_sched_calc_dist">Distribution</label>
+        <select id="po_sched_calc_dist">
+            <option value="s_curve" selected>S-curve</option>
+            <option value="linear">Linear</option>
+            <option value="front_loaded">Front-loaded</option>
+            <option value="back_loaded">Back-loaded</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_periods">Periods</label>
+        <input type="number" id="po_sched_calc_periods" value="8" min="1" max="36">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_interval">Interval</label>
+        <select id="po_sched_calc_interval">
+            <option value="monthly" selected>Monthly</option>
+            <option value="bi_weekly">Bi-weekly</option>
+            <option value="weekly">Weekly</option>
+        </select>
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_start"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Start date</label>
+        <input type="date" id="po_sched_calc_start" value="2026-04-01">
+    </div>
+    <div class="bccf-field">
+        <label for="po_sched_calc_end">End date</label>
+        <input type="date" id="po_sched_calc_end" readonly tabindex="-1" value="2026-11-30">
+    </div>
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:2px;">
+        <button type="button" class="bccf-btn bccf-btn-pri" id="po_sched_calc_generate">
+            Generate
+        </button>
+        <button type="button" class="bccf-btn" id="po_sched_calc_clear">
+            Clear all
+        </button>
+    </div>
+</div>
+        <div class="bccf-calc-preview" id="po_sched_calc_preview"></div>
+        <div id="po_sched_grid_container">
+<div class="bccf-grid-wrapper">
+    <table class="bccf-grid" id="po_sched_grid">
+        <thead><tr><th class="center" style="width:40px;">#</th><th>Period Date</th><th>Label</th><th class="right">Percentage</th><th class="right">Amount</th><th class="right">Total %</th><th class="right">Total Amount</th><th class="center" style="width:50px;"></th></tr></thead>
+        <tbody id="po_sched_tbody"><tr data-index="0">
+            <td class="center rownum">1</td>
+            <td><input type="date" value="2026-04-30"></td>
+            <td><input type="text" value="April 2026"></td>
+            <td class="right"><input type="number" value="4.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$600.00" style="text-align:right;"></td>
+            <td class="right cum">4.0%</td>
+            <td class="right cum">$600.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="1">
+            <td class="center rownum">2</td>
+            <td><input type="date" value="2026-05-31"></td>
+            <td><input type="text" value="May 2026"></td>
+            <td class="right"><input type="number" value="9.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$1,350.00" style="text-align:right;"></td>
+            <td class="right cum">13.0%</td>
+            <td class="right cum">$1,950.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="2" style="background:#fdf4e3;">
+            <td class="center rownum">3</td>
+            <td><input type="date" value="2026-06-30"></td>
+            <td><input type="text" value="June 2026"></td>
+            <td class="right"><input type="number" value="20.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$3,000.00" style="text-align:right;"></td>
+            <td class="right cum">33.0%</td>
+            <td class="right cum">$4,950.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="3">
+            <td class="center rownum">4</td>
+            <td><input type="date" value="2026-07-31"></td>
+            <td><input type="text" value="July 2026"></td>
+            <td class="right"><input type="number" value="21.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$3,150.00" style="text-align:right;"></td>
+            <td class="right cum">54.0%</td>
+            <td class="right cum">$8,100.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="4">
+            <td class="center rownum">5</td>
+            <td><input type="date" value="2026-08-31"></td>
+            <td><input type="text" value="August 2026"></td>
+            <td class="right"><input type="number" value="21.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$3,150.00" style="text-align:right;"></td>
+            <td class="right cum">75.0%</td>
+            <td class="right cum">$11,250.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="5">
+            <td class="center rownum">6</td>
+            <td><input type="date" value="2026-09-30"></td>
+            <td><input type="text" value="September 2026"></td>
+            <td class="right"><input type="number" value="16.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$2,400.00" style="text-align:right;"></td>
+            <td class="right cum">91.0%</td>
+            <td class="right cum">$13,650.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="6">
+            <td class="center rownum">7</td>
+            <td><input type="date" value="2026-10-31"></td>
+            <td><input type="text" value="October 2026"></td>
+            <td class="right"><input type="number" value="9.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$1,350.00" style="text-align:right;"></td>
+            <td class="right cum">100.0%</td>
+            <td class="right cum">$15,000.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr><tr data-index="7">
+            <td class="center rownum">8</td>
+            <td><input type="date" value="2026-11-30"></td>
+            <td><input type="text" value="November 2026"></td>
+            <td class="right"><input type="number" value="4.00" step="0.01" min="0" max="100"></td>
+            <td class="right"><input type="text" value="$600.00" style="text-align:right;"></td>
+            <td class="right cum">104.0%</td>
+            <td class="right cum">$15,600.00</td>
+            <td class="center">
+                <button type="button" class="bccf-btn bccf-btn-danger-ghost" title="Remove line"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            </td>
+        </tr></tbody>
+        <tfoot><tr><td colspan="1"></td><td colspan="2" style="text-align:right;">Total</td><td class="right">104.0%</td><td class="right">$15,600.00</td><td colspan="3" class="right"><span class="bccf-badge warn">&#9888; 104.0% allocated</span></td></tr></tfoot>
+    </table>
+</div>
+<button type="button" class="bccf-add-row-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Line
+</button></div>
+    </div>
+
+    <!-- Save Bar -->
+    
+<div class="bccf-save-bar" id="po_sched_save_bar">
+    <div class="bccf-save-status dirty-warn">
+        <span class="dot"></span>
+        <span class="bccf-save-status-text">Unsaved changes · 104% allocated</span>
+    </div>
+    <div class="bccf-save-actions">
+        <button type="button" class="bccf-btn">Discard changes</button>
+        <button type="button" class="bccf-btn bccf-btn-rebalance" id="po_sched_rebalance"
+                style="display:inline-flex;">Rebalance</button>
+        <button type="button" class="bccf-btn bccf-btn-pri">Save schedule</button>
+    </div>
+</div>
+
+</div>
+<div id="bccf-toast-host"></div></div>
+
+<script>
+(function () {
+    var q = new URLSearchParams(location.search);
+    var state = q.get('state') || 'empty';
+    var states = ['empty', 'configured', 'generated', 'dirty'];
+    if (states.indexOf(state) === -1) state = 'empty';
+
+    states.forEach(function (s) {
+        var el = document.getElementById('state-' + s);
+        if (el) el.hidden = (s !== state);
+    });
+
+    // Highlight active tab in state switcher
+    var switcher = document.getElementById('state-switcher');
+    if (switcher) {
+        switcher.querySelectorAll('a').forEach(function (a) {
+            var href = a.getAttribute('href');
+            if (href && href.indexOf('state=' + state) !== -1) {
+                a.classList.add('active');
+            }
+        });
+    }
+})();
+</script>
+</body>
+</html>

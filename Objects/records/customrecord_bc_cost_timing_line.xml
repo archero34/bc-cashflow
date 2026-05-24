@@ -150,7 +150,7 @@
       <searchlevel>2</searchlevel>
     </customrecordcustomfield>
     <customrecordcustomfield scriptid="custrecord_bc_ctl_cost_code">
-      <label>Cost Code</label>
+      <label>Related Cost Code</label>
       <fieldtype>INTEGER</fieldtype>
       <displaytype>NORMAL</displaytype>
       <ismandatory>F</ismandatory>

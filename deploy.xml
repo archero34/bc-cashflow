@@ -4,10 +4,11 @@
   </files>
   <objects>
     <path>~/Objects/lists/*</path>
-    <!-- Records excluded from deploy — fields manually configured as List/Record
-         in NS UI to reference BC SuiteApp records (project, cost code, change order).
-         SDF would overwrite those back to INTEGER. Only re-add if creating fresh. -->
-    <!-- <path>~/Objects/records/*</path> -->
+    <!-- Records ARE included for fresh sandbox deploys. Some fields ship as
+         INTEGER and must be manually retyped to List/Record (project, cost
+         code, change order, source template) post-deploy. Full fix-up
+         checklist: docs/post-deploy-fixes.md -->
+    <path>~/Objects/records/*</path>
     <path>~/Objects/fields/*</path>
     <path>~/Objects/scripts/*</path>
   </objects>

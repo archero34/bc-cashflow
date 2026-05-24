@@ -6,6 +6,7 @@
       <feature required="true">CUSTOMRECORDS</feature>
       <feature required="true">SERVERSIDESCRIPTING</feature>
       <feature required="true">CUSTOMSEGMENTS</feature>
+      <feature required="true">ACCOUNTING</feature>
     </features>
     <!-- BC SuiteApp records are bundle-installed, not SDF-manageable.
          They exist at runtime but cannot be declared as SDF dependencies.

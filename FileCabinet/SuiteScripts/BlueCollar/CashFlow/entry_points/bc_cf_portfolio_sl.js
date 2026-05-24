@@ -455,19 +455,34 @@ define([
     // ── Render Table — one row per project ───────────────────────────────────
 
     function renderTable(periods, projects) {
-        if (!projects || !projects.length) {
+        // E1.5-style sortable thead: each <th> carries data-sort-col + ▼/▲ on active.
+        // Fixed sort keys for static columns: data-sort-col="project" data-sort-col="total"
+        function headerCell(labelText, sortKey, align) {
+            var isActive = _sortState.col === sortKey;
+            var glyph = _sortState.dir === 'desc' ? '▼' : '▲';
+            var indicator = isActive
+                ? '<span style="margin-left:4px;color:var(--bccf-brand-500)">' + glyph + '</span>'
+                : '';
+            var alignStyle = align === 'left' ? 'text-align:left' : 'text-align:right';
+            return '<th data-sort-col="' + esc(sortKey) + '" style="padding:8px 12px;font-size:12px;color:var(--bccf-ink-500);white-space:nowrap;cursor:pointer;user-select:none;' + alignStyle + '">'
+                + esc(labelText) + indicator
+                + '</th>';
+        }
+
+        // Sort projects by current sort state (never mutates input).
+        var sorted = sortLines(projects, periods, _sortState);
+
+        if (!sorted || !sorted.length) {
             return '<div class="bccf-panel">'
                 + '<div class="bccf-panel-body" style="padding:24px;text-align:center;color:var(--bccf-ink-500)">No projects match these filters.</div>'
             + '</div>';
         }
 
-        var headCols = periods.map(function(p) {
-            return '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500);white-space:nowrap">' + esc(p) + '</th>';
-        }).join('');
+        var headCols = periods.map(function(p) { return headerCell(p, p, 'right'); }).join('');
         var thead = '<thead><tr>'
-            + '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--bccf-ink-500)">Project</th>'
+            + headerCell('Project', 'project', 'left')
             + headCols
-            + '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500)">Total</th>'
+            + headerCell('Total', 'total', 'right')
         + '</tr></thead>';
 
         function projectRow(proj) {
@@ -487,15 +502,15 @@ define([
             + '</tr>';
         }
 
-        var rows = projects.map(projectRow).join('');
+        var rows = sorted.map(projectRow).join('');
 
         // Portfolio Net tfoot row
         var portfolioNetCells = periods.map(function(_, i) {
-            var net = projects.reduce(function(s, p) { return s + (p.net[i] || 0); }, 0);
+            var net = sorted.reduce(function(s, p) { return s + (p.net[i] || 0); }, 0);
             var color = net >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
             return '<td style="padding:8px 12px;text-align:right;font-size:var(--bccf-text-sm);font-weight:600;color:' + color + ';border-top:2px solid var(--bccf-border);font-variant-numeric:tabular-nums">' + esc(fmtCurrency(net)) + '</td>';
         }).join('');
-        var grandNet = projects.reduce(function(s, p) { return s + p.netTotal; }, 0);
+        var grandNet = sorted.reduce(function(s, p) { return s + p.netTotal; }, 0);
         var grandColor = grandNet >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
         var tfoot = '<tfoot><tr>'
             + '<td style="padding:8px 12px;font-size:var(--bccf-text-sm);font-weight:700;color:var(--bccf-ink-900);border-top:2px solid var(--bccf-border)">Portfolio Net</td>'
@@ -535,6 +550,72 @@ define([
                 if (kpiEl) kpiEl.innerHTML = '<div class="bccf-error-card" style="grid-column:1/-1"><h4>Couldn\\u2019t load portfolio</h4><pre>' + esc(msg) + '</pre><button type="button" class="bccf-btn" data-action="retry">Retry</button></div>';
             });
     }
+
+    // ── Sortable headers (port of E1.5 spec §3.3, adapted for project rows) ──
+
+    var _sortState = { col: 'project', dir: 'desc' };
+
+    /**
+     * Sort projects array by sortState. Never mutates input.
+     * - col='project' → compare createdDate (newest first by default)
+     * - col='total'   → compare netTotal
+     * - col=<period>  → compare net[periodIdx]
+     * - null createdDate sorts to end on project column
+     */
+    function sortLines(projects, periods, sortState) {
+        if (!projects || !projects.length) return projects;
+        var sorted = projects.slice();
+        var dir = sortState.dir === 'asc' ? 1 : -1;
+
+        sorted.sort(function(a, b) {
+            var va, vb;
+            if (sortState.col === 'project') {
+                va = a.createdDate;
+                vb = b.createdDate;
+                if (va === null && vb === null) return 0;
+                if (va === null) return 1;
+                if (vb === null) return -1;
+                return va < vb ? -dir : (va > vb ? dir : 0);
+            }
+            if (sortState.col === 'total') {
+                va = a.netTotal || 0;
+                vb = b.netTotal || 0;
+            } else {
+                var idx = periods.indexOf(sortState.col);
+                if (idx === -1) return 0;
+                va = (a.net && a.net[idx]) || 0;
+                vb = (b.net && b.net[idx]) || 0;
+            }
+            return va < vb ? -dir : (va > vb ? dir : 0);
+        });
+
+        return sorted;
+    }
+
+    // Click handler — 2-state on Project, 3-state on Period/Total.
+    document.addEventListener('click', function(e) {
+        var th = e.target.closest('[data-sort-col]');
+        if (!th) return;
+        var col = th.dataset.sortCol;
+        var was = _sortState;
+        if (col === 'project') {
+            _sortState = (was.col === 'project' && was.dir === 'desc')
+                ? { col: 'project', dir: 'asc' }
+                : { col: 'project', dir: 'desc' };
+        } else {
+            if (was.col !== col) {
+                _sortState = { col: col, dir: 'desc' };
+            } else if (was.dir === 'desc') {
+                _sortState = { col: col, dir: 'asc' };
+            } else {
+                _sortState = { col: 'project', dir: 'desc' };
+            }
+        }
+        if (_lastData) {
+            var tableEl = document.getElementById('bccf-table');
+            if (tableEl) tableEl.innerHTML = renderTable(_lastData.periods, _lastData.projects);
+        }
+    });
 
     // ── Mode toggle (Cash/Accrual) — same pattern as report SLs ──────────────
     function swapModeUrl(currentUrl, newMode) {

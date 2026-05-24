@@ -119,6 +119,20 @@ describe('bc_cf_portfolio_sl — shell structure', () => {
             expect(body).toMatch(/customrecord_cseg_bc_project/);
             expect(body).toMatch(/target="_top"/);
         });
+
+        it('declares _sortState defaulting to project desc', () => {
+            expect(body).toMatch(/var\s+_sortState\s*=\s*\{\s*col:\s*['"]project['"]\s*,\s*dir:\s*['"]desc['"]\s*\}/);
+        });
+        it('declares sortLines function', () => {
+            expect(body).toMatch(/function sortLines\(projects,\s*periods,\s*sortState\)/);
+        });
+        it('emits data-sort-col on Project and Total headers', () => {
+            expect(body).toMatch(/data-sort-col="project"/);
+            expect(body).toMatch(/data-sort-col="total"/);
+        });
+        it('wires sort click handler for [data-sort-col]', () => {
+            expect(body).toMatch(/closest\(['"]\[data-sort-col\]['"]\)/);
+        });
     });
 
     describe('with active=0 + projects=1807,2104', () => {

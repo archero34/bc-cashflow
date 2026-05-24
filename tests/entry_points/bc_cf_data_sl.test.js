@@ -436,3 +436,32 @@ describe('bc_cf_data_sl portfolio option-list SQL constants (E2)', () => {
         expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toMatch(/subsidiary/i);
     });
 });
+
+describe('bc_cf_data_sl portfolio action (_loadPortfolio) — first-pass shape (E2)', () => {
+    it('exports _loadPortfolio on api', () => {
+        expect(typeof Suitelet._loadPortfolio).toBe('function');
+    });
+
+    it('returns projects + kpis envelope via dispatch (mocked loader)', () => {
+        jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            projects: [
+                {
+                    id: 1807, name: 'Bolder Construction', createdDate: '2026-03-15',
+                    revenue: [7500, 4500], cost: [500, 5526], net: [7000, -1026],
+                    revenueTotal: 12000, costTotal: 6026, netTotal: 5974
+                }
+            ],
+            kpis: { totalRevenue: 12000, totalCost: 6026, netCashFlow: 5974, margin: 49.8 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-05' }
+        });
+        const req = { method: 'GET', parameters: { action: 'portfolio' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(true);
+        expect(Array.isArray(body.projects)).toBe(true);
+        expect(body.projects[0].id).toBe(1807);
+        expect(body.kpis.netCashFlow).toBe(5974);
+    });
+});

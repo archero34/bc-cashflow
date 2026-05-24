@@ -49,7 +49,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             END AS source_type,
             CASE
                 WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL
-                    THEN TO_CHAR(MIN(cr.created), 'YYYY-MM-DD')
+                    THEN TO_CHAR(MIN(cr.custrecord_bc_cor_date), 'YYYY-MM-DD')
                 WHEN MIN(ctl.custrecord_bc_ctl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
                 ELSE NULL
@@ -95,7 +95,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             END AS source_type,
             CASE
                 WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL
-                    THEN TO_CHAR(MIN(cr.created), 'YYYY-MM-DD')
+                    THEN TO_CHAR(MIN(cr.custrecord_bc_cor_date), 'YYYY-MM-DD')
                 WHEN MIN(rtl.custrecord_bc_rtl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
                 ELSE NULL
@@ -140,7 +140,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             END AS source_type,
             CASE
                 WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL
-                    THEN TO_CHAR(MIN(cr.created), 'YYYY-MM-DD')
+                    THEN TO_CHAR(MIN(cr.custrecord_bc_cor_date), 'YYYY-MM-DD')
                 WHEN MIN(rtl.custrecord_bc_rtl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t_rev.createddate), 'YYYY-MM-DD')
                 ELSE NULL
@@ -182,7 +182,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             END AS source_type,
             CASE
                 WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL
-                    THEN TO_CHAR(MIN(cr2.created), 'YYYY-MM-DD')
+                    THEN TO_CHAR(MIN(cr2.custrecord_bc_cor_date), 'YYYY-MM-DD')
                 WHEN MIN(ctl.custrecord_bc_ctl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
                 ELSE NULL

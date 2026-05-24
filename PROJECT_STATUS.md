@@ -1,46 +1,42 @@
 # BC Cash Flow Forecasting — Project Status
 
-## Current Phase: v1.5 E2 (Portfolio Suitelet) — Phases 1–4 shipped, resume at Phase 5 (client behavior)
+## Current Phase: v1.5 E2 (Portfolio Suitelet) — implementation complete; PR + NS menu entry remain
 
 **Date**: 2026-05-24
 **Account**: TD2984799 — BlueCollar Demo Trailing (dev)
 **Repo**: https://github.com/archero34/bc-cashflow
 **Demo Project**: Data Airflow - Cash Flow Demo (ID: 1807)
-**Active branch**: `feature/v1.5-e2-portfolio` (12 of 17 tasks complete, latest commit `0157d03`)
+**Active branch**: `feature/v1.5-e2-portfolio` (all 16 implementation tasks done + 2 smoke-test fix commits, latest commit `8a1401a`)
 **`main` status**: carries v1 redesign + v1.5 E1 (date range filter) + v1.5 E1.5 (table densification). E2 NOT merged yet.
-**Tests**: 298 / 10 suites passing.
+**Tests**: 315 / 10 suites passing.
 
 ---
 
-## Resume here for next session
+## Wrap-up for next session
 
-E2 implementation is paused mid-Phase-5. Pick up at **Task 13** in the plan.
+E2 is functionally complete end-to-end and deployed to TD2984799. Three loose ends:
 
-1. **Check out the branch + sync**:
-   ```bash
-   git checkout feature/v1.5-e2-portfolio
-   git pull
-   npm test    # should show 298 / 10 suites green
-   ```
+1. **Open PR `feature/v1.5-e2-portfolio` → `main`** (pushed; PR ready to create).
 
-2. **Read the plan**: `docs/superpowers/plans/2026-05-24-cashflow-portfolio-suitelet.md` (commit `d3efb62`). Tasks 1–12 are done; resume at **Task 13** (CLIENT_SCRIPT fetch + render KPIs / chart / table).
+2. **Configure the NS menu entry** in the UI (manual — SDF doesn't manage menu placement):
+   Customization → Scripts → Script Deployments → `customdeploy_bc_cf_portfolio_sl` → set Audience / Links / Center: **Reports → BlueCollar → "Portfolio Cash Flow"**.
 
-3. **Critical design pivot to remember** — the plan was written with a 4-state status enum (`active|hold|closed|all`). During Task 2's NS-UI lookup we discovered the BC SuiteApp's `custrecord_bc_proj_status` tracks workflow stages (WO Approval / Survey / Manufacturing / etc.), not lifecycle states. **We pivoted to a single `active` boolean filter** backed by the built-in `isinactive` column:
-   - `filters.active` (boolean) default `true` → SQL filters to `isinactive = 'F'`
-   - URL param `?active=0` or `?active=false` disables (shows all projects)
-   - The plan's Tasks 14, 15, 16 use `_sortState`, click handlers, and chip flows — these are unchanged
-   - Plan tasks 15 + 16 still mention "status" in places; adapt to "active" as you go (same way Tasks 5, 7, 8, 10, 11, 12 were adapted)
-   - The `BC_PROJECT` constants block in `bc_cf_data_sl.js` already documents this pivot in its header comment
+3. **Optional deferred follow-ups** (not blocking E2 merge):
+   - **Seed more timing-line data** — only 3 BC projects have timing rows today (Data Airflow, Phoenix Datacenter, Municipal Utility Extension); 65 BC projects exist. Use `/bc-project-create` skill on 6–12 more to enrich the portfolio demo. Direct `createRecord` against `customrecord_bc_revenue_timing_line` returns 400 (`custrecord_bc_rtl_source_template` (SO link) + `custrecord_bc_rtl_percentage` are required by the SuiteApp); `bc-project-create` handles the contract+budget+PO chain end-to-end.
+   - **Pagination / table limit** — at 3 rows it's a non-issue. Revisit after seeding lands 15–20 projects. Likely answer: `max-height` + vertical scroll on the table panel; sticky-thead was attempted in E1.5 and dropped.
+   - **Customer sandbox deploy** — with v1 + E1 + E1.5 merged, the customer would already get the full v1.5 feature set. Decide: deploy now (additive) or wait for E2 to merge.
 
-4. **Continue with subagent-driven-development** following the same pattern that worked for Tasks 3–12. Each remaining task dispatches a fresh subagent with full task text + pivot reminder.
+### Active-boolean pivot (still relevant for future maintainers)
 
-5. **After Task 17**: push branch + open PR + (separately) configure NS menu entry in the UI for the portfolio SL deployment (Reports center → BlueCollar → Portfolio Cash Flow).
-
-6. **Customer sandbox deploy** still pending. With v1 + E1 + E1.5 merged, the customer would already get the full v1.5 feature set. Decide: deploy now (additive) or wait for E2 to land?
+The plan was written with a 4-state status enum (`active|hold|closed|all`). During Task 2's NS-UI lookup we discovered the BC SuiteApp's `custrecord_bc_proj_status` tracks workflow stages (WO Approval / Survey / Manufacturing / etc.), not lifecycle states. **We pivoted to a single `active` boolean filter** backed by the built-in `isinactive` column:
+- `filters.active` (boolean) default `true` → SQL filters to `isinactive = 'F'`
+- URL param `?active=0` or `?active=false` disables (shows all projects)
+- Tasks 15/16 plan text still references "status segmented control"; the actual implementation uses the Active checkbox + adapted URL contract (set/delete `active=0`)
+- The `BC_PROJECT` constants block in `bc_cf_data_sl.js` documents this pivot in its header comment
 
 ---
 
-## E2 task status (12 of 17 complete)
+## E2 task status (16 of 17 complete + 2 smoke-fix commits)
 
 | # | Task | Status | Commit |
 |---|------|--------|--------|
@@ -56,18 +52,23 @@ E2 implementation is paused mid-Phase-5. Pick up at **Task 13** in the plan.
 | 10 | `.bccf-filters*` CSS primitives | ✅ | `329734d` |
 | 11 | Shell SL server-render scaffold | ✅ | `61131bd` |
 | 12 | Server-render Filters pill | ✅ | `0157d03` |
-| **13** | **Client fetch + render KPIs / chart / table** | **⏳ next** | |
-| 14 | Sort plumbing port from E1.5 | pending | |
-| 15 | Filters pill JS (open/close, chip add/remove, Apply→reload, etc.) | pending | |
-| 16 | Populate filter dropdowns from JSON + chip name resolution | pending | |
-| 17 | Final regression + cross-feature sweep + NS menu entry + PR | pending | |
+| 13 | Client fetch + render KPIs / chart / table | ✅ | `743db96` |
+| 14 | Sort plumbing port from E1.5 | ✅ | `72d38d8` |
+| 15 | Filters pill JS (open/close, chip remove, Apply→reload, etc.) | ✅ | `1ef4049` |
+| 16 | Populate filter dropdowns from JSON + chip name resolution | ✅ | `93324c5` |
+| smoke A | Picker JS port + basis chip update + tighter option-list SQL | ✅ | `2b04bec` |
+| smoke B | Server-built drill-in URL (resolveRecord) + skeleton flash on refresh | ✅ | `8a1401a` |
+| **17** | **PR + NS menu entry** | **⏳ next** | |
 
 **What's deployed to TD2984799 right now**:
-- `bc_cf_data_sl.js` — carries the new `?action=portfolio` route (Tasks 4–8)
-- `bc_cf_styles.js` — carries `.bccf-filters*` CSS (Task 10)
-- `bc_cf_portfolio_sl.js` — server-rendered HTML shell (Tasks 11–12) — page renders with all chrome but no client behavior yet (clicking the Filters pill / hitting Apply does nothing; KPIs/chart/table stay as skeletons)
+- `bc_cf_data_sl.js` — `?action=portfolio` route, tightened AVAILABLE_*_SQL (only entities tied to projects-with-timing), server-built project `recordUrl` via `N/url.resolveRecord`
+- `bc_cf_styles.js` — `.bccf-filters*` CSS
+- `bc_cf_portfolio_sl.js` — full server + client behavior: fetch, render KPIs / chart / table, 2-state Project / 3-state Period+Total sort, date picker port from Combined, Filters pill (Active checkbox + 4 dim chips), Add… dropdown populate, basis chip update on mode toggle, skeleton flash on refresh
+- `customscript_bc_cf_portfolio_sl` (suitelet) + `customdeploy_bc_cf_portfolio_sl` (script deployment) — created in TD2984799 via `npm run deploy` (2026-05-24)
 
-The Portfolio SL deployment URL exists; menu entry not yet configured (a Task 17 step).
+The Portfolio SL deployment URL exists; menu entry not yet configured (the remaining Task 17 step).
+
+**Smoke test outcome (2026-05-24)**: KPIs / chart / table / mode toggle / refresh (with skeleton flash) / date picker / Filters pill open + close + chip remove + Apply + Reset / Active checkbox / drill-in to BC project record / sort headers / hover tooltips — all working. No console errors.
 
 ---
 
@@ -264,13 +265,13 @@ npm run deploy:dryrun
 - `c856c1b` → `b83028a` — Sticky-thead attempts failed; dropped entirely + chart bars/labels split landed together.
 - `ae2d6cd` — Hovered bar z-index bump so tooltip isn't clipped by sibling bars.
 
-### E2 — Consolidated portfolio Suitelet · **PHASES 1–4 SHIPPED, paused mid-Phase-5**
+### E2 — Consolidated portfolio Suitelet · **ALL TASKS SHIPPED TO SANDBOX, PR pending**
 
 - **Brainstormed**: 2026-05-24
 - **Spec**: `docs/superpowers/specs/2026-05-24-cashflow-portfolio-suitelet-design.md` (commit `0bed155`)
 - **Plan**: `docs/superpowers/plans/2026-05-24-cashflow-portfolio-suitelet.md` (commit `d3efb62`) — 17-task TDD plan across 6 phases
-- **Branch**: `feature/v1.5-e2-portfolio` (cut from `main` 2026-05-24; **NOT** merged to main yet)
-- **Status**: 12 of 17 tasks complete. 298 tests / 10 suites green (baseline 267 → +31 new). Server-side + CSS + shell scaffold all deployed to TD2984799 sandbox; client behavior (CLIENT_SCRIPT IIFE) is empty — Tasks 13–16 fill it in.
+- **Branch**: `feature/v1.5-e2-portfolio` (cut from `main` 2026-05-24; **NOT** merged to main yet — Task 17 PR step is next)
+- **Status**: 16 of 17 tasks complete + 2 smoke-test fix commits. 315 tests / 10 suites green (baseline 267 → +48 new across E2). Fully deployed + verified on TD2984799. Remaining: PR creation + NS UI menu entry.
 
 **Locked design decisions** (full detail in spec §2, with one mid-flight pivot noted below):
 - Mount point: standalone NS menu entry (Reports center → BlueCollar → Portfolio Cash Flow). Menu placement configured post-deploy via NS UI in Task 17 (SDF doesn't manage menu entries).
@@ -284,26 +285,22 @@ npm run deploy:dryrun
 - Persistence: filters + range + mode URL-encoded; sort state lives in IIFE closure (survives mode toggle + refresh; resets on Apply).
 - Architecture: new shell SL `bc_cf_portfolio_sl` + new `?action=portfolio` route on `bc_cf_data_sl`. Reuses every E1+E1.5 piece verbatim.
 
-**What's actually built** (all on `feature/v1.5-e2-portfolio`):
+**What shipped** (all on `feature/v1.5-e2-portfolio`):
 
-- **`bc_cf_data_sl.js`** — `BC_PROJECT` field-metadata constants block at top (looked up via NS Main Demo MCP); 4 `AVAILABLE_*_SQL` option-list constants; `PORTFOLIO_SQL` (UNION ALL with 33 placeholders per leg, `(?=1 OR ...)` disable-flag filter pattern for 1 active flag + 4 multi-select dims); `PORTFOLIO_BOUNDS_SQL`, `PORTFOLIO_TOTALS_SQL`, `PORTFOLIO_CUM_BEFORE_SQL` aggregates; `_loadPortfolio(mode, range, filters)` loader (pivots rows into one entry per project sorted by createdDate DESC); `_parseFilters` validates URL params; `onRequest` routes `action=portfolio`.
+- **`bc_cf_data_sl.js`** — `BC_PROJECT` field-metadata constants; 4 `AVAILABLE_*_SQL` option-list constants (all chain through projects-with-timing-data so dropdowns surface only relevant entities); `PORTFOLIO_SQL` (UNION ALL with 33 placeholders per leg, `(?=1 OR ...)` disable-flag pattern for 1 active flag + 4 multi-select dims); `PORTFOLIO_BOUNDS_SQL`, `PORTFOLIO_TOTALS_SQL`, `PORTFOLIO_CUM_BEFORE_SQL` aggregates; `_loadPortfolio(mode, range, filters)` pivots SQL rows into per-project entries sorted by createdDate DESC, includes per-project `recordUrl` resolved via `N/url.resolveRecord`; `_parseFilters` validates URL params; `onRequest` routes `action=portfolio`.
 
 - **`bc_cf_styles.js`** — `.bccf-filters*` block (trigger pill, panel, chip pattern, action footer, `.bccf-filters-active` checkbox row). All using existing tokens.
 
-- **`bc_cf_portfolio_sl.js`** — full server-rendered HTML shell. Header (page title "Portfolio Cash Flow" + Cash basis pill + date picker + Filters pill + Cash/Accrual toggle + Refresh) + KPI skeleton + chart skeleton + table skeleton with first-col header "Project". Server-side helpers: `_resolveRangeOrDefault`, `_resolveFiltersOrDefault` (active boolean + 4 ID-CSV dims), `_countActiveFilters`, `resolveDataUrl`, `buildPicker`, `buildFiltersPicker`, `buildHeader`, the 3 skeleton builders. **`CLIENT_SCRIPT` IIFE is empty** — that's the work remaining.
+- **`bc_cf_portfolio_sl.js`** — full server + client implementation. Server: HTML shell (header with title pill / date picker / Filters pill / Cash-Accrual toggle / Refresh + KPI/chart/table region anchors). Client (CLIENT_SCRIPT IIFE): fetch + render KPIs (4 cards with portfolio-total sublines) + render chart (verbatim port of Combined's paired-bars + cumulative-net trend pattern, driven by portfolio aggregates) + render table (one row per project, sign-colored net cells, drill-in via server `recordUrl`, Portfolio Net tfoot). E1.5-style sort plumbing (2-state Project / 3-state Period+Total). Date picker JS (verbatim port from Combined). Filters pill JS (open/close, Active checkbox, chip remove, Apply→URL rebuild+reload, Reset all, live badge). `populateFiltersFromData` post-fetch (chip name resolution + `<select>` option population + change-handler chip add). Skeleton flash on refresh. Basis chip updates on mode toggle.
 
-- **SDF**: `Objects/scripts/customscript_bc_cf_portfolio_sl.xml` deployed (Script + deployment, `isonline=F`, RELEASED).
+- **SDF**: `Objects/scripts/customscript_bc_cf_portfolio_sl.xml` deployed (Script + deployment, `isonline=F`, RELEASED). Script + deployment records created in TD2984799 via `npm run deploy` 2026-05-24.
 
-**Remaining work** (Tasks 13–17 in the plan):
-- **Task 13**: CLIENT_SCRIPT fetch + `renderKpis(kpis, portfolioTotals)` + `renderChart(periods, revPer, costPer, cumBefore)` (port from Combined's chart) + `renderTable(periods, projects)` (one row per project, drill-in links). Mode toggle + Refresh handlers wired.
-- **Task 14**: Sort plumbing — `_sortState` (default `{col:'project',dir:'desc'}`), `sortLines(projects, periods, sortState)`, `headerCell` with `data-sort-col` + ▼/▲, click handler with 2-state Project / 3-state Period+Total toggle. Verbatim adaptation of E1.5's pattern (project shape instead of line shape).
-- **Task 15**: Filters pill JS — open/close (trigger + outside-click + Esc), active-checkbox toggle, chip ✕ remove, Apply (rebuild URL with all dims + reload), Reset all, live badge updates.
-- **Task 16**: `populateFiltersFromData(data)` — replace `#<id>` chip placeholders with real names from `data.availableProjects` / `availableManagers` / `availableCustomers` / `availableSubsidiaries`; populate the four `<select.bccf-filters-add>` dropdowns; change handler appends chips on select.
-- **Task 17**: Final regression sweep, NS menu entry config (manual NS UI), PROJECT_STATUS final update, push, PR.
+**Smoke-test fixes** (mid-flight, on top of Tasks 13–16):
+- `2b04bec` — picker JS port from Combined (date picker was inert on portfolio); basis chip text now updates on mode toggle; tightened `AVAILABLE_MANAGERS/CUSTOMERS/SUBSIDIARIES_SQL` to chain through projects-with-timing-data (was returning entities tied to *any* BC project).
+- `8a1401a` — server-built drill-in URL via `N/url.resolveRecord` (`custrecordentry.nl?rectype=customrecord_cseg_bc_project` returned "Invalid Record Type" because cseg-backing records need numeric rectype id, not scriptid); skeleton flash on `loadData` so refresh has visible feedback.
 
-**Reference implementations to copy from** (already in `main`):
-- `bc_cf_combined_sl.js` — closest template for Task 13's CLIENT_SCRIPT chart rendering, mode-toggle handler, `history.replaceState` URL sync.
-- Combined SL's `// ── Sortable headers (E1.5 spec §3.3) ──` block — verbatim port for Task 14 (just swap `'source'` → `'project'` in the sort-key default).
+**Remaining**:
+- **Task 17**: PR creation + manual NS UI menu entry (Reports → BlueCollar → Portfolio Cash Flow). All test/code work done.
 
 ### E3 — Existing tracked items (Phase 2, unchanged from earlier sessions)
 
@@ -335,6 +332,7 @@ npm run deploy:dryrun
 - **2026-05-23 (E1.5 implementation)**: Brainstormed + spec'd table densification (sticky chrome + chronological default sort + click-to-sort headers + hover-tooltip bars). 17-task plan (`docs/superpowers/plans/2026-05-23-cashflow-table-densification.md`). Executed via subagent-driven development. 3 mid-flight hotfixes for SQL aggregation, change-req date field, sticky-thead unreliability. 267 tests / 9 suites green. Deployed to TD2984799. E1.5 PR merged to `main`; `feature/v1.5-enhancements` branch retired. Ready to start E2 brainstorm.
 - **2026-05-24 (E2 brainstorm + spec + plan)**: Cut `feature/v1.5-e2-portfolio` from `main`. Brainstormed the consolidated portfolio Suitelet — locked mount point (standalone menu entry), row shape (one row per project, net per period), filter dimensions, KPI scope, chart, drill-in, default sort. Spec at `docs/superpowers/specs/2026-05-24-cashflow-portfolio-suitelet-design.md` (commit `0bed155`). 17-task TDD plan at `docs/superpowers/plans/2026-05-24-cashflow-portfolio-suitelet.md` (commit `d3efb62`).
 - **2026-05-24 (E2 implementation — Phases 1–4 + half of 5)**: Executed Tasks 1–12 of 17 via subagent-driven development. Task 2's NS UI lookup (via NS Main Demo MCP) revealed the BC SuiteApp's `custrecord_bc_proj_status` tracks workflow stages, not lifecycle — **pivoted the status filter to a single `active` boolean** backed by `isinactive`. Subsequent tasks (5, 7, 8, 10, 11, 12) adapted to the pivot. Data SL portfolio action + `.bccf-filters*` CSS + shell SL server-render + Filters pill HTML all shipped and deployed. CLIENT_SCRIPT IIFE is empty — Tasks 13–16 fill it in (fetch+render, sort plumbing, filter JS, populate dropdowns). 298 tests / 10 suites green. Paused before Task 13 for a clean session handoff.
+- **2026-05-24 (E2 implementation — Tasks 13–16 + smoke fixes)**: Resumed via subagent-driven development. Tasks 13–16 (`743db96` → `93324c5`) added the full CLIENT_SCRIPT: fetch + render KPIs/chart/table, sort plumbing, Filters pill JS (open/close/Apply/Reset/chip-remove + Active checkbox), populateFiltersFromData. Task 15 adapted the URL contract for the active-boolean pivot (`?active=0` toggle instead of status enum). Full SDF deploy via `npm run deploy` created the `customscript_bc_cf_portfolio_sl` script + `customdeploy_bc_cf_portfolio_sl` deployment in TD2984799. Two smoke-fix passes (`2b04bec`, `8a1401a`) addressed: missing date-picker JS, stale basis chip on mode toggle, overly-broad option-list SQL, broken drill-in URL (cseg-backing record needs numeric rectype id; switched to server-built URL via `N/url.resolveRecord`), no visual cue on refresh (ported Combined's SKEL_KPIS/CHART/TABLE flash). 315 tests / 10 suites green. Remaining: PR + NS UI menu entry.
 
 ---
 

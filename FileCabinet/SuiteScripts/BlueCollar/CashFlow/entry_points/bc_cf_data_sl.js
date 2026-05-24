@@ -137,7 +137,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'so'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
+                    THEN TO_CHAR(MIN(cr.createddate), 'YYYY-MM-DD')
+                WHEN rtl.custrecord_bc_rtl_transaction IS NOT NULL
+                    THEN TO_CHAR(MIN(t_rev.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_revenue_timing_line rtl
         LEFT JOIN transaction t_rev ON t_rev.id = rtl.custrecord_bc_rtl_transaction
         LEFT JOIN customrecord_bc_change_req cr
@@ -172,7 +179,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'po'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
+                    THEN TO_CHAR(MIN(cr2.createddate), 'YYYY-MM-DD')
+                WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
+                    THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_cost_timing_line ctl
         LEFT JOIN transaction t
             ON t.id = ctl.custrecord_bc_ctl_transaction
@@ -192,7 +206,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                  ELSE 'Other Cost' END,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
 
-        ORDER BY flow_direction DESC, cost_group, period
+        ORDER BY flow_direction DESC, created_date DESC NULLS LAST, cost_group, period
     `;
 
     /**

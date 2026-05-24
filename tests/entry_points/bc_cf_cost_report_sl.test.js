@@ -214,9 +214,9 @@ describe('bc_cf_cost_report_sl — shell structure', () => {
             expect(body).not.toContain('bccf-bar revenue');
         });
 
-        // ── §3.8 — .now class on current-month column ─────────────────────────
-        it('client script applies .now class to current-month chart column', () => {
-            expect(body).toContain("'now'");
+        // ── §3.8 — current-month halo on chart column (E1.5: isNow replaces .now class) ──
+        it('client script identifies current-month chart column via isNow', () => {
+            expect(body).toContain('isNow');
         });
 
         // ── Mode toggle skips already-active button ───────────────────────────
@@ -329,5 +329,45 @@ describe('bc_cf_cost_report_sl — date range picker (E1)', () => {
         Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
         const body = res.getBody();
         expect(body).toMatch(/availableBounds/);
+    });
+});
+
+describe('bc_cf_cost_report_sl — sortable headers + chart refactor (E1.5)', () => {
+    let body;
+    beforeEach(() => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        body = res.getBody();
+    });
+
+    it('persists _lastData', () => {
+        expect(body).toMatch(/var\s+_lastData\b/);
+        expect(body).toMatch(/_lastData\s*=\s*data\b/);
+    });
+    it('declares _sortState defaulting to Source desc', () => {
+        expect(body).toMatch(/var\s+_sortState\s*=\s*\{\s*col:\s*['"]source['"]\s*,\s*dir:\s*['"]desc['"]\s*\}/);
+    });
+    it('declares sortLines function in CLIENT_SCRIPT', () => {
+        expect(body).toMatch(/function sortLines\(lines,\s*periods,\s*sortState\)/);
+    });
+    it('null createdDate sorts to end (sortLines logic)', () => {
+        expect(body).toMatch(/if\s*\(va\s*===\s*null\s*&&\s*vb\s*===\s*null\)/);
+        expect(body).toMatch(/if\s*\(va\s*===\s*null\)\s*return\s*1/);
+    });
+    it('emits data-sort-col on Source and Total headers', () => {
+        expect(body).toMatch(/data-sort-col="source"/);
+        expect(body).toMatch(/data-sort-col="total"/);
+    });
+    it('renderTable sorts cost lines via sortLines', () => {
+        expect(body).toMatch(/sortLines\(\s*cost\.lines\b/);
+    });
+    it('wires sort click handler for [data-sort-col]', () => {
+        expect(body).toMatch(/closest\(['"]\[data-sort-col\]['"]\)/);
+    });
+    it('chart uses data-tip on bars (not native title)', () => {
+        // The cost bar carries data-tip with the cost amount
+        expect(body).toMatch(/data-tip="\$/);
+        // No more title="Cost:" attribute on bars
+        expect(body).not.toMatch(/<div class="bccf-bar cost" title="/);
     });
 });

@@ -345,3 +345,55 @@ describe('bc_cf_data_sl YYYY-MM helpers', () => {
         expect(r.ok).toBe(true);
     });
 });
+
+describe('bc_cf_data_sl _pivotDirection', () => {
+    it('is exported on api', () => {
+        expect(typeof Suitelet._pivotDirection).toBe('function');
+    });
+    it('returns the expected shape with no rows', () => {
+        const result = Suitelet._pivotDirection([], ['2026-04', '2026-05'], null);
+        expect(result).toEqual({ lines: [], total: [0, 0], grandTotal: 0 });
+    });
+
+    it('extracts createdDate from rows into each line', () => {
+        const rows = [
+            { cost_group: 'PO 16240', period: '2026-04', amount: 1000, source_id: 16240, source_type: 'po', created_date: '2026-03-15' },
+            { cost_group: 'PO 16240', period: '2026-05', amount: 2000, source_id: 16240, source_type: 'po', created_date: '2026-03-15' },
+            { cost_group: 'PO 16241', period: '2026-04', amount:  500, source_id: 16241, source_type: 'po', created_date: '2026-04-01' }
+        ];
+        const result = Suitelet._pivotDirection(rows, ['2026-04', '2026-05'], null);
+        expect(result.lines).toHaveLength(2);
+        expect(result.lines.find((l) => l.id === 'PO 16240').createdDate).toBe('2026-03-15');
+        expect(result.lines.find((l) => l.id === 'PO 16241').createdDate).toBe('2026-04-01');
+    });
+
+    it('emits null createdDate for groups whose rows have no created_date', () => {
+        const rows = [
+            { cost_group: 'Other Cost', period: '2026-04', amount: 100, source_id: null, source_type: null, created_date: null }
+        ];
+        const result = Suitelet._pivotDirection(rows, ['2026-04'], null);
+        expect(result.lines[0].createdDate).toBeNull();
+    });
+
+    it('orders groups by createdDate DESC NULLS LAST (newest first)', () => {
+        const rows = [
+            { cost_group: 'Old PO',   period: '2026-04', amount: 100, source_id: 1, source_type: 'po', created_date: '2026-01-10' },
+            { cost_group: 'New PO',   period: '2026-04', amount: 200, source_id: 2, source_type: 'po', created_date: '2026-05-20' },
+            { cost_group: 'Null PO',  period: '2026-04', amount:  50, source_id: null, source_type: null, created_date: null },
+            { cost_group: 'Mid PO',   period: '2026-04', amount:  75, source_id: 3, source_type: 'po', created_date: '2026-03-05' }
+        ];
+        const result = Suitelet._pivotDirection(rows, ['2026-04'], null);
+        expect(result.lines.map((l) => l.id)).toEqual(['New PO', 'Mid PO', 'Old PO', 'Null PO']);
+    });
+
+    it('totals + grandTotal stay correct regardless of order change', () => {
+        const rows = [
+            { cost_group: 'A', period: '2026-04', amount: 100, source_id: 1, source_type: 'po', created_date: '2026-01-01' },
+            { cost_group: 'B', period: '2026-04', amount: 200, source_id: 2, source_type: 'po', created_date: '2026-02-01' },
+            { cost_group: 'A', period: '2026-05', amount: 300, source_id: 1, source_type: 'po', created_date: '2026-01-01' }
+        ];
+        const result = Suitelet._pivotDirection(rows, ['2026-04', '2026-05'], null);
+        expect(result.total).toEqual([300, 300]);
+        expect(result.grandTotal).toBe(600);
+    });
+});

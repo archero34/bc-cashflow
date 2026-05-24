@@ -46,7 +46,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'po'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL
+                    THEN TO_CHAR(MIN(cr.custrecord_bc_cor_date), 'YYYY-MM-DD')
+                WHEN MIN(ctl.custrecord_bc_ctl_transaction) IS NOT NULL
+                    THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_cost_timing_line ctl
         LEFT JOIN transaction t ON t.id = ctl.custrecord_bc_ctl_transaction
         LEFT JOIN entity e ON e.id = t.entity
@@ -62,7 +69,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                  THEN NVL(t.tranid, NVL(e.entitytitle, 'Vendor'))
                  ELSE 'Other Cost' END,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
-        ORDER BY cost_group, period
+        ORDER BY created_date DESC NULLS LAST, cost_group, period
     `;
 
     /**
@@ -85,7 +92,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'so'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL
+                    THEN TO_CHAR(MIN(cr.custrecord_bc_cor_date), 'YYYY-MM-DD')
+                WHEN MIN(rtl.custrecord_bc_rtl_transaction) IS NOT NULL
+                    THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_revenue_timing_line rtl
         LEFT JOIN transaction t ON t.id = rtl.custrecord_bc_rtl_transaction
         LEFT JOIN customrecord_bc_change_req cr
@@ -99,7 +113,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
                  ELSE NVL(t.tranid, 'Base Bid') END,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
-        ORDER BY cost_group, period
+        ORDER BY created_date DESC NULLS LAST, cost_group, period
     `;
 
     /**
@@ -123,7 +137,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'so'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL
+                    THEN TO_CHAR(MIN(cr.custrecord_bc_cor_date), 'YYYY-MM-DD')
+                WHEN MIN(rtl.custrecord_bc_rtl_transaction) IS NOT NULL
+                    THEN TO_CHAR(MIN(t_rev.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_revenue_timing_line rtl
         LEFT JOIN transaction t_rev ON t_rev.id = rtl.custrecord_bc_rtl_transaction
         LEFT JOIN customrecord_bc_change_req cr
@@ -158,7 +179,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'po'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL
+                    THEN TO_CHAR(MIN(cr2.custrecord_bc_cor_date), 'YYYY-MM-DD')
+                WHEN MIN(ctl.custrecord_bc_ctl_transaction) IS NOT NULL
+                    THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_cost_timing_line ctl
         LEFT JOIN transaction t
             ON t.id = ctl.custrecord_bc_ctl_transaction
@@ -178,7 +206,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                  ELSE 'Other Cost' END,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
 
-        ORDER BY flow_direction DESC, cost_group, period
+        ORDER BY flow_direction DESC, created_date DESC NULLS LAST, cost_group, period
     `;
 
     /**
@@ -359,17 +387,21 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
 
     /**
      * Pivot flat rows for one direction ('Revenue' or 'Cost') into:
-     *   lines: [{ id, label, source, amounts: [...], total }]
+     *   lines: [{ id, label, source, amounts: [...], total, createdDate }]
      *   total: [...per-period totals...]
      *   grandTotal: number
      *
      * @param {Object[]} rows - filtered rows for one flow_direction
      * @param {string[]} periods - sorted YYYY-MM strings
-     * @param {string} firstKey - group key to hoist to first position
+     * @param {string} firstKey - retained for backwards-compat; unused after E1.5. Spec §3.1.4.
      */
     const _pivotDirection = (rows, periods, firstKey) => {
+        // firstKey arg retained for backwards-compat — unused after E1.5.
+        // Group keys are now ordered by createdDate DESC NULLS LAST. Spec §3.1.4.
+
         const groups = {};
         const sourceMap = {};
+        const createdMap = {};
 
         rows.forEach((r) => {
             const g = r.cost_group;
@@ -378,9 +410,20 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             if (!sourceMap[g] && r.source_id) {
                 sourceMap[g] = { id: r.source_id, type: r.source_type };
             }
+            if (!(g in createdMap) && r.created_date != null) {
+                createdMap[g] = r.created_date;
+            }
         });
 
-        const keys = _sortedKeys(groups, firstKey);
+        // Sort group keys by createdDate DESC NULLS LAST.
+        const keys = Object.keys(groups).sort((a, b) => {
+            const da = createdMap[a];
+            const db = createdMap[b];
+            if (da == null && db == null) return a < b ? -1 : (a > b ? 1 : 0);  // stable alphabetic for both-null
+            if (da == null) return 1;   // nulls to end
+            if (db == null) return -1;
+            return da < db ? 1 : (da > db ? -1 : 0);  // descending
+        });
 
         const lines = keys.map((k) => {
             const byPeriod = groups[k];
@@ -392,7 +435,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                 label: k,
                 source: src,
                 amounts,
-                total
+                total,
+                createdDate: (k in createdMap) ? createdMap[k] : null
             };
         });
 
@@ -785,7 +829,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     // AND NetSuite's AMD runtime loads it cleanly (no `module.exports` reference needed).
     const api = {
         _loadCombined, _loadCost, _loadRevenue,
-        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange
+        _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange,
+        _pivotDirection
     };
     api.onRequest = onRequest;
     return api;

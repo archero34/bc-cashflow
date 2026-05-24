@@ -344,3 +344,81 @@ describe('bc_cf_combined_sl — date range picker (E1)', () => {
         expect(body).toMatch(/cumulativeBefore/);
     });
 });
+
+describe('bc_cf_combined_sl — sortable headers (E1.5)', () => {
+    let body;
+    beforeEach(() => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        body = res.getBody();
+    });
+
+    it('persists _lastData in CLIENT_SCRIPT for re-render', () => {
+        // Variable declared
+        expect(body).toMatch(/var\s+_lastData\b/);
+        // Assigned inside the .then resolver
+        expect(body).toMatch(/_lastData\s*=\s*data\b/);
+    });
+
+    it('declares _sortState defaulting to Source desc', () => {
+        expect(body).toMatch(/var\s+_sortState\s*=\s*\{\s*col:\s*['"]source['"]\s*,\s*dir:\s*['"]desc['"]\s*\}/);
+    });
+
+    it('declares sortLines function in CLIENT_SCRIPT', () => {
+        expect(body).toMatch(/function sortLines\(lines,\s*periods,\s*sortState\)/);
+    });
+
+    it('sortLines: null createdDate sorts to end on Source', () => {
+        // Reach into the script and exec the comparator definition + invoke it
+        // We can't easily eval the inline script, so this is a structural test —
+        // verify the null-handling branches exist in the rendered code.
+        expect(body).toMatch(/if\s*\(va\s*===\s*null\s*&&\s*vb\s*===\s*null\)/);
+        expect(body).toMatch(/if\s*\(va\s*===\s*null\)\s*return\s*1/);
+        expect(body).toMatch(/if\s*\(vb\s*===\s*null\)\s*return\s*-1/);
+    });
+
+    it('sortLines: returns a new array (never mutates input)', () => {
+        expect(body).toMatch(/lines\.slice\(\)/);
+    });
+
+    it('emits data-sort-col on every header (Source / periods / Total)', () => {
+        expect(body).toMatch(/data-sort-col="source"/);
+        expect(body).toMatch(/data-sort-col="total"/);
+        // Skeleton tables in the shell render generic <th></th>; the data-sort-col
+        // attributes appear in the renderTable function body inside CLIENT_SCRIPT.
+        expect(body).toMatch(/headerCell\s*\(\s*['"]Source['"]/);
+        expect(body).toMatch(/headerCell\s*\(\s*['"]Total['"]/);
+    });
+
+    it('headerCell renders ▼/▲ indicator when column is active', () => {
+        // Indicator markup present in renderTable's headerCell helper
+        expect(body).toMatch(/_sortState\.col\s*===\s*sortKey/);
+        // Both glyphs available (UTF-8 in the inline string literal)
+        expect(body).toMatch(/▼|\\u25bc/i);
+        expect(body).toMatch(/▲|\\u25b2/i);
+    });
+
+    it('renderTable passes sorted lines to row rendering', () => {
+        // renderTable calls sortLines on each direction's lines
+        expect(body).toMatch(/sortLines\(\s*rev\.lines\b/);
+        expect(body).toMatch(/sortLines\(\s*cost\.lines\b/);
+    });
+
+    it('wires a click listener for [data-sort-col]', () => {
+        expect(body).toMatch(/closest\(['"]\[data-sort-col\]['"]\)/);
+    });
+
+    it('Source toggles 2-state (desc ↔ asc), no reset', () => {
+        // The handler branch that handles 'source' col exclusively
+        expect(body).toMatch(/col\s*===\s*['"]source['"]/);
+    });
+
+    it('Period/Total toggles 3-state (desc → asc → reset to Source desc)', () => {
+        // The reset path returns to default
+        expect(body).toMatch(/\{\s*col:\s*['"]source['"]\s*,\s*dir:\s*['"]desc['"]\s*\}/);
+    });
+
+    it('re-renders table from _lastData on sort click', () => {
+        expect(body).toMatch(/renderTable\(_lastData\.periods,\s*_lastData\.categories\)/);
+    });
+});

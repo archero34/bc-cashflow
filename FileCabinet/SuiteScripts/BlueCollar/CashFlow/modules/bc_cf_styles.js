@@ -86,11 +86,11 @@ define([], function () {
         .bccf-tabs a.active.cashflow, .bccf-tabs a.active.brand { color: var(--bccf-brand-500); border-bottom-color: var(--bccf-brand-500); }
         .bccf-tabs a.active.accrual { color: var(--bccf-ink-700); border-bottom-color: var(--bccf-ink-500); }
 
-        /* KPI card */
-        .bccf-kpi { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 14px 16px; }
+        /* E1.5 slim KPI — reclaims sticky real estate for long forecasts */
+        .bccf-kpi { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 8px 12px; }
         .bccf-kpi .bccf-k { font-size: var(--bccf-text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-ink-500); font-weight: 500; }
-        .bccf-kpi .bccf-v { font-size: var(--bccf-text-2xl); font-weight: 600; color: var(--bccf-ink-900); letter-spacing: -0.01em; margin-top: 4px; line-height: 1; }
-        .bccf-kpi .bccf-sub { font-size: var(--bccf-text-xs); color: var(--bccf-ink-500); margin-top: 6px; }
+        .bccf-kpi .bccf-v { font-size: var(--bccf-text-xl); font-weight: 600; color: var(--bccf-ink-900); letter-spacing: -0.01em; margin-top: 2px; line-height: 1.1; }
+        .bccf-kpi .bccf-sub { font-size: var(--bccf-text-xs); color: var(--bccf-ink-500); margin-top: 3px; }
         .bccf-kpi.accent .bccf-v { color: var(--bccf-brand-500); }
 
         /* Badge */
@@ -159,6 +159,35 @@ define([], function () {
         .bccf-daterange-hint { font-size: 11px; color: var(--bccf-ink-500); }
         .bccf-daterange-actions button[disabled] { opacity: 0.4; cursor: not-allowed; }
 
+        /* Hover tooltip on bars — same pseudo-element pattern as .bccf-trend-dot.
+           Used by all 3 report charts (Combined revenue+cost bars, Cost coral bars,
+           Revenue navy bars). The bar gets data-tip="..." and the tooltip surfaces
+           above it on hover. Replaces the old amount-always-visible-above-bar UI. */
+        .bccf-bar { position: relative; }
+        /* Hovered bar floats above its siblings so the ::after tooltip isn't
+           clipped by an adjacent bar (e.g. Combined's Revenue+Cost pair). */
+        .bccf-bar[data-tip]:hover { z-index: 10; }
+        .bccf-bar[data-tip]::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bccf-ink-900);
+            color: #fff;
+            padding: 5px 9px;
+            border-radius: var(--bccf-r-md);
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            margin-bottom: 6px;
+            transition: opacity var(--bccf-t-fast);
+            z-index: 10;
+        }
+        .bccf-bar[data-tip]:hover::after { opacity: 1; }
+
         /* Trend-line dot with hover tooltip (Combined chart) */
         .bccf-trend-dot { cursor: default; }
         .bccf-trend-dot::after {
@@ -181,6 +210,28 @@ define([], function () {
             z-index: 10;
         }
         .bccf-trend-dot:hover::after { opacity: 1; }
+
+        /* E1.5 sticky layout — pins KPIs/chart/thead while tbody scrolls.
+           Header panel is intentionally NOT sticky (controls, not context). */
+        .bccf-layout #bccf-kpis {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: var(--bccf-bg-50);
+            padding-top: 4px;
+        }
+        .bccf-layout #bccf-chart {
+            position: sticky;
+            top: 78px;
+            z-index: 25;
+            background: var(--bccf-bg-50);
+        }
+        /* Sticky-thead intentionally not used: position:sticky on <th>/<thead>
+           interacts unpredictably with the .bccf-panel-body's overflow-x:auto
+           (which establishes the sticky scroll container) inside NetSuite iframes,
+           and reorders the thead row to the bottom of the table in observed cases.
+           KPIs + chart remain sticky as the primary "context stays visible" UX;
+           column headers scroll with the data. */
     `;
 
     /**

@@ -180,8 +180,59 @@ define([
             </div>`;
     };
 
-    // Filters pill renders in Task 12. Placeholder for now:
-    const buildFiltersPicker = (filters) => '<!-- filters pill placeholder; lands in Task 12 -->';
+    /**
+     * Server-renders the Filters pill (trigger + panel). Each chip dimension's
+     * existing selections render as chips at server-time; option dropdowns
+     * are placeholders until the client populates them from data.availableX.
+     * Spec §3.5 (adapted: single active checkbox, not 4-state status segmented).
+     */
+    const buildFiltersPicker = (filters) => {
+        const activeCount = _countActiveFilters(filters);
+        const badge = activeCount > 0 ? `Filters · ${activeCount} active` : 'Filters';
+
+        // Multi-select chip slot — chips for existing selections + empty <select> for adds.
+        // Chip text starts as "#<id>"; client (Task 16) replaces with real names from data.availableX.
+        const chipSlot = (dim, ids) => {
+            const chips = ids.map((id) =>
+                `<span class="bccf-chip" data-id="${id}">#${id}<button type="button" class="bccf-chip-x" data-action="remove-chip" data-dim="${dim}" data-id="${id}">×</button></span>`
+            ).join('');
+            return `<div class="bccf-filters-chips" data-dim="${dim}">${chips}<select class="bccf-filters-add" data-dim="${dim}"><option value="">+ Add…</option></select></div>`;
+        };
+
+        const activeChecked = filters.active ? ' checked' : '';
+
+        return `
+            <div class="bccf-filters" id="bccf-filters" data-active-count="${activeCount}">
+                <button type="button" class="bccf-filters-trigger" data-action="open-filters">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                    <span class="bccf-filters-label">${UI.esc(badge)}</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="bccf-filters-panel" style="display:none">
+                    <div class="bccf-filters-active">
+                        <input type="checkbox" id="bccf-filter-active" data-filter="active"${activeChecked} />
+                        <label for="bccf-filter-active">Active projects only</label>
+                    </div>
+
+                    <h4>Project</h4>
+                    ${chipSlot('projects', filters.projects)}
+
+                    <h4>Project Manager</h4>
+                    ${chipSlot('managers', filters.managers)}
+
+                    <h4>Customer</h4>
+                    ${chipSlot('customers', filters.customers)}
+
+                    <h4>Subsidiary</h4>
+                    ${chipSlot('subsidiaries', filters.subsidiaries)}
+
+                    <div class="bccf-filters-actions">
+                        <button type="button" class="bccf-btn bccf-btn-ghost" data-action="reset-filters">Reset all</button>
+                        <button type="button" class="bccf-btn bccf-btn-pri" data-action="apply-filters">Apply</button>
+                    </div>
+                </div>
+            </div>`
+    };
 
     /**
      * Header panel — fully rendered server-side (cheap chrome, no data needed).

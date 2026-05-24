@@ -71,5 +71,57 @@ describe('bc_cf_portfolio_sl — shell structure', () => {
             expect(body).toContain('data-toggle-id="mode"');
             expect(body).toContain('data-action="refresh"');
         });
+
+        it('renders the Filters pill trigger', () => {
+            expect(body).toContain('class="bccf-filters"');
+            expect(body).toContain('data-action="open-filters"');
+        });
+
+        it('renders the Active checkbox row checked by default', () => {
+            // Active toggle is a checkbox; checked attribute present by default.
+            expect(body).toMatch(/class="bccf-filters-active"/);
+            expect(body).toMatch(/data-filter="active"[^>]*checked/);
+        });
+
+        it('renders 4 empty chip slots for projects/managers/customers/subsidiaries', () => {
+            expect(body).toContain('data-dim="projects"');
+            expect(body).toContain('data-dim="managers"');
+            expect(body).toContain('data-dim="customers"');
+            expect(body).toContain('data-dim="subsidiaries"');
+        });
+
+        it('renders Reset all + Apply buttons', () => {
+            expect(body).toContain('data-action="reset-filters"');
+            expect(body).toContain('data-action="apply-filters"');
+        });
+
+        it('badge shows "Filters" (no active count) when at defaults', () => {
+            // Default = active:true + empty arrays = 0 non-default filters → bare "Filters" label
+            expect(body).toMatch(/<span class="bccf-filters-label">Filters<\/span>/);
+        });
+    });
+
+    describe('with active=0 + projects=1807,2104', () => {
+        let body;
+        beforeEach(() => {
+            const res = mockResponse();
+            Suitelet.onRequest({ request: GET({ active: '0', projects: '1807,2104' }), response: res });
+            body = res.getBody();
+        });
+
+        it('renders 2 chips for projects', () => {
+            expect(body).toContain('data-id="1807"');
+            expect(body).toContain('data-id="2104"');
+        });
+
+        it('Active checkbox is NOT checked (user disabled active-only)', () => {
+            // checkbox without "checked" attribute on data-filter="active"
+            expect(body).toMatch(/data-filter="active"[^>]*>/);  // exists
+            expect(body).not.toMatch(/data-filter="active"[^>]*checked/);  // but not checked
+        });
+
+        it('badge shows count of active filters (active:0 + projects = 2)', () => {
+            expect(body).toMatch(/Filters\s*·\s*2\s*active/);
+        });
     });
 });

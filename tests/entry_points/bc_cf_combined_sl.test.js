@@ -359,4 +359,25 @@ describe('bc_cf_combined_sl — sortable headers (E1.5)', () => {
         // Assigned inside the .then resolver
         expect(body).toMatch(/_lastData\s*=\s*data\b/);
     });
+
+    it('declares _sortState defaulting to Source desc', () => {
+        expect(body).toMatch(/var\s+_sortState\s*=\s*\{\s*col:\s*['"]source['"]\s*,\s*dir:\s*['"]desc['"]\s*\}/);
+    });
+
+    it('declares sortLines function in CLIENT_SCRIPT', () => {
+        expect(body).toMatch(/function sortLines\(lines,\s*periods,\s*sortState\)/);
+    });
+
+    it('sortLines: null createdDate sorts to end on Source', () => {
+        // Reach into the script and exec the comparator definition + invoke it
+        // We can't easily eval the inline script, so this is a structural test —
+        // verify the null-handling branches exist in the rendered code.
+        expect(body).toMatch(/if\s*\(va\s*===\s*null\s*&&\s*vb\s*===\s*null\)/);
+        expect(body).toMatch(/if\s*\(va\s*===\s*null\)\s*return\s*1/);
+        expect(body).toMatch(/if\s*\(vb\s*===\s*null\)\s*return\s*-1/);
+    });
+
+    it('sortLines: returns a new array (never mutates input)', () => {
+        expect(body).toMatch(/lines\.slice\(\)/);
+    });
 });

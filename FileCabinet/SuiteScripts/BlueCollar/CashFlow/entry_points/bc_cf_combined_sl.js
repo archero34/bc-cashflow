@@ -834,6 +834,52 @@ define([
         }
     }
 
+    // ── Sortable headers (E1.5 spec §3.3) ────────────────────────────────────
+
+    // Lives in the IIFE closure: survives mode toggle + refresh (JSON re-fetch
+    // keeps IIFE alive), resets on picker Apply (window.location.replace
+    // re-evaluates the IIFE). Spec D8.
+    var _sortState = { col: 'source', dir: 'desc' };
+
+    /**
+     * Returns a new array of lines sorted by sortState. Never mutates input.
+     * Rules:
+     *  - col='source' → compare createdDate strings (lexicographic == chronological for YYYY-MM-DD)
+     *  - col='total'  → compare line.total
+     *  - col=<period> → compare amounts[periodIdx]; missing = 0
+     *  - null createdDate always sorts to end (regardless of dir)
+     *  - dir='desc' = largest first / newest first; dir='asc' = smallest first / oldest first
+     */
+    function sortLines(lines, periods, sortState) {
+        if (!lines || !lines.length) return lines;
+        var sorted = lines.slice();
+        var dir = sortState.dir === 'asc' ? 1 : -1;
+
+        sorted.sort(function(a, b) {
+            var va, vb;
+            if (sortState.col === 'source') {
+                va = a.createdDate;
+                vb = b.createdDate;
+                if (va === null && vb === null) return 0;
+                if (va === null) return 1;
+                if (vb === null) return -1;
+                return va < vb ? -dir : (va > vb ? dir : 0);
+            }
+            if (sortState.col === 'total') {
+                va = a.total || 0;
+                vb = b.total || 0;
+            } else {
+                var idx = periods.indexOf(sortState.col);
+                if (idx === -1) return 0;
+                va = (a.amounts && a.amounts[idx]) || 0;
+                vb = (b.amounts && b.amounts[idx]) || 0;
+            }
+            return va < vb ? -dir : (va > vb ? dir : 0);
+        });
+
+        return sorted;
+    }
+
     // ── Event delegation ─────────────────────────────────────────────────────
 
     document.addEventListener('click', function(e) {

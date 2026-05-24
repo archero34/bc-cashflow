@@ -378,37 +378,34 @@ define([
 
         var curYYYYMM = currentYYYYMM();
 
-        var cols = periods.map(function(label, i) {
-            var rev   = revTotal[i] || 0;
+        // E1.5: bars and labels live in separate rows so the halo splits cleanly
+        // across top-rounded (bars row) and bottom-rounded (labels row).
+        // Each revenue bar gets data-tip="$..." — dollar amount via fmtCurrency (no native title).
+        var barCols = periods.map(function(label, i) {
+            var rev = revTotal[i] || 0;
             var isNow = labelToYYYYMM(label) === curYYYYMM;
-
-            var amtLabel  = fmtCurrency(rev);
-            var haloStyle = isNow
-                ? 'background:var(--bccf-brand-50);border-radius:6px;padding:4px 6px 6px;'
-                : '';
-            // Current-month signal is the brand-50 halo behind the column; no caret/bold needed.
-            var monthLabel = '<span>' + esc(label) + '</span>';
-
             var h = barH(rev);
+            var haloStyle = isNow ? 'background:var(--bccf-brand-50);border-radius:6px 6px 0 0;' : '';
+            return '<div style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;flex:1;min-width:48px;height:' + BAR_MAX_H + 'px;' + haloStyle + '">'
+                + '<div style="display:flex;align-items:flex-end">'
+                    + '<div class="bccf-bar revenue" data-tip="' + esc(fmtCurrency(rev)) + '" style="width:24px;height:' + h + 'px;border-radius:3px 3px 0 0"></div>'
+                + '</div>'
+            + '</div>';
+        });
 
-            return '<div class="' + (isNow ? 'now' : '') + '" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:48px;' + haloStyle + '">'
-                // Amount label above bar
-                + '<div style="font-size:11px;font-weight:600;color:var(--bccf-ink-700);margin-bottom:4px;white-space:nowrap;font-variant-numeric:tabular-nums">'
-                    + esc(amtLabel)
-                + '</div>'
-                // Single bar — uses .bccf-bar.revenue for navy color from bc_cf_styles
-                + '<div style="display:flex;align-items:flex-end;height:' + BAR_MAX_H + 'px">'
-                    + '<div class="bccf-bar revenue" title="Revenue: ' + esc(fmtCurrency(rev)) + '" style="width:24px;height:' + h + 'px;border-radius:3px 3px 0 0"></div>'
-                + '</div>'
-                // Month label below
-                + '<div style="font-size:11px;color:var(--bccf-ink-500);margin-top:6px;text-align:center">' + monthLabel + '</div>'
+        var labelCols = periods.map(function(label, i) {
+            var isNow = labelToYYYYMM(label) === curYYYYMM;
+            var haloStyle = isNow ? 'background:var(--bccf-brand-50);border-radius:0 0 6px 6px;' : '';
+            return '<div style="flex:1;min-width:48px;text-align:center;font-size:11px;color:var(--bccf-ink-500);padding:6px 0;' + haloStyle + '">'
+                + esc(label)
             + '</div>';
         });
 
         var headerHtml = '<span style="font-size:var(--bccf-text-base);font-weight:600;color:var(--bccf-ink-900)">Monthly Revenue Inflow</span>';
 
-        var barsHtml = '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">'
-            + cols.join('')
+        var barsHtml = '<div>'
+            + '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">' + barCols.join('') + '</div>'
+            + '<div style="display:flex;gap:8px">' + labelCols.join('') + '</div>'
         + '</div>';
 
         return '<div class="bccf-panel" style="margin-bottom:16px">'
@@ -427,15 +424,34 @@ define([
      * Spec §3.9 (table section).
      */
     function renderTable(periods, categories) {
-        var revenue = categories.revenue;
+        var rev = categories.revenue;
+        if (rev) rev = Object.assign({}, rev, { lines: sortLines(rev.lines, periods, _sortState) });
 
         // ── thead ──
-        var headCols = periods.map(function(p) { return '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500);white-space:nowrap">' + esc(p) + '</th>'; }).join('');
+        // E1.5: sortable headers — each <th> carries data-sort-col + active indicator.
+        // Fixed sort keys for static columns: data-sort-col="source" data-sort-col="total"
+        function headerCell(labelText, sortKey, align) {
+            var isActive = _sortState.col === sortKey;
+            var glyph = _sortState.dir === 'desc' ? '▼' : '▲';
+            var indicator = isActive
+                ? '<span style="margin-left:4px;color:var(--bccf-brand-500)">' + glyph + '</span>'
+                : '';
+            var alignStyle = align === 'left' ? 'text-align:left' : 'text-align:right';
+            return '<th data-sort-col="' + esc(sortKey) + '" '
+                + 'style="padding:8px 12px;font-size:12px;color:var(--bccf-ink-500);'
+                + 'white-space:nowrap;cursor:pointer;user-select:none;' + alignStyle + '">'
+                + esc(labelText) + indicator
+                + '</th>';
+        }
+        var headCols = periods.map(function(p) { return headerCell(p, p, 'right'); }).join('');
         var thead = '<thead><tr>'
-            + '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--bccf-ink-500)">Source</th>'
+            + headerCell('Source', 'source', 'left')
             + headCols
-            + '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500)">Total</th>'
+            + headerCell('Total', 'total', 'right')
         + '</tr></thead>';
+
+        // Use local alias for the rest of the function (revenue → rev)
+        var revenue = rev;
 
         // ── helper: category header row ──
         function catRow(label, color) {
@@ -531,6 +547,7 @@ define([
     // ── Fetch + render ───────────────────────────────────────────────────────
 
     var _lastDataUrl = null;
+    var _lastData = null;
 
     // Skeleton HTML strings for re-painting regions on refresh (Bug 2 fix)
     var SKEL_KPIS = (function() {
@@ -591,6 +608,7 @@ define([
             })
             .then(function(data) {
                 if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
+                _lastData = data;
                 applyBoundsToPicker(data.availableBounds);
 
                 // Bug 1: use innerHTML on stable wrapper divs (IDs never destroyed)
@@ -782,6 +800,84 @@ define([
             to.setAttribute('max', availableBounds.maxPeriod);
         }
     }
+
+    // ── Sortable headers (E1.5 spec §3.3) ────────────────────────────────────
+
+    // Lives in the IIFE closure: survives mode toggle + refresh (JSON re-fetch
+    // keeps IIFE alive), resets on picker Apply (window.location.replace
+    // re-evaluates the IIFE). Spec D8.
+    var _sortState = { col: 'source', dir: 'desc' };
+
+    /**
+     * Returns a new array of lines sorted by sortState. Never mutates input.
+     * Rules:
+     *  - col='source' → compare createdDate strings (lexicographic == chronological for YYYY-MM-DD)
+     *  - col='total'  → compare line.total
+     *  - col=<period> → compare amounts[periodIdx]; missing = 0
+     *  - null createdDate always sorts to end (regardless of dir)
+     *  - dir='desc' = largest first / newest first; dir='asc' = smallest first / oldest first
+     */
+    function sortLines(lines, periods, sortState) {
+        if (!lines || !lines.length) return lines;
+        var sorted = lines.slice();
+        var dir = sortState.dir === 'asc' ? 1 : -1;
+
+        sorted.sort(function(a, b) {
+            var va, vb;
+            if (sortState.col === 'source') {
+                va = a.createdDate;
+                vb = b.createdDate;
+                if (va === null && vb === null) return 0;
+                if (va === null) return 1;
+                if (vb === null) return -1;
+                return va < vb ? -dir : (va > vb ? dir : 0);
+            }
+            if (sortState.col === 'total') {
+                va = a.total || 0;
+                vb = b.total || 0;
+            } else {
+                var idx = periods.indexOf(sortState.col);
+                if (idx === -1) return 0;
+                va = (a.amounts && a.amounts[idx]) || 0;
+                vb = (b.amounts && b.amounts[idx]) || 0;
+            }
+            return va < vb ? -dir : (va > vb ? dir : 0);
+        });
+
+        return sorted;
+    }
+
+    // Click handler — 2-state on Source, 3-state on Period/Total.
+    // Independent of the existing picker / mode-toggle handlers; each fires
+    // on every click and short-circuits if its target isn't matched.
+    document.addEventListener('click', function(e) {
+        var th = e.target.closest('[data-sort-col]');
+        if (!th) return;
+
+        var col = th.dataset.sortCol;
+        var was = _sortState;
+
+        if (col === 'source') {
+            // 2-state: desc ↔ asc
+            _sortState = (was.col === 'source' && was.dir === 'desc')
+                ? { col: 'source', dir: 'asc' }
+                : { col: 'source', dir: 'desc' };
+        } else {
+            // 3-state: desc → asc → reset (Source desc)
+            if (was.col !== col) {
+                _sortState = { col: col, dir: 'desc' };
+            } else if (was.dir === 'desc') {
+                _sortState = { col: col, dir: 'asc' };
+            } else {
+                _sortState = { col: 'source', dir: 'desc' };
+            }
+        }
+
+        if (_lastData) {
+            var tableEl = document.getElementById('bccf-table');
+            if (tableEl) tableEl.innerHTML = renderTable(_lastData.periods, _lastData.categories);
+        }
+    });
 
     // ── Event delegation ─────────────────────────────────────────────────────
 

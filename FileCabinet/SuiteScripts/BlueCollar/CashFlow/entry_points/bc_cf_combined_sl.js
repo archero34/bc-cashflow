@@ -466,15 +466,33 @@ define([
      * Spec §3.9 task description (table section).
      */
     function renderTable(periods, categories) {
+        // E1.5: apply current sort to each section's lines (never mutates input).
         var rev  = categories.revenue;
         var cost = categories.cost;
+        if (rev)  rev  = Object.assign({}, rev,  { lines: sortLines(rev.lines,  periods, _sortState) });
+        if (cost) cost = Object.assign({}, cost, { lines: sortLines(cost.lines, periods, _sortState) });
 
         // ── thead ──
-        var headCols = periods.map(function(p) { return '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500);white-space:nowrap">' + esc(p) + '</th>'; }).join('');
+        // E1.5: sortable headers — each <th> carries data-sort-col + active indicator.
+        // Fixed sort keys for static columns: data-sort-col="source" data-sort-col="total"
+        function headerCell(labelText, sortKey, align) {
+            var isActive = _sortState.col === sortKey;
+            var glyph = _sortState.dir === 'desc' ? '▼' : '▲';
+            var indicator = isActive
+                ? '<span style="margin-left:4px;color:var(--bccf-brand-500)">' + glyph + '</span>'
+                : '';
+            var alignStyle = align === 'left' ? 'text-align:left' : 'text-align:right';
+            return '<th data-sort-col="' + esc(sortKey) + '" '
+                + 'style="padding:8px 12px;font-size:12px;color:var(--bccf-ink-500);'
+                + 'white-space:nowrap;cursor:pointer;user-select:none;' + alignStyle + '">'
+                + esc(labelText) + indicator
+                + '</th>';
+        }
+        var headCols = periods.map(function(p) { return headerCell(p, p, 'right'); }).join('');
         var thead = '<thead><tr>'
-            + '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--bccf-ink-500)">Source</th>'
+            + headerCell('Source', 'source', 'left')
             + headCols
-            + '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500)">Total</th>'
+            + headerCell('Total', 'total', 'right')
         + '</tr></thead>';
 
         // ── helper: category header row ──

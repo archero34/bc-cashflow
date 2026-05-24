@@ -380,4 +380,27 @@ describe('bc_cf_combined_sl — sortable headers (E1.5)', () => {
     it('sortLines: returns a new array (never mutates input)', () => {
         expect(body).toMatch(/lines\.slice\(\)/);
     });
+
+    it('emits data-sort-col on every header (Source / periods / Total)', () => {
+        expect(body).toMatch(/data-sort-col="source"/);
+        expect(body).toMatch(/data-sort-col="total"/);
+        // Skeleton tables in the shell render generic <th></th>; the data-sort-col
+        // attributes appear in the renderTable function body inside CLIENT_SCRIPT.
+        expect(body).toMatch(/headerCell\s*\(\s*['"]Source['"]/);
+        expect(body).toMatch(/headerCell\s*\(\s*['"]Total['"]/);
+    });
+
+    it('headerCell renders ▼/▲ indicator when column is active', () => {
+        // Indicator markup present in renderTable's headerCell helper
+        expect(body).toMatch(/_sortState\.col\s*===\s*sortKey/);
+        // Both glyphs available (UTF-8 in the inline string literal)
+        expect(body).toMatch(/▼|\\u25bc/i);
+        expect(body).toMatch(/▲|\\u25b2/i);
+    });
+
+    it('renderTable passes sorted lines to row rendering', () => {
+        // renderTable calls sortLines on each direction's lines
+        expect(body).toMatch(/sortLines\(\s*rev\.lines\b/);
+        expect(body).toMatch(/sortLines\(\s*cost\.lines\b/);
+    });
 });

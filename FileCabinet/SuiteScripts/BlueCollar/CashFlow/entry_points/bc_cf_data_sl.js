@@ -581,6 +581,47 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         return { ok: true, startPeriod, endPeriod };
     };
 
+    /**
+     * Parse + validate portfolio filter params from the URL request. Returns
+     *   { ok: true, filters: {...} }
+     *   { ok: false, error: '...' }
+     *
+     * active param: default true. To disable active-only filter (show all
+     * projects including inactive), pass active=0 or active=false.
+     */
+    const _parseFilters = (params) => {
+        // active: default true; '0' or 'false' (case-insensitive) → false; everything else → true.
+        const rawActive = params.active;
+        const active = !(rawActive === '0' || (typeof rawActive === 'string' && rawActive.toLowerCase() === 'false'));
+
+        const ID_CSV = /^(\d+)(,\d+)*$/;
+        const parseIds = (raw, dim) => {
+            if (raw == null || raw === '') return { ok: true, ids: [] };
+            if (!ID_CSV.test(raw)) return { ok: false, error: 'Invalid ' + dim + ' filter format' };
+            return { ok: true, ids: raw.split(',').map(Number) };
+        };
+
+        const p = parseIds(params.projects,     'projects');
+        if (!p.ok) return p;
+        const m = parseIds(params.managers,     'managers');
+        if (!m.ok) return m;
+        const c = parseIds(params.customers,    'customers');
+        if (!c.ok) return c;
+        const s = parseIds(params.subsidiaries, 'subsidiaries');
+        if (!s.ok) return s;
+
+        return {
+            ok: true,
+            filters: {
+                active,
+                projects:     p.ids,
+                managers:     m.ids,
+                customers:    c.ids,
+                subsidiaries: s.ids
+            }
+        };
+    };
+
     /** 'YYYY-MM' → 'Apr 2026' */
     const _periodLabel = (yyyymm) => {
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1242,6 +1283,13 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             if (!resolved.ok) return sendError(res, resolved.error);
             const range = { startPeriod: resolved.startPeriod, endPeriod: resolved.endPeriod };
 
+            let filters = null;
+            if (action === 'portfolio') {
+                const parsedFilters = api._parseFilters(params);
+                if (!parsedFilters.ok) return sendError(res, parsedFilters.error);
+                filters = parsedFilters.filters;
+            }
+
             let data;
             // Dispatch through `api` so Jest spies on the returned object intercept the call
             // (referencing closure-scoped functions directly would bypass the spy).
@@ -1249,7 +1297,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             if (action === 'combined')      data = api._loadCombined(projectId, mode, range);
             else if (action === 'cost')     data = api._loadCost(projectId, mode, range);
             else if (action === 'revenue')  data = api._loadRevenue(projectId, mode, range);
-            else if (action === 'portfolio') data = api._loadPortfolio(mode, range, { active: true, projects: [], managers: [], customers: [], subsidiaries: [] });
+            else if (action === 'portfolio') data = api._loadPortfolio(mode, range, filters);
             else return sendError(res, `Unknown action: ${action}`);
 
             sendJSON(res, Object.assign({ ok: true, mode }, data));
@@ -1264,7 +1312,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     const api = {
         _loadCombined, _loadCost, _loadRevenue, _loadPortfolio,
         _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange,
-        _pivotDirection,
+        _pivotDirection, _parseFilters,
         BC_PROJECT,
         AVAILABLE_PROJECTS_SQL, AVAILABLE_MANAGERS_SQL,
         AVAILABLE_CUSTOMERS_SQL, AVAILABLE_SUBSIDIARIES_SQL,

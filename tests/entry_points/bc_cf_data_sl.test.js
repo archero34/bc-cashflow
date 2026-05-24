@@ -510,4 +510,49 @@ describe('bc_cf_data_sl portfolio action (_loadPortfolio) — first-pass shape (
         expect(body.portfolioNetPerPeriod).toEqual([8000, 1200]);
         expect(body.cumulativeBefore).toBe(5500);
     });
+
+    it('rejects malformed IDs CSV with ok:false', () => {
+        const req = { method: 'GET', parameters: { action: 'portfolio', projects: '1807,abc,2104' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.ok).toBe(false);
+        expect(body.error).toMatch(/projects/i);
+    });
+
+    it('passes resolved filters to _loadPortfolio', () => {
+        const spy = jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: [], projects: [], kpis: {}, range: {}, availableBounds: {}, portfolioTotals: {},
+            portfolioRevenuePerPeriod: [], portfolioCostPerPeriod: [], portfolioNetPerPeriod: [], cumulativeBefore: 0,
+            availableProjects: [], availableManagers: [], availableCustomers: [], availableSubsidiaries: []
+        });
+        const req = { method: 'GET', parameters: {
+            action: 'portfolio',
+            active: '0',
+            projects: '1807,2104',
+            managers: '42',
+            customers: '',
+            subsidiaries: '1,2,3'
+        } };
+        Suitelet.onRequest({ request: req, response: mockResponse() });
+        expect(spy).toHaveBeenCalledWith('cash', expect.any(Object), {
+            active: false,
+            projects: [1807, 2104],
+            managers: [42],
+            customers: [],
+            subsidiaries: [1, 2, 3]
+        });
+        spy.mockRestore();
+    });
+
+    it('defaults active to true when omitted', () => {
+        const spy = jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: [], projects: [], kpis: {}, range: {}, availableBounds: {}, portfolioTotals: {},
+            portfolioRevenuePerPeriod: [], portfolioCostPerPeriod: [], portfolioNetPerPeriod: [], cumulativeBefore: 0,
+            availableProjects: [], availableManagers: [], availableCustomers: [], availableSubsidiaries: []
+        });
+        Suitelet.onRequest({ request: { method: 'GET', parameters: { action: 'portfolio' } }, response: mockResponse() });
+        expect(spy).toHaveBeenCalledWith('cash', expect.any(Object), expect.objectContaining({ active: true }));
+        spy.mockRestore();
+    });
 });

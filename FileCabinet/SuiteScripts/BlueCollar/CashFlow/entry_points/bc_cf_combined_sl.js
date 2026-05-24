@@ -898,6 +898,38 @@ define([
         return sorted;
     }
 
+    // Click handler — 2-state on Source, 3-state on Period/Total.
+    // Independent of the existing picker / mode-toggle handlers; each fires
+    // on every click and short-circuits if its target isn't matched.
+    document.addEventListener('click', function(e) {
+        var th = e.target.closest('[data-sort-col]');
+        if (!th) return;
+
+        var col = th.dataset.sortCol;
+        var was = _sortState;
+
+        if (col === 'source') {
+            // 2-state: desc ↔ asc
+            _sortState = (was.col === 'source' && was.dir === 'desc')
+                ? { col: 'source', dir: 'asc' }
+                : { col: 'source', dir: 'desc' };
+        } else {
+            // 3-state: desc → asc → reset (Source desc)
+            if (was.col !== col) {
+                _sortState = { col: col, dir: 'desc' };
+            } else if (was.dir === 'desc') {
+                _sortState = { col: col, dir: 'asc' };
+            } else {
+                _sortState = { col: 'source', dir: 'desc' };
+            }
+        }
+
+        if (_lastData) {
+            var tableEl = document.getElementById('bccf-table');
+            if (tableEl) tableEl.innerHTML = renderTable(_lastData.periods, _lastData.categories);
+        }
+    });
+
     // ── Event delegation ─────────────────────────────────────────────────────
 
     document.addEventListener('click', function(e) {

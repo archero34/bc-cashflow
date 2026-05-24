@@ -403,4 +403,22 @@ describe('bc_cf_combined_sl — sortable headers (E1.5)', () => {
         expect(body).toMatch(/sortLines\(\s*rev\.lines\b/);
         expect(body).toMatch(/sortLines\(\s*cost\.lines\b/);
     });
+
+    it('wires a click listener for [data-sort-col]', () => {
+        expect(body).toMatch(/closest\(['"]\[data-sort-col\]['"]\)/);
+    });
+
+    it('Source toggles 2-state (desc ↔ asc), no reset', () => {
+        // The handler branch that handles 'source' col exclusively
+        expect(body).toMatch(/col\s*===\s*['"]source['"]/);
+    });
+
+    it('Period/Total toggles 3-state (desc → asc → reset to Source desc)', () => {
+        // The reset path returns to default
+        expect(body).toMatch(/\{\s*col:\s*['"]source['"]\s*,\s*dir:\s*['"]desc['"]\s*\}/);
+    });
+
+    it('re-renders table from _lastData on sort click', () => {
+        expect(body).toMatch(/renderTable\(_lastData\.periods,\s*_lastData\.categories\)/);
+    });
 });

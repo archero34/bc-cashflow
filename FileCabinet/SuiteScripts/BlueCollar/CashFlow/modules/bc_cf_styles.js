@@ -181,6 +181,32 @@ define([], function () {
             z-index: 10;
         }
         .bccf-trend-dot:hover::after { opacity: 1; }
+
+        /* E1.5 sticky layout — pins KPIs/chart/thead while tbody scrolls.
+           Header panel is intentionally NOT sticky (controls, not context). */
+        .bccf-layout #bccf-kpis {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: var(--bccf-bg-50);
+            padding-top: 4px;
+        }
+        .bccf-layout #bccf-chart {
+            position: sticky;
+            top: 78px;
+            z-index: 25;
+            background: var(--bccf-bg-50);
+        }
+        .bccf-layout #bccf-table table thead {
+            position: sticky;
+            top: 290px;
+            z-index: 20;
+            background: var(--bccf-surface);
+            box-shadow: 0 1px 0 var(--bccf-border);
+        }
+        .bccf-layout #bccf-table table thead th {
+            background: var(--bccf-surface);
+        }
     `;
 
     /**

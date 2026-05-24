@@ -69,6 +69,13 @@ describe('bc_cf_styles', () => {
             expect(out).toContain('--bccf-cost-500: #f97316');
         });
 
+        it('defines sticky-layout rules (E1.5 §3.2.2)', () => {
+            const out = Styles.getStyles();
+            expect(out).toMatch(/\.bccf-layout\s+#bccf-kpis[^}]*position:\s*sticky[^}]*top:\s*0/);
+            expect(out).toMatch(/\.bccf-layout\s+#bccf-chart[^}]*position:\s*sticky/);
+            expect(out).toMatch(/\.bccf-layout\s+#bccf-table\s+table\s+thead[^}]*position:\s*sticky/);
+        });
+
         it('uses slim KPI dimensions (E1.5 §3.2.3)', () => {
             const out = Styles.getStyles();
             // Slim padding on .bccf-kpi

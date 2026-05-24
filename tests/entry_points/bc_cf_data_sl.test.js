@@ -487,4 +487,27 @@ describe('bc_cf_data_sl portfolio action (_loadPortfolio) — first-pass shape (
         expect(body.availableProjects).toHaveLength(1);
         expect(body.availableManagers[0].name).toBe('Sarah Chen');
     });
+
+    it('returns portfolio chart series + cumulativeBefore', () => {
+        jest.spyOn(Suitelet, '_loadPortfolio').mockReturnValue({
+            periods: ['Apr 2026', 'May 2026'],
+            projects: [],
+            kpis: { totalRevenue: 0, totalCost: 0, netCashFlow: 0, margin: 0 },
+            range: { startPeriod: '2026-04', endPeriod: '2026-05' },
+            availableBounds: { minPeriod: '2026-01', maxPeriod: '2027-12' },
+            portfolioTotals: { revenue: 0, cost: 0, net: 0, margin: 0 },
+            availableProjects: [], availableManagers: [], availableCustomers: [], availableSubsidiaries: [],
+            portfolioRevenuePerPeriod: [12500, 8000],
+            portfolioCostPerPeriod:    [4500, 6800],
+            portfolioNetPerPeriod:     [8000, 1200],
+            cumulativeBefore: 5500
+        });
+        const req = { method: 'GET', parameters: { action: 'portfolio' } };
+        const res = mockResponse();
+        Suitelet.onRequest({ request: req, response: res });
+        const body = JSON.parse(res.getBody());
+        expect(body.portfolioRevenuePerPeriod).toEqual([12500, 8000]);
+        expect(body.portfolioNetPerPeriod).toEqual([8000, 1200]);
+        expect(body.cumulativeBefore).toBe(5500);
+    });
 });

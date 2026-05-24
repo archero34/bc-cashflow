@@ -455,6 +455,39 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     `;
 
     /**
+     * Pre-range cumulative net across the FILTERED project set.
+     * Returns rev_total + cost_total for periods strictly before startPeriod,
+     * respecting the same active + project/manager/customer/subsidiary filters
+     * as PORTFOLIO_SQL. Caller computes net = rev_total - cost_total.
+     *
+     * Same disable-flag pattern as PORTFOLIO_SQL, twice (one set per subquery).
+     */
+    const PORTFOLIO_CUM_BEFORE_SQL = `
+        SELECT
+            (SELECT NVL(SUM(rtl.custrecord_bc_rtl_amount), 0)
+               FROM customrecord_bc_revenue_timing_line rtl
+               JOIN ${BC_PROJECT.rectype} p ON p.id = rtl.custrecord_bc_rtl_project
+              WHERE rtl.custrecord_bc_rtl_timing_type = ?
+                AND TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM') < ?
+                AND (? = 1 OR p.isinactive = 'F')
+                AND (? = 1 OR p.id IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.manager} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.customer} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.subsidiary} IN (?, ?, ?, ?, ?))) AS rev_total,
+            (SELECT NVL(SUM(ctl.custrecord_bc_ctl_amount), 0)
+               FROM customrecord_bc_cost_timing_line ctl
+               JOIN ${BC_PROJECT.rectype} p ON p.id = ctl.custrecord_bc_ctl_project
+              WHERE ctl.custrecord_bc_ctl_timing_type = ?
+                AND TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM') < ?
+                AND (? = 1 OR p.isinactive = 'F')
+                AND (? = 1 OR p.id IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.manager} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.customer} IN (?, ?, ?, ?, ?))
+                AND (? = 1 OR p.${BC_PROJECT.fields.subsidiary} IN (?, ?, ?, ?, ?))) AS cost_total
+        FROM dual
+    `;
+
+    /**
      * Pre-range cumulative net for combined action.
      * Returns one row with rev_total and cost_total — both summed across
      * periods STRICTLY BEFORE the supplied startPeriod. Caller computes
@@ -741,6 +774,28 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         const availableCustomers    = runOptionList(AVAILABLE_CUSTOMERS_SQL,    'customers');
         const availableSubsidiaries = runOptionList(AVAILABLE_SUBSIDIARIES_SQL, 'subsidiaries');
 
+        // ── cumulativeBefore — pre-range net across the FILTERED project set ──
+        // Build the cum-before params per subquery. SAME filter dimensions as
+        // PORTFOLIO_SQL but WITHOUT endPeriod (the < startPeriod clause replaces
+        // the date BETWEEN). Per subquery: timingType + startPeriod + active + 4 dims.
+        const cumSubqueryParams = [timingType, startPeriod]
+            .concat(activeParams)
+            .concat(projectParams)
+            .concat(managerParams)
+            .concat(customerParams)
+            .concat(subsidiaryParams);
+        let cumRow;
+        try {
+            cumRow = query.runSuiteQL({
+                query: PORTFOLIO_CUM_BEFORE_SQL,
+                params: cumSubqueryParams.concat(cumSubqueryParams)
+            }).asMappedResults()[0] || {};
+        } catch (e) {
+            log.error({ title: MODULE + '._loadPortfolio (cumBefore)', details: e.message + '\n' + (e.stack || '') });
+            cumRow = {};
+        }
+        const cumulativeBefore = (Number(cumRow.rev_total) || 0) - (Number(cumRow.cost_total) || 0);
+
         // Build period list from the range (every month renders even if empty).
         const periods = [];
         let _p = startPeriod;
@@ -789,6 +844,17 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             return a.createdDate < b.createdDate ? 1 : (a.createdDate > b.createdDate ? -1 : 0);
         });
 
+        // Aggregate per-period series across the filtered projects (drives the chart).
+        const portfolioRevenuePerPeriod = periods.map((_, i) =>
+            projectList.reduce((s, p) => s + (p.revenue[i] || 0), 0)
+        );
+        const portfolioCostPerPeriod = periods.map((_, i) =>
+            projectList.reduce((s, p) => s + (p.cost[i] || 0), 0)
+        );
+        const portfolioNetPerPeriod = portfolioRevenuePerPeriod.map((v, i) =>
+            v - (portfolioCostPerPeriod[i] || 0)
+        );
+
         // KPIs — sum across the filtered subset.
         const totalRevenue = projectList.reduce((s, p) => s + p.revenueTotal, 0);
         const totalCost    = projectList.reduce((s, p) => s + p.costTotal, 0);
@@ -802,6 +868,10 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             range: { startPeriod, endPeriod },
             availableBounds,
             portfolioTotals,
+            portfolioRevenuePerPeriod,
+            portfolioCostPerPeriod,
+            portfolioNetPerPeriod,
+            cumulativeBefore,
             availableProjects,
             availableManagers,
             availableCustomers,
@@ -1198,7 +1268,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
         BC_PROJECT,
         AVAILABLE_PROJECTS_SQL, AVAILABLE_MANAGERS_SQL,
         AVAILABLE_CUSTOMERS_SQL, AVAILABLE_SUBSIDIARIES_SQL,
-        PORTFOLIO_SQL, PORTFOLIO_BOUNDS_SQL, PORTFOLIO_TOTALS_SQL
+        PORTFOLIO_SQL, PORTFOLIO_BOUNDS_SQL, PORTFOLIO_TOTALS_SQL, PORTFOLIO_CUM_BEFORE_SQL
     };
     api.onRequest = onRequest;
     return api;

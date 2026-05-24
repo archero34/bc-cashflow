@@ -344,3 +344,19 @@ describe('bc_cf_combined_sl — date range picker (E1)', () => {
         expect(body).toMatch(/cumulativeBefore/);
     });
 });
+
+describe('bc_cf_combined_sl — sortable headers (E1.5)', () => {
+    let body;
+    beforeEach(() => {
+        const res = mockResponse();
+        Suitelet.onRequest({ request: GET({ projectId: '1807' }), response: res });
+        body = res.getBody();
+    });
+
+    it('persists _lastData in CLIENT_SCRIPT for re-render', () => {
+        // Variable declared
+        expect(body).toMatch(/var\s+_lastData\b/);
+        // Assigned inside the .then resolver
+        expect(body).toMatch(/_lastData\s*=\s*data\b/);
+    });
+});

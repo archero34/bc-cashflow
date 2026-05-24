@@ -580,6 +580,7 @@ define([
     // ── Fetch + render ───────────────────────────────────────────────────────
 
     var _lastDataUrl = null;
+    var _lastData = null;
 
     // Skeleton HTML strings for re-painting regions on refresh (Bug 2 fix)
     var SKEL_KPIS = (function() {
@@ -640,6 +641,7 @@ define([
             })
             .then(function(data) {
                 if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
+                _lastData = data;
                 applyBoundsToPicker(data.availableBounds);
 
                 // Bug 1: use innerHTML on stable wrapper divs (IDs never destroyed)

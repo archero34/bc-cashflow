@@ -164,6 +164,9 @@ define([], function () {
            Revenue navy bars). The bar gets data-tip="..." and the tooltip surfaces
            above it on hover. Replaces the old amount-always-visible-above-bar UI. */
         .bccf-bar { position: relative; }
+        /* Hovered bar floats above its siblings so the ::after tooltip isn't
+           clipped by an adjacent bar (e.g. Combined's Revenue+Cost pair). */
+        .bccf-bar[data-tip]:hover { z-index: 10; }
         .bccf-bar[data-tip]::after {
             content: attr(data-tip);
             position: absolute;

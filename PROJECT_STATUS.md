@@ -1,30 +1,34 @@
 # BC Cash Flow Forecasting — Project Status
 
-## Current Phase: v1.5 E2 (Portfolio Suitelet) — implementation complete; PR + NS menu entry remain
+## Current Phase: v1.5 E2 SHIPPED — DAF_SB customer sandbox live + user guide delivered
 
 **Date**: 2026-05-24
-**Account**: TD2984799 — BlueCollar Demo Trailing (dev)
+**Active SDF auth**: `DAF_SB` — Data Airflow LLC sandbox (11741095-sb1) · prior dev account TD2984799 still receives parallel updates
 **Repo**: https://github.com/archero34/bc-cashflow
-**Demo Project**: Data Airflow - Cash Flow Demo (ID: 1807)
-**Active branch**: `feature/v1.5-e2-portfolio` (all 16 implementation tasks done + 2 smoke-test fix commits, latest commit `8a1401a`)
-**`main` status**: carries v1 redesign + v1.5 E1 (date range filter) + v1.5 E1.5 (table densification). E2 NOT merged yet.
+**Active branch**: `feature/v1.5-e2-portfolio` (PR #4 MERGED to `main` through `6d6084e`; subsequent surgical patches + post-deploy artifacts pending follow-up PR)
+**`main` status**: carries v1 + v1.5 E1 + v1.5 E1.5 + v1.5 E2. E2 first-pass already merged via PR #4.
 **Tests**: 315 / 10 suites passing.
 
 ---
 
 ## Wrap-up for next session
 
-E2 is functionally complete end-to-end and deployed to TD2984799. Three loose ends:
+E2 is merged to main. DAF_SB is live and patched through smoke-test surgical fixes. User guide delivered as `docs/user-guide/bc-cashflow-user-guide.html`.
 
-1. **Open PR `feature/v1.5-e2-portfolio` → `main`** (pushed; PR ready to create).
+1. **Open follow-up PR** for the post-merge work (5 SL surgical patches + post-deploy runbook + user guide infrastructure + status doc refresh). All changes already deployed to DAF_SB via `suitecloud file:upload` and verified.
 
-2. **Configure the NS menu entry** in the UI (manual — SDF doesn't manage menu placement):
-   Customization → Scripts → Script Deployments → `customdeploy_bc_cf_portfolio_sl` → set Audience / Links / Center: **Reports → BlueCollar → "Portfolio Cash Flow"**.
+2. **Customer-sandbox manual UI configuration** (per `docs/post-deploy-fixes.md`). For DAF_SB this is already done; for any future sandbox the full checklist covers:
+   - 7 INTEGER → List/Record field retypes on `customrecord_bc_cost_timing_line` + `customrecord_bc_revenue_timing_line`
+   - 3 INLINEHTML fields on `customrecord_cseg_bc_project` (Combined / Cost / Revenue iframe mounts) + 1 INLINEHTML field on `customrecord_bc_change_req` (CO Schedule mount)
+   - 4 form subtab renames — ALL "Cash Flow" for uniformity (was "Schedule" on PO/SO/CR previously)
+   - 2 UE script + deployment records created in UI (`customscript_bc_cf_project_ue`, `customscript_bc_co_timing_ue`) — XML templates live under `docs/post-deploy-templates/`
+   - 6 Suitelet deployment audiences granted (SDF schema rejects encoding audience; documented as UI-only step)
+   - Menu entry at **BlueCollar → Project Control Center → Cash Flow Portfolio** (note word order: menu reads "Cash Flow Portfolio", page H1 reads "Portfolio Cash Flow")
+   - Available Without Login OFF on data SLs
 
-3. **Optional deferred follow-ups** (not blocking E2 merge):
-   - **Seed more timing-line data** — only 3 BC projects have timing rows today (Data Airflow, Phoenix Datacenter, Municipal Utility Extension); 65 BC projects exist. Use `/bc-project-create` skill on 6–12 more to enrich the portfolio demo. Direct `createRecord` against `customrecord_bc_revenue_timing_line` returns 400 (`custrecord_bc_rtl_source_template` (SO link) + `custrecord_bc_rtl_percentage` are required by the SuiteApp); `bc-project-create` handles the contract+budget+PO chain end-to-end.
-   - **Pagination / table limit** — at 3 rows it's a non-issue. Revisit after seeding lands 15–20 projects. Likely answer: `max-height` + vertical scroll on the table panel; sticky-thead was attempted in E1.5 and dropped.
-   - **Customer sandbox deploy** — with v1 + E1 + E1.5 merged, the customer would already get the full v1.5 feature set. Decide: deploy now (additive) or wait for E2 to merge.
+3. **Optional deferred follow-ups**:
+   - **Seed more timing-line data** — only 3 BC projects in TD2984799 have timing rows; DAF_SB has 1 (Data Airflow DEMO-001). Use `/bc-project-create` skill for richer portfolio data. Direct `createRecord` against the timing-line records returns 400 because the BC SuiteApp enforces required fields (SO link + percentage) — the skill handles the full contract+budget+PO chain.
+   - **Pagination / table limit** — non-issue at current data sizes. Revisit once a sandbox carries 15–20 projects.
 
 ### Active-boolean pivot (still relevant for future maintainers)
 
@@ -58,7 +62,14 @@ The plan was written with a 4-state status enum (`active|hold|closed|all`). Duri
 | 16 | Populate filter dropdowns from JSON + chip name resolution | ✅ | `93324c5` |
 | smoke A | Picker JS port + basis chip update + tighter option-list SQL | ✅ | `2b04bec` |
 | smoke B | Server-built drill-in URL (resolveRecord) + skeleton flash on refresh | ✅ | `8a1401a` |
-| **17** | **PR + NS menu entry** | **⏳ next** | |
+| 17a | PR #4 opened + MERGED to main | ✅ | merged at `6d6084e` |
+| 17b | NS menu entry on TD2984799 | ✅ | manual UI |
+| post-merge C | Basis chip update on Combined / Cost / Revenue mode toggle (mirror of portfolio fix) | ✅ | pending follow-up PR |
+| post-merge D | CO drill-in via `url.resolveRecord` (`source.recordUrl` on cr-type lines; mirrors project drill-in fix) | ✅ | pending follow-up PR |
+| post-merge E | Portfolio escape-hatch home icon (links to `/app/center/card.nl`) | ✅ | pending follow-up PR |
+| post-merge F | SDF cleanup: records back in deploy, `manifest.xml` notes UE-by-UI exception | ✅ | `b049e51` (merged) + uncommitted manifest tweak |
+| post-merge G | User guide HTML + markdown narrative + 11 screenshots + mocks + build tools | ✅ | pending follow-up PR |
+| post-merge H | DAF_SB sandbox deploy + 6 surgical file uploads + manual UI fix-up | ✅ | NS state |
 
 **What's deployed to TD2984799 right now**:
 - `bc_cf_data_sl.js` — `?action=portfolio` route, tightened AVAILABLE_*_SQL (only entities tied to projects-with-timing), server-built project `recordUrl` via `N/url.resolveRecord`
@@ -109,13 +120,20 @@ Zero remaining references to TD2984799, project ID 1807, transaction IDs, or ven
 
 ### Manual NetSuite UI configurations (not SDF-deployable — owned per-account)
 
-| Item | Record | Notes |
-|------|--------|-------|
-| Parent/child subtab structure on BC Project | BC Project | Cash Flow as parent; Combined / Cost / Revenue as children. Each `custrecord_bc_cf_*_html` field moved to its child subtab. |
-| `custrecord_bc_ctl_cost_code` display label | BC Cost Timing Line | **Renamed in NetSuite UI to "Related Cost Code"** to avoid name collision with the BC Project cost code custom segment when updating the BlueCollar SuiteApp. Script ID unchanged. |
-| `custrecord_bc_ctl_change_order` display label | BC Cost Timing Line | Renamed to "Related Change Order" (same reasoning). Script ID unchanged. |
-| List/Record field type fixes | Timing line records | Custom fields manually changed from INTEGER to List/Record in the NS UI to reference BC SuiteApp records. SDF deploy would revert these — the records path is commented out of `deploy.xml`. |
-| Available Without Login = OFF | `customdeploy_bc_cf_data_sl` | Data endpoint should be authenticated-only (iframe carries session). Verified during T14 deploy. |
+Full step-by-step checklist lives in `docs/post-deploy-fixes.md`. Summary:
+
+| # | Item | Where | Why |
+|---|------|-------|-----|
+| 1 | 7 INTEGER → List/Record field retypes | `customrecord_bc_cost_timing_line` (4 fields) + `customrecord_bc_revenue_timing_line` (3 fields) | SDF cannot reference BC SuiteApp records as Source List targets; deploys these as INTEGER. UI fix-up wires them to BC Project / BC Change Order / BC Cost Code / BC Cost Timing Template. |
+| 2 | 3 INLINEHTML fields on `customrecord_cseg_bc_project` | `custrecord_bc_cf_combined_html`, `custrecord_bc_cf_cost_html`, `custrecord_bc_cf_revenue_html` | Mount points the BC Project UE stamps iframes into. Parent record is BC SuiteApp owned; we add the fields to it manually. |
+| 3 | 1 INLINEHTML field on `customrecord_bc_change_req` | `custrecord_bc_co_timing_html` | Mount point for the CO Schedule editor. Same reason as #2. |
+| 4 | Subtab rename to "Cash Flow" on PO, SO, CR forms | Transaction + record forms | Uniform naming (was "Schedule" before). Move the corresponding INLINEHTML field onto the renamed subtab. |
+| 5 | "Cash Flow" parent subtab + Combined / Cost / Revenue child subtabs on BC Project form | BC Project entry form | Hosts the 3 iframes. Each `custrecord_bc_cf_*_html` field placed on its child subtab. |
+| 6 | 2 UE script + deployment records created in UI | `customscript_bc_cf_project_ue`, `customscript_bc_co_timing_ue` | SDF rejects deployment XMLs that reference BC SuiteApp record types as `<recordtype>` (deploy-time validation against the account fails). XML templates kept under `docs/post-deploy-templates/` for reference. |
+| 7 | Audience grant on 6 Suitelet deployments | `customdeploy_bc_cf_data_sl`, `customdeploy_bc_cf_combined_sl`, `customdeploy_bc_cf_cost_report_sl`, `customdeploy_bc_cf_rev_report_sl`, `customdeploy_bc_cf_portfolio_sl`, `customdeploy_bc_timing_data_sl` | SuiteCloud SDF schema rejects `<audience>` / `<audallroles>` on `<scriptdeployment>`. Defaults to admin-only; non-admin roles get "You do not have privileges to view this page" until audience is granted in UI. |
+| 8 | Available Without Login = OFF | `customdeploy_bc_cf_data_sl`, `customdeploy_bc_timing_data_sl` | Endpoints should be session-authenticated. Iframes carry the user's session. |
+| 9 | Field label verifications | `custrecord_bc_ctl_cost_code` → "Related Cost Code", `custrecord_bc_ctl_change_order` → "Related Change Order" | Avoid collision with BC Project cost-code custom segment label. Captured in XML; verify after deploy. |
+| 10 | Menu entry: BlueCollar → Project Control Center → Cash Flow Portfolio | `customdeploy_bc_cf_portfolio_sl` URL | Surface the Portfolio Suitelet in the BlueCollar Reports center. SDF does not manage menu placement. |
 
 ---
 
@@ -131,9 +149,9 @@ BC Project record · Cash Flow parent subtab
                                                           ↓
                                             bc_cf_data_sl?action=…&projectId=…&mode=cash|accrual
 
-Purchase Order → Schedule subtab → custbody_bc_cost_timing_html ─┐
-Sales Order    → Schedule subtab → custbody_bc_rev_timing_html   │  full inline editor
-Change Request → Schedule subtab → custrecord_bc_co_timing_html  ─┘  (UI + math both in iframe)
+Purchase Order → Cash Flow subtab → custbody_bc_cost_timing_html ─┐
+Sales Order    → Cash Flow subtab → custbody_bc_rev_timing_html   │  full inline editor
+Change Request → Cash Flow subtab → custrecord_bc_co_timing_html  ─┘  (UI + math both in iframe)
                                                                   └── data via bc_timing_data_sl AJAX
 ```
 
@@ -158,9 +176,34 @@ FileCabinet/SuiteScripts/BlueCollar/CashFlow/
     bc_cf_rev_report_sl.js        — shell-only Revenue report
     bc_cf_project_ue.js           — stamps 3 iframes on BC Project record
     bc_timing_data_sl.js          — schedule editor AJAX endpoint (unchanged)
-    bc_cost_timing_ue.js          — PO Schedule subtab UE
-    bc_rev_timing_ue.js           — SO Schedule subtab UE
-    bc_co_timing_ue.js            — CO Schedule subtab UE (now with Contract/Estimate toggle)
+    bc_cost_timing_ue.js          — PO Cash Flow subtab UE
+    bc_rev_timing_ue.js           — SO Cash Flow subtab UE
+    bc_co_timing_ue.js            — CO Cash Flow subtab UE (with Contract/Estimate toggle, Contract=navy + Estimate=coral)
+```
+
+### Post-deploy artifacts
+
+```
+docs/
+  post-deploy-fixes.md          — runbook for fresh-sandbox UI fix-up checklist (6 sections, 10-item grid)
+  post-deploy-templates/
+    customscript_bc_cf_project_ue.xml  — UE script object template (manual UI install)
+    customscript_bc_co_timing_ue.xml   — same for the CR change-order UE
+  user-guide/
+    bc-cashflow-user-guide.html  — 1.82 MB self-contained print-to-PDF deliverable, 11 screenshots inlined
+    guide.md                     — narrative source (4,404 words, 6 sections)
+    mocks/                       — 6 self-contained HTML mocks (portfolio + variant, PO schedule, combined, cost, revenue) using real CSS + real CLIENT_SCRIPT + dummy data
+    screenshots/                 — 11 captured PNGs (4 PO schedule states, 3 report SLs, 3 portfolio states, 1 sort-applied)
+
+tools/
+  extract-cf-css.js              — extracts <style> block from bc_cf_styles.js by stubbing define()
+  extract-cf-client-script.js    — slices CLIENT_SCRIPT template literal out of any SL source
+  gen-portfolio-dummy.js         — generates 15-project dummy data with --variant=filtered|all
+  gen-cf-project-dummy.js        — per-project dummy data with --report=combined|cost|revenue
+  build-portfolio-mock.js        — assembles portfolio.html mock
+  build-cf-project-mock.js       — assembles per-project report mocks (parameterized)
+  build-po-schedule-mock.js      — assembles PO Schedule editor mock (4-state via ?state= query param)
+  build-user-guide.js            — renders guide.md → bc-cashflow-user-guide.html, inlines screenshots as base64
 ```
 
 ---
@@ -332,11 +375,15 @@ npm run deploy:dryrun
 - **2026-05-23 (E1.5 implementation)**: Brainstormed + spec'd table densification (sticky chrome + chronological default sort + click-to-sort headers + hover-tooltip bars). 17-task plan (`docs/superpowers/plans/2026-05-23-cashflow-table-densification.md`). Executed via subagent-driven development. 3 mid-flight hotfixes for SQL aggregation, change-req date field, sticky-thead unreliability. 267 tests / 9 suites green. Deployed to TD2984799. E1.5 PR merged to `main`; `feature/v1.5-enhancements` branch retired. Ready to start E2 brainstorm.
 - **2026-05-24 (E2 brainstorm + spec + plan)**: Cut `feature/v1.5-e2-portfolio` from `main`. Brainstormed the consolidated portfolio Suitelet — locked mount point (standalone menu entry), row shape (one row per project, net per period), filter dimensions, KPI scope, chart, drill-in, default sort. Spec at `docs/superpowers/specs/2026-05-24-cashflow-portfolio-suitelet-design.md` (commit `0bed155`). 17-task TDD plan at `docs/superpowers/plans/2026-05-24-cashflow-portfolio-suitelet.md` (commit `d3efb62`).
 - **2026-05-24 (E2 implementation — Phases 1–4 + half of 5)**: Executed Tasks 1–12 of 17 via subagent-driven development. Task 2's NS UI lookup (via NS Main Demo MCP) revealed the BC SuiteApp's `custrecord_bc_proj_status` tracks workflow stages, not lifecycle — **pivoted the status filter to a single `active` boolean** backed by `isinactive`. Subsequent tasks (5, 7, 8, 10, 11, 12) adapted to the pivot. Data SL portfolio action + `.bccf-filters*` CSS + shell SL server-render + Filters pill HTML all shipped and deployed. CLIENT_SCRIPT IIFE is empty — Tasks 13–16 fill it in (fetch+render, sort plumbing, filter JS, populate dropdowns). 298 tests / 10 suites green. Paused before Task 13 for a clean session handoff.
-- **2026-05-24 (E2 implementation — Tasks 13–16 + smoke fixes)**: Resumed via subagent-driven development. Tasks 13–16 (`743db96` → `93324c5`) added the full CLIENT_SCRIPT: fetch + render KPIs/chart/table, sort plumbing, Filters pill JS (open/close/Apply/Reset/chip-remove + Active checkbox), populateFiltersFromData. Task 15 adapted the URL contract for the active-boolean pivot (`?active=0` toggle instead of status enum). Full SDF deploy via `npm run deploy` created the `customscript_bc_cf_portfolio_sl` script + `customdeploy_bc_cf_portfolio_sl` deployment in TD2984799. Two smoke-fix passes (`2b04bec`, `8a1401a`) addressed: missing date-picker JS, stale basis chip on mode toggle, overly-broad option-list SQL, broken drill-in URL (cseg-backing record needs numeric rectype id; switched to server-built URL via `N/url.resolveRecord`), no visual cue on refresh (ported Combined's SKEL_KPIS/CHART/TABLE flash). 315 tests / 10 suites green. Remaining: PR + NS UI menu entry.
+- **2026-05-24 (E2 implementation — Tasks 13–16 + smoke fixes)**: Resumed via subagent-driven development. Tasks 13–16 (`743db96` → `93324c5`) added the full CLIENT_SCRIPT: fetch + render KPIs/chart/table, sort plumbing, Filters pill JS (open/close/Apply/Reset/chip-remove + Active checkbox), populateFiltersFromData. Task 15 adapted the URL contract for the active-boolean pivot (`?active=0` toggle instead of status enum). Full SDF deploy via `npm run deploy` created the `customscript_bc_cf_portfolio_sl` script + `customdeploy_bc_cf_portfolio_sl` deployment in TD2984799. Two smoke-fix passes (`2b04bec`, `8a1401a`) addressed: missing date-picker JS, stale basis chip on mode toggle, overly-broad option-list SQL, broken drill-in URL (cseg-backing record needs numeric rectype id; switched to server-built URL via `N/url.resolveRecord`), no visual cue on refresh (ported Combined's SKEL_KPIS/CHART/TABLE flash). 315 tests / 10 suites green.
+- **2026-05-24 (PR #4 + DAF_SB customer sandbox)**: PR #4 (`v1.5 E2 — Portfolio Cash Flow Suitelet`) opened and merged to `main` through `6d6084e`. SDF cleanup commit `b049e51` re-included `Objects/records/*` in deploy.xml + added `ACCOUNTING` feature dependency + captured the "Related Cost Code" label + wrote `docs/post-deploy-fixes.md` runbook. Voice-scrub commit `6d6084e` removed em dashes / AI phrasing from the user guide and dropped the unsupported "bookmarkable URLs" section. Switched SDF auth to `DAF_SB` (Data Airflow LLC sandbox 11741095-sb1); ran `npm run deploy` end-to-end — created all 4 record types, lists, fields, scripts, deployments in DAF_SB. Three follow-up sandbox issues required surgical `file:upload` patches: (a) basis chip didn't update on Cash↔Accrual toggle in Combined / Cost / Revenue SLs; (b) CO drill-in returned "Invalid Record Type" because BC SuiteApp records don't accept scriptid as `custrecordentry.nl` rectype — fixed via server `url.resolveRecord` stamping `source.recordUrl` on cr-type lines; (c) added a home icon escape hatch to the Portfolio SL header (links to `/app/center/card.nl`). Two UE script XMLs (`bc_cf_project_ue`, `bc_co_timing_ue`) moved to `docs/post-deploy-templates/` because SDF validate-against-account rejects deployments whose `recordtype` references BC SuiteApp bundled records — UI is the only path. Tried `<audience><allroles>T</allroles></audience>` then `<audallroles>T</audallroles>` flat — SuiteCloud schema rejected both; audience config documented as a UI-only step in runbook Section 6.
+- **2026-05-24 (User guide deliverable)**: Built 6 self-contained HTML mocks of the live UIs (portfolio filtered + portfolio all-projects + PO schedule 4-state + combined + cost + revenue reports). Each mock uses real `bc_cf_styles.js` CSS + the actual SL's CLIENT_SCRIPT IIFE + a fetch shim that returns dummy JSON matching the response shape. Drove Playwright to capture 11 screenshots at 1280–1600px viewports. Wrote a 4,404-word narrative covering the 5 surfaces, end-user voice (no AI phrasing, no em dashes, no claims about features that don't ship). Built `tools/build-user-guide.js` that renders `guide.md` → single HTML with screenshots base64-inlined, BCCF design tokens, print-friendly CSS, cover + TOC + footer. Delivered `docs/user-guide/bc-cashflow-user-guide.html` (1.82 MB, print-to-PDF ready).
+- **2026-05-24 (subtab rename + menu placement)**: All Schedule subtabs renamed to "Cash Flow" for uniformity (PO + SO + CR + BC Project). Portfolio SL menu placement: BlueCollar → Project Control Center → Cash Flow Portfolio (not the originally planned Reports → BlueCollar). CR Estimate theme corrected slate → coral (matches Cost identity elsewhere). User guide refreshed to match.
 
 ---
 
 ## Open questions / decisions for next session
 
-1. **Resume E2 implementation at Task 13** — `superpowers:subagent-driven-development` against `docs/superpowers/plans/2026-05-24-cashflow-portfolio-suitelet.md` starting from Task 13. Reference the **Active-toggle pivot** (see E2 section above) when adapting tasks 14/15/16 — the plan's wording still says "status" in some places.
-2. **Customer sandbox deploy** — still pending. With v1 + E1 + E1.5 merged, the customer would already get the full v1.5 feature set today. Decide whether to deploy now or hold until E2 ships.
+1. **Merge the follow-up PR** containing the post-merge surgical fixes + user guide + runbook + status doc.
+2. **Customer sandbox sign-off** — DAF_SB is live with v1 + E1 + E1.5 + E2 + smoke patches. Walk through the runbook and confirm all 10 manual UI items checked off; then hand to the customer for acceptance testing.
+3. **Seed more BC project data on DAF_SB** when ready to demo at portfolio scale — currently 1 active demo project (DATACTR-DEMO-001). `/bc-project-create` skill is the recommended path.

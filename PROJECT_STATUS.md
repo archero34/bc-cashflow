@@ -1,6 +1,6 @@
 # BC Cash Flow Forecasting — Project Status
 
-## Current Phase: v1.5 E1 (Date Range Filter) Shipped to Sandbox — E2 (Portfolio Suitelet) Next
+## Current Phase: v1.5 E1 + E1.5 Shipped — E2 (Portfolio Suitelet) Next
 
 **Date**: 2026-05-23
 **Account**: TD2984799 — BlueCollar Demo Trailing (dev)
@@ -198,6 +198,27 @@ npm run deploy:dryrun
 
 **Reusability for E2**: picker server helpers, `buildPicker`, `CLIENT_SCRIPT` picker JS, URL contract, and `availableBounds` response field are all designed to lift cleanly into the upcoming portfolio Suitelet without modification.
 
+### E1.5 — Table densification (sticky chrome + sortable columns + hover-tooltip bars) · **SHIPPED TO SANDBOX**
+
+- **Brainstormed + spec'd**: 2026-05-23
+- **Spec**: `docs/superpowers/specs/2026-05-23-cashflow-table-densification-design.md` (commit `bc90308`)
+- **Plan**: `docs/superpowers/plans/2026-05-23-cashflow-table-densification.md` (commit `aef41bc`) — 17-task TDD plan + 3 mid-flight hotfixes
+- **Status**: Implementation complete. 267 tests / 9 suites green (baseline 231 → +36 new). Deployed and verified on all 3 report SLs.
+
+**What shipped**:
+- **Server**: `_pivotDirection` extracts `createdDate` per line (string `YYYY-MM-DD` or `null`); group keys ordered chronologically DESC NULLS LAST instead of alphabetically. `_sortedKeys` and `firstKey` arg retained as dead code per spec §3.1.4. All 3 SQLs add `MIN(<source>.createddate)` (transaction) or `MIN(<source>.custrecord_bc_cor_date)` (change order) wrapped in `MIN(...)` aggregates inside CASE WHEN conditions to satisfy GROUP BY semantics. `created_date DESC NULLS LAST` added to each `ORDER BY` (and the outer ORDER BY for the combined UNION). `customrecord_bc_change_req` exposes `custrecord_bc_cor_date` as the operationally-meaningful CO date (not the NS record-`created` timestamp).
+- **CSS**: slim `.bccf-kpi` rule (~30px reclaimed); sticky-layout rules on `#bccf-kpis` (top 0) and `#bccf-chart` (top 78px). Sticky-thead initially attempted at top 290px but consistently misrendered inside `.bccf-panel-body`'s `overflow-x:auto` context (thead row visually placed between Cost Total and Net Cash Flow rows); sticky-thead intentionally dropped — KPIs + chart remain sticky as the primary context surface, column headers scroll with data. CSS `.bccf-bar[data-tip]::after` and `.bccf-trend-dot::after` pseudo-element hover tooltips (dark ink-900 background, white text, fade in on hover); hovered bar gets `z-index:10` so its tooltip floats above sibling bars in Combined's Revenue+Cost pair.
+- **Client (all 3 report SLs)**: `_sortState` + `_lastData` + `sortLines` comparator in each `CLIENT_SCRIPT` (closure-scoped, survives mode toggle + Refresh, resets on picker Apply). Headers carry `data-sort-col` with ▼/▲ active indicator. 2-state toggle on Source, 3-state on Period/Total. Re-render from cached data — no SL re-fetch on sort click. Click handler is a bubble-phase listener separate from the picker's capture-phase handler.
+- **Client charts (all 3 SLs)**: bars and period labels now live in separate rows (was a single column-stack). Current-month halo splits across both rows via top-rounded + bottom-rounded `border-radius` for continuity. SVG trend-line overlay (Combined) only wraps the bars row — no longer crosses through period text. Per-period dollar labels above bars REMOVED from Cost and Revenue SLs; replaced with bar hover tooltip showing the period total. Combined gets THREE independent hover surfaces per period (Revenue bar, Cost bar, trend dot — each with its own tooltip).
+- **Reusability for E2**: the sticky-layout CSS pattern, the `sortLines` comparator, the `headerCell` rendering helper, the bars/labels split chart pattern, and the `.bccf-bar[data-tip]::after` tooltip all lift cleanly into the upcoming portfolio Suitelet. The chronological-default principle ("newest first") applies — E2's portfolio rows will sort by project createdDate by default with the same 2-state Source / 3-state Period+Total toggle.
+
+**Mid-flight hotfixes** (each surfaced during user sandbox verification):
+- `a6ff2a7` — `created_date` CASE WHEN conditions referenced non-aggregated columns; wrap in `MIN()` to satisfy GROUP BY (Tasks 4-6 SQL bug).
+- `4d7f1c1` — `customrecord_bc_change_req` doesn't expose `createddate`; switched to `created`.
+- `41148b5` — Then switched to `custrecord_bc_cor_date` (the actual CO date, more operationally meaningful than NS record-creation).
+- `c856c1b` → `b83028a` — Sticky-thead attempts failed; dropped entirely + chart bars/labels split landed together.
+- `ae2d6cd` — Hovered bar z-index bump so tooltip isn't clipped by sibling bars.
+
 ### E2 — Consolidated portfolio Suitelet · **BACKLOG — own brainstorm cycle**
 
 **Request:** A new top-level Suitelet that rolls up all BC projects into a single cash-flow view. The earlier "consolidated reporting" thread did NOT mean consolidating the 3 SuiteApps (Combined / Cost / Revenue) into one — it meant a portfolio view across all projects.
@@ -239,7 +260,8 @@ npm run deploy:dryrun
 - **2026-03-26 post-demo**: Actuals integration started (bills, invoices, payments). Unresolved correctness issues.
 - **2026-05-22 → 2026-05-23**: Brainstormed + designed the v1 redesign. Wrote spec (`docs/superpowers/specs/2026-05-22-cashflow-ui-redesign-design.md`) and 31-task plan (`docs/superpowers/plans/2026-05-22-cashflow-ui-redesign.md`). Executed all 31 tasks + 4 polish passes via subagent-driven development. Deployed continuously to TD2984799 sandbox. Committed everything to `feature/v1-redesign` branch on GitHub. Portability audit + fixes. Ready for customer sandbox.
 - **2026-05-23 (continued)**: PR #1 merged `feature/v1-redesign` into `main` at commit `034c9de`. Cut new branch `feature/v1.5-enhancements` off main. Brainstormed E1 (date range filter). Wrote spec at `docs/superpowers/specs/2026-05-23-cashflow-report-date-range-filter-design.md`, commit `6a944ba`.
-- **2026-05-23 (E1 implementation)**: Wrote 20-task plan via `superpowers:writing-plans` (commit `576abf6`). Executed end-to-end via `superpowers:subagent-driven-development` — fresh subagent per task, spec-compliance review + code-quality review at each checkpoint. All 6 phases complete: data SL contract (8 tasks), CSS primitives (1 task), Combined SL wiring (4 tasks), polish + sandbox iterations (2 hotfix commits), Cost SL mirror (1 task), Revenue SL mirror + base/CO project-totals data extension (1 task), regression sweep. 231 tests / 9 suites green. Deployed continuously to TD2984799 across iterations. Branch `feature/v1.5-enhancements` is 20 commits ahead of `main` and ready for PR.
+- **2026-05-23 (E1 implementation)**: Wrote 20-task plan via `superpowers:writing-plans` (commit `576abf6`). Executed end-to-end via `superpowers:subagent-driven-development` — fresh subagent per task, spec-compliance review + code-quality review at each checkpoint. All 6 phases complete: data SL contract (8 tasks), CSS primitives (1 task), Combined SL wiring (4 tasks), polish + sandbox iterations (2 hotfix commits), Cost SL mirror (1 task), Revenue SL mirror + base/CO project-totals data extension (1 task), regression sweep. 231 tests / 9 suites green. Deployed continuously to TD2984799 across iterations. PR #2 merged to `main`.
+- **2026-05-23 (E1.5 implementation)**: Brainstormed + spec'd table densification (sticky chrome + chronological default sort + click-to-sort headers + hover-tooltip bars). 17-task plan (`docs/superpowers/plans/2026-05-23-cashflow-table-densification.md`). Executed via subagent-driven development. 3 mid-flight hotfixes for SQL aggregation, change-req date field, sticky-thead unreliability. 267 tests / 9 suites green. Deployed to TD2984799. Branch `feature/v1.5-enhancements` carries both E1 and E1.5 ready for the next PR.
 
 ---
 

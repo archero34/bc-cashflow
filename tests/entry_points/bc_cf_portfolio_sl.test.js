@@ -148,6 +148,16 @@ describe('bc_cf_portfolio_sl — shell structure', () => {
         it('wires Reset all', () => {
             expect(body).toMatch(/data-action="reset-filters"/);
         });
+
+        it('CLIENT_SCRIPT populates filter dropdowns from data.availableX', () => {
+            expect(body).toMatch(/data\.availableProjects/);
+            expect(body).toMatch(/data\.availableManagers/);
+            expect(body).toMatch(/data\.availableCustomers/);
+            expect(body).toMatch(/data\.availableSubsidiaries/);
+        });
+        it('CLIENT_SCRIPT defines a helper that resolves chip names from option lists', () => {
+            expect(body).toMatch(/function populateFiltersFromData/);
+        });
     });
 
     describe('with active=0 + projects=1807,2104', () => {

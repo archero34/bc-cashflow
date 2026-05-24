@@ -537,6 +537,7 @@ define([
             .then(function(data) {
                 if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
                 _lastData = data;
+                populateFiltersFromData(data);
                 var kpiEl   = document.getElementById('bccf-kpis');
                 var chartEl = document.getElementById('bccf-chart');
                 var tableEl = document.getElementById('bccf-table');
@@ -728,6 +729,83 @@ define([
     // Esc closes panel (shared with date picker — both close on Esc).
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeFilters();
+    });
+
+    // ── Filters: populate dropdowns + resolve chip names (Task 16) ───────────
+
+    /**
+     * After the JSON fetch resolves: replace #<id> chip placeholders with the
+     * real names, and populate the four "Add…" <select> dropdowns from the
+     * available* arrays. Omits options for IDs that are already chipped.
+     */
+    function populateFiltersFromData(data) {
+        if (!data) return;
+        var nameLookups = {
+            projects:     toMap(data.availableProjects),
+            managers:     toMap(data.availableManagers),
+            customers:    toMap(data.availableCustomers),
+            subsidiaries: toMap(data.availableSubsidiaries)
+        };
+        ['projects', 'managers', 'customers', 'subsidiaries'].forEach(function(dim) {
+            var chipSlot = document.querySelector('.bccf-filters-chips[data-dim="' + dim + '"]');
+            if (!chipSlot) return;
+            // Resolve existing chip names from #<id> placeholders
+            chipSlot.querySelectorAll('.bccf-chip').forEach(function(chip) {
+                var id = chip.dataset.id;
+                var name = nameLookups[dim][id];
+                if (name) {
+                    var xBtn = chip.querySelector('.bccf-chip-x');
+                    chip.textContent = name + ' ';
+                    if (xBtn) chip.appendChild(xBtn);
+                }
+            });
+            // Populate the Add… <select> (skip already-chipped ids)
+            var sel = chipSlot.querySelector('.bccf-filters-add');
+            if (!sel) return;
+            var existing = {};
+            chipSlot.querySelectorAll('.bccf-chip').forEach(function(c) { existing[c.dataset.id] = true; });
+            var opts = '<option value="">+ Add…</option>';
+            (data['available' + capitalize(dim)] || []).forEach(function(item) {
+                if (existing[String(item.id)]) return;
+                opts += '<option value="' + item.id + '">' + esc(item.name) + '</option>';
+            });
+            sel.innerHTML = opts;
+        });
+    }
+
+    function toMap(arr) {
+        var m = {};
+        (arr || []).forEach(function(item) { m[String(item.id)] = item.name; });
+        return m;
+    }
+
+    function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    // Wire the Add… <select> change → append chip + clear select.
+    document.addEventListener('change', function(e) {
+        var sel = e.target.closest('.bccf-filters-add');
+        if (!sel) return;
+        var dim = sel.dataset.dim;
+        var id = sel.value;
+        if (!id) return;
+        var chipSlot = sel.closest('.bccf-filters-chips');
+        var label = sel.options[sel.selectedIndex].textContent;
+        var chip = document.createElement('span');
+        chip.className = 'bccf-chip';
+        chip.dataset.id = id;
+        chip.textContent = label + ' ';
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'bccf-chip-x';
+        x.dataset.action = 'remove-chip';
+        x.dataset.dim = dim;
+        x.dataset.id = id;
+        x.textContent = '×';
+        chip.appendChild(x);
+        chipSlot.insertBefore(chip, sel);
+        sel.options[sel.selectedIndex].remove();
+        sel.selectedIndex = 0;
+        updateBadge();
     });
 
     // ── Mode toggle (Cash/Accrual) — same pattern as report SLs ──────────────

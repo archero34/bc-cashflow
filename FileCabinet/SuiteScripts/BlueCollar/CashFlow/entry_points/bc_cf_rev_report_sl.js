@@ -467,7 +467,7 @@ define([
             var id = encodeURIComponent(source.id);
             if (source.type === 'so') return '/app/accounting/transactions/salesord.nl?id=' + id;
             if (source.type === 'po') return '/app/accounting/transactions/purchord.nl?id=' + id;
-            if (source.type === 'cr') return '/app/common/custom/custrecordentry.nl?rectype=customrecord_bc_change_req&id=' + id;
+            if (source.type === 'cr') return source.recordUrl || null;
             return null;
         }
 
@@ -893,6 +893,8 @@ define([
             toggleBtn.closest('.bccf-toggle').querySelectorAll('button').forEach(function(b) {
                 b.classList.toggle('active', b.dataset.value === newMode);
             });
+            var basisPill = document.querySelector('.bccf-title-pill');
+            if (basisPill) basisPill.textContent = (newMode === 'accrual' ? 'Accrual' : 'Cash') + ' basis';
             var newUrl = swapModeUrl(_lastDataUrl, newMode);
             loadData(newUrl);
             try {

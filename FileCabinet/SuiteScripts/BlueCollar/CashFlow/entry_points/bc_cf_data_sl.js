@@ -682,7 +682,21 @@ define(['N/log', 'N/query', 'N/url', '../modules/bc_timing_constants'], function
             if (!groups[g]) groups[g] = {};
             groups[g][r.period] = (groups[g][r.period] || 0) + (Number(r.amount) || 0);
             if (!sourceMap[g] && r.source_id) {
-                sourceMap[g] = { id: r.source_id, type: r.source_type };
+                const _src = { id: r.source_id, type: r.source_type };
+                // CR drill-in needs server-resolved URL — custrecordentry.nl?rectype=<scriptid>
+                // returns "Invalid Record Type" for BC SuiteApp records in some accounts.
+                if (r.source_type === 'cr') {
+                    try {
+                        _src.recordUrl = url.resolveRecord({
+                            recordType: 'customrecord_bc_change_req',
+                            recordId: r.source_id,
+                            isEditMode: false
+                        });
+                    } catch (e) {
+                        log.error({ title: MODULE + '._pivotDirection (cr url)', details: e.message });
+                    }
+                }
+                sourceMap[g] = _src;
             }
             if (!(g in createdMap) && r.created_date != null) {
                 createdMap[g] = r.created_date;

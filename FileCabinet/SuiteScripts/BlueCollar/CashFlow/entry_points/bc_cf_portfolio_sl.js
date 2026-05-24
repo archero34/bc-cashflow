@@ -250,7 +250,13 @@ define([
         });
 
         const headerLeft = `
-            <div style="display:flex;align-items:center;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px">
+                <a href="/app/center/card.nl" title="Back to dashboard"
+                   style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--bccf-r-md);color:var(--bccf-ink-500);text-decoration:none;transition:background var(--bccf-t-fast),color var(--bccf-t-fast)"
+                   onmouseover="this.style.background='var(--bccf-bg-100)';this.style.color='var(--bccf-brand-500)'"
+                   onmouseout="this.style.background='';this.style.color='var(--bccf-ink-500)'">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1V9.5z"/></svg>
+                </a>
                 <h1 style="margin:0;font-size:var(--bccf-text-xl);font-weight:700;color:var(--bccf-ink-900)">
                     Portfolio Cash Flow
                 </h1>

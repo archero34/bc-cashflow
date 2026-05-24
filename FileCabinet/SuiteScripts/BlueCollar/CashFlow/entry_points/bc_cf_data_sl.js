@@ -46,7 +46,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'po'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
+                    THEN TO_CHAR(MIN(cr.createddate), 'YYYY-MM-DD')
+                WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
+                    THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_cost_timing_line ctl
         LEFT JOIN transaction t ON t.id = ctl.custrecord_bc_ctl_transaction
         LEFT JOIN entity e ON e.id = t.entity
@@ -62,7 +69,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                  THEN NVL(t.tranid, NVL(e.entitytitle, 'Vendor'))
                  ELSE 'Other Cost' END,
             TO_CHAR(ctl.custrecord_bc_ctl_period_date, 'YYYY-MM')
-        ORDER BY cost_group, period
+        ORDER BY created_date DESC NULLS LAST, cost_group, period
     `;
 
     /**

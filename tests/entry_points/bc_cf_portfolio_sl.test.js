@@ -121,9 +121,16 @@ describe('bc_cf_portfolio_sl — shell structure', () => {
             expect(body).toMatch(/portfolioTotals/);
         });
 
-        it('renderTable emits project rows with target="_top" drill-in links', () => {
-            expect(body).toMatch(/customrecord_cseg_bc_project/);
+        it('renderTable emits project rows with target="_top" drill-in links from server URL', () => {
             expect(body).toMatch(/target="_top"/);
+            expect(body).toMatch(/proj\.recordUrl/);  // client uses server-supplied URL
+        });
+
+        it('CLIENT_SCRIPT repaints skeletons on refresh for visible feedback', () => {
+            expect(body).toMatch(/SKEL_KPIS/);
+            expect(body).toMatch(/SKEL_CHART/);
+            expect(body).toMatch(/SKEL_TABLE/);
+            expect(body).toMatch(/bccf-skel/);
         });
 
         it('declares _sortState defaulting to project desc', () => {

@@ -650,11 +650,11 @@ define([
                     + esc(fmtCurrency(v)) + '</td>';
             }).join('');
             var totalColor = proj.netTotal > 0 ? 'var(--bccf-success-500)' : (proj.netTotal < 0 ? 'var(--bccf-danger-500)' : 'var(--bccf-ink-700)');
-            var href = '/app/common/custom/custrecordentry.nl?rectype=customrecord_cseg_bc_project&id=' + encodeURIComponent(proj.id);
+            var projectCell = proj.recordUrl
+                ? '<a href="' + esc(proj.recordUrl) + '" target="_top" style="color:var(--bccf-brand-500);text-decoration:none">' + esc(proj.name) + '</a>'
+                : esc(proj.name);
             return '<tr>'
-                + '<td style="padding:6px 12px;font-size:var(--bccf-text-sm)">'
-                    + '<a href="' + href + '" target="_top" style="color:var(--bccf-brand-500);text-decoration:none">' + esc(proj.name) + '</a>'
-                + '</td>'
+                + '<td style="padding:6px 12px;font-size:var(--bccf-text-sm)">' + projectCell + '</td>'
                 + cells
                 + '<td style="padding:6px 12px;text-align:right;font-size:var(--bccf-text-sm);font-weight:600;color:' + totalColor + ';font-variant-numeric:tabular-nums">' + esc(fmtCurrency(proj.netTotal)) + '</td>'
             + '</tr>';
@@ -685,11 +685,58 @@ define([
 
     // ── Fetch + render ───────────────────────────────────────────────────────
 
+    // Skeleton HTML for repaint-on-refresh visual feedback
+    var SKEL_KPIS = (function() {
+        var cards = '';
+        ['Total Revenue','Total Cost','Net Cash Flow','Margin'].forEach(function(label) {
+            cards += '<div class="bccf-kpi">'
+                + '<div class="bccf-k">' + esc(label) + '</div>'
+                + '<div class="bccf-v"><span class="bccf-skel" style="display:block;width:140px;height:24px;margin-top:4px"></span></div>'
+                + '<div class="bccf-sub"><span class="bccf-skel" style="display:block;width:100px;height:11px;margin-top:6px"></span></div>'
+                + '</div>';
+        });
+        return cards;
+    }());
+
+    var SKEL_CHART = (function() {
+        var heights = [40, 70, 100, 90, 60, 30];
+        var bars = heights.map(function(h) {
+            return '<div class="bccf-skel bar-skel" style="flex:1;height:' + h + 'px;margin:0 3px;border-radius:3px 3px 0 0"></div>';
+        }).join('');
+        return '<div class="bccf-panel" style="margin-bottom:16px">'
+            + '<div class="bccf-panel-header"><span style="font-size:var(--bccf-text-base);font-weight:600;color:var(--bccf-ink-900)">Monthly portfolio cash flow</span></div>'
+            + '<div class="bccf-panel-body"><div style="display:flex;align-items:flex-end;height:120px;padding:14px 18px">' + bars + '</div></div>'
+            + '</div>';
+    }());
+
+    var SKEL_TABLE = (function() {
+        var widths = [80, 60, 70, 65, 75, 55, 90];
+        var rows = '';
+        for (var r = 0; r < 5; r++) {
+            rows += '<tr>';
+            for (var c = 0; c < 8; c++) {
+                var w = widths[(r + c) % widths.length];
+                rows += '<td><span class="bccf-skel" style="display:inline-block;width:' + w + 'px;height:12px"></span></td>';
+            }
+            rows += '</tr>';
+        }
+        return '<div class="bccf-panel">'
+            + '<div class="bccf-panel-body" style="padding:0;overflow-x:auto">'
+            + '<table style="width:100%;border-collapse:collapse"><tbody>' + rows + '</tbody></table>'
+            + '</div></div>';
+    }());
+
     var _lastDataUrl = null;
     var _lastData = null;
 
     function loadData(dataUrl) {
         _lastDataUrl = dataUrl;
+        var kpiElSkel = document.getElementById('bccf-kpis');
+        if (kpiElSkel) kpiElSkel.innerHTML = SKEL_KPIS;
+        var chartElSkel = document.getElementById('bccf-chart');
+        if (chartElSkel) chartElSkel.innerHTML = SKEL_CHART;
+        var tableElSkel = document.getElementById('bccf-table');
+        if (tableElSkel) tableElSkel.innerHTML = SKEL_TABLE;
         fetch(dataUrl)
             .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
             .then(function(data) {

@@ -9,7 +9,7 @@
  * Returns `{ ok: true, periods, categories, kpis, ... }` or `{ ok: false, error }`.
  * Spec §3.1 architecture; §3.16 loading.
  */
-define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, query, Constants) {
+define(['N/log', 'N/query', 'N/url', '../modules/bc_timing_constants'], function (log, query, url, Constants) {
 
     const MODULE = 'bc_cf_data_sl';
 
@@ -880,10 +880,24 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             const revenue = periods.map((p) => proj.revenuePerPeriod[p] || 0);
             const cost    = periods.map((p) => proj.costPerPeriod[p] || 0);
             const net     = revenue.map((v, i) => v - (cost[i] || 0));
+            // custrecordentry.nl needs the numeric internal rectype id for
+            // custom-segment-backing records (not the scriptid). Let N/url
+            // resolve the correct path per project.
+            let _projUrl = null;
+            try {
+                _projUrl = url.resolveRecord({
+                    recordType: BC_PROJECT.rectype,
+                    recordId: proj.id,
+                    isEditMode: false
+                });
+            } catch (e) {
+                log.error({ title: MODULE + '._loadPortfolio (resolveRecord)', details: e.message });
+            }
             return {
                 id: proj.id,
                 name: proj.name,
                 createdDate: proj.createdDate,
+                recordUrl: _projUrl,
                 revenue, cost, net,
                 revenueTotal: revenue.reduce((s, v) => s + v, 0),
                 costTotal:    cost.reduce((s, v) => s + v, 0),

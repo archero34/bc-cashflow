@@ -13,6 +13,28 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
 
     const MODULE = 'bc_cf_data_sl';
 
+    // ── BC Project record metadata (looked up 2026-05-24 via NS Main Demo MCP) ──
+    //
+    // Field IDs from customrecord_cseg_bc_project — the BC SuiteApp's project
+    // record. Update if a future SuiteApp release renames these.
+    //
+    // E2 design pivot 2026-05-24: the SuiteApp's custrecord_bc_proj_status
+    // tracks workflow stages (WO Approval / Survey / Manufacturing / etc.),
+    // NOT lifecycle states. For the portfolio filter we use the built-in
+    // `isinactive` boolean instead — Active-only toggle on by default;
+    // off = show all projects including inactive. No status list-value
+    // lookup needed.
+    const BC_PROJECT = {
+        rectype: 'customrecord_cseg_bc_project',
+        fields: {
+            name:       'name',                            // built-in
+            customer:   'custrecord_bc_proj_customer',
+            manager:    'custrecord_bc_proj_manager',
+            subsidiary: 'custrecord_bc_proj_subsidiary',
+            created:    'created'                          // built-in
+        }
+    };
+
     // ── SuiteQL ───────────────────────────────────────────────────────────────
 
     /**
@@ -830,7 +852,8 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
     const api = {
         _loadCombined, _loadCost, _loadRevenue,
         _validateYYYYMM, _addMonths, _monthsBetween, _defaultRange, _resolveRange,
-        _pivotDirection
+        _pivotDirection,
+        BC_PROJECT
     };
     api.onRequest = onRequest;
     return api;

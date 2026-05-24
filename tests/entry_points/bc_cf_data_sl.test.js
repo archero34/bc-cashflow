@@ -397,3 +397,22 @@ describe('bc_cf_data_sl _pivotDirection', () => {
         expect(result.grandTotal).toBe(600);
     });
 });
+
+describe('bc_cf_data_sl BC_PROJECT constants (E2)', () => {
+    it('exports BC_PROJECT metadata on api', () => {
+        expect(Suitelet.BC_PROJECT).toBeDefined();
+        expect(Suitelet.BC_PROJECT.rectype).toBe('customrecord_cseg_bc_project');
+    });
+    it('has the 5 field IDs E2 needs (name/customer/manager/subsidiary/created)', () => {
+        const f = Suitelet.BC_PROJECT.fields;
+        expect(f.name).toBe('name');
+        expect(f.customer).toBe('custrecord_bc_proj_customer');
+        expect(f.manager).toBe('custrecord_bc_proj_manager');
+        expect(f.subsidiary).toBe('custrecord_bc_proj_subsidiary');
+        expect(f.created).toBe('created');
+    });
+    it('does NOT carry a status field (Active-only toggle uses isinactive instead)', () => {
+        expect(Suitelet.BC_PROJECT.fields.status).toBeUndefined();
+        expect(Suitelet.BC_PROJECT.statusValues).toBeUndefined();
+    });
+});

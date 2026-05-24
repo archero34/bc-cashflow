@@ -73,7 +73,7 @@ describe('bc_cf_styles', () => {
             const out = Styles.getStyles();
             expect(out).toMatch(/\.bccf-layout\s+#bccf-kpis[^}]*position:\s*sticky[^}]*top:\s*0/);
             expect(out).toMatch(/\.bccf-layout\s+#bccf-chart[^}]*position:\s*sticky/);
-            expect(out).toMatch(/\.bccf-layout\s+#bccf-table\s+table\s+thead[^}]*position:\s*sticky/);
+            // Sticky-thead intentionally not used — see comment in PRIMITIVES.
         });
 
         it('uses slim KPI dimensions (E1.5 §3.2.3)', () => {

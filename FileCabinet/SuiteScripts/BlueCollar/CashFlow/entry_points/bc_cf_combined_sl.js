@@ -374,28 +374,33 @@ define([
 
         var curYYYYMM = currentYYYYMM();
 
-        var cols = periods.map(function(label, i) {
+        // E1.5: bars and labels live in separate rows so the trend-line SVG
+        // (which spans the bars row) never overlaps the period text below.
+        var barCols = periods.map(function(label, i) {
             var rev   = revTotal[i]  || 0;
             var cost  = costTotal[i] || 0;
             var isNow = labelToYYYYMM(label) === curYYYYMM;
-
-            var haloStyle = isNow
-                ? 'background:var(--bccf-brand-50);border-radius:6px;padding:4px 6px 6px;'
-                : '';
-            // Current-month signal is the brand-50 halo behind the column; no caret/bold needed.
-            var monthLabel = '<span>' + esc(label) + '</span>';
-
             var revH  = barH(rev);
             var costH = barH(cost);
+            var haloStyle = isNow
+                ? 'background:var(--bccf-brand-50);border-radius:6px 6px 0 0;'
+                : '';
 
-            return '<div class="' + (isNow ? 'now' : '') + '" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:48px;' + haloStyle + '">'
-                // Paired bars — Revenue/Cost values surfaced via title hover.
-                + '<div style="display:flex;align-items:flex-end;gap:2px;height:' + BAR_MAX_H + 'px">'
+            return '<div style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;flex:1;min-width:48px;height:' + BAR_MAX_H + 'px;' + haloStyle + '">'
+                + '<div style="display:flex;align-items:flex-end;gap:2px">'
                     + '<div class="bccf-bar" title="Revenue: ' + esc(fmtCurrency(rev)) + '" style="width:16px;height:' + revH + 'px;background:var(--bccf-brand-500);border-radius:3px 3px 0 0"></div>'
                     + '<div class="bccf-bar" title="Cost: ' + esc(fmtCurrency(cost)) + '" style="width:16px;height:' + costH + 'px;background:var(--bccf-cost-500);border-radius:3px 3px 0 0"></div>'
                 + '</div>'
-                // Month label below
-                + '<div style="font-size:11px;color:var(--bccf-ink-500);margin-top:6px;text-align:center">' + monthLabel + '</div>'
+            + '</div>';
+        });
+
+        var labelCols = periods.map(function(label, i) {
+            var isNow = labelToYYYYMM(label) === curYYYYMM;
+            var haloStyle = isNow
+                ? 'background:var(--bccf-brand-50);border-radius:0 0 6px 6px;'
+                : '';
+            return '<div style="flex:1;min-width:48px;text-align:center;font-size:11px;color:var(--bccf-ink-500);padding:6px 0;' + haloStyle + '">'
+                + esc(label)
             + '</div>';
         });
 
@@ -441,11 +446,15 @@ define([
         // content width and crowds them together.
         var headerHtml = '<div style="font-weight:600">Monthly cash flow</div>' + legend;
 
-        var barsHtml = '<div style="position:relative">'
-            + '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">'
-                + cols.join('')
+        // SVG overlay wraps only the bars row — labels row below is in clean space.
+        var barsHtml = '<div>'
+            + '<div style="position:relative">'
+                + '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">'
+                    + barCols.join('')
+                + '</div>'
+                + svgOverlay
             + '</div>'
-            + svgOverlay
+            + '<div style="display:flex;gap:8px">' + labelCols.join('') + '</div>'
         + '</div>';
 
         // renderChart returns the full panel HTML — loadData sets innerHTML of #bccf-chart wrapper (Bug 1 fix)

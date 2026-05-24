@@ -232,6 +232,28 @@ define([], function () {
            and reorders the thead row to the bottom of the table in observed cases.
            KPIs + chart remain sticky as the primary "context stays visible" UX;
            column headers scroll with the data. */
+
+        /* Filters pill (E2 spec §3.6) — modeled on .bccf-daterange */
+        .bccf-filters { position: relative; display: inline-block; }
+        .bccf-filters-trigger { display: inline-flex; align-items: center; gap: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); padding: 6px 12px; font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); font-weight: 500; cursor: pointer; }
+        .bccf-filters-trigger:hover { background: var(--bccf-bg-50); }
+        .bccf-filters-trigger .bccf-filters-label { color: var(--bccf-ink-900); }
+        .bccf-filters-panel { position: absolute; top: 100%; right: 0; margin-top: 6px; background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); box-shadow: 0 4px 16px rgba(18,24,33,.08); padding: 14px; min-width: 340px; max-width: 420px; z-index: 50; }
+        .bccf-filters-panel h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bccf-ink-500); font-weight: 500; margin: 0 0 8px; }
+
+        /* Active toggle (E2 pivot — single boolean checkbox-style chip).
+           Replaces the spec's 4-state status segmented control. */
+        .bccf-filters-active { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .bccf-filters-active input[type="checkbox"] { cursor: pointer; }
+        .bccf-filters-active label { font-size: var(--bccf-text-sm); color: var(--bccf-ink-700); cursor: pointer; }
+
+        .bccf-filters-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+        .bccf-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; background: var(--bccf-brand-50); color: var(--bccf-brand-500); border-radius: var(--bccf-r-full); font-size: var(--bccf-text-xs); font-weight: 500; }
+        .bccf-chip-x { background: transparent; border: 0; color: var(--bccf-brand-500); cursor: pointer; padding: 0 4px; line-height: 1; font-size: 14px; }
+        .bccf-chip-x:hover { color: var(--bccf-brand-600); }
+        .bccf-filters-add { font-size: var(--bccf-text-xs); padding: 4px 6px; border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-md); background: var(--bccf-surface); cursor: pointer; max-width: 220px; }
+
+        .bccf-filters-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--bccf-bg-100); }
     `;
 
     /**

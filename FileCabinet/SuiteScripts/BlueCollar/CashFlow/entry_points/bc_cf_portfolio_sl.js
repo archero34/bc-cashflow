@@ -311,23 +311,266 @@ define([
 
     // ─── Client-side JS (inlined in <script>) ─────────────────────────────────
     //
-    // Empty IIFE shell — implementation lands in Tasks 13–16.
-    // Double-evaluation guard: if (window.__bccfWiredPortfolio) return;
+    // Task 13: fetch + render KPIs/chart/table.
+    // Sort plumbing (Task 14), Filters pill JS (Task 15), and Filters dropdown
+    // population (Task 16) land in subsequent tasks.
     //
     /* eslint-disable */
     const CLIENT_SCRIPT = `
 (function () {
     'use strict';
 
-    // Double-evaluation guard
+    // ── Double-evaluation guard ──────────────────────────────────────────────
     if (window.__bccfWiredPortfolio) return;
     window.__bccfWiredPortfolio = true;
 
-    // Implementation lands in Tasks 13-16:
-    //   - Task 13: fetch + render KPIs/chart/table
-    //   - Task 14: sort plumbing
-    //   - Task 15: Filters pill JS (open/close, status, chips, Apply)
-    //   - Task 16: populate Filters dropdowns from data.availableProjects etc.
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function fmtCurrency(n) {
+        var abs = Math.abs(n);
+        var formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return (n < 0 ? '\\u2212' : '') + '$' + formatted;
+    }
+    function fmtPct(n) {
+        return (n < 0 ? '\\u2212' : '') + Math.abs(n).toFixed(1) + '%';
+    }
+    function esc(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function currentYYYYMM() {
+        var now = new Date();
+        return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    }
+    function labelToYYYYMM(label) {
+        var MONTHS = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+        var parts = label.split(' ');
+        if (parts.length < 2) return '';
+        return parts[1] + '-' + (MONTHS[parts[0]] || '00');
+    }
+
+    // ── Render KPIs ──────────────────────────────────────────────────────────
+
+    function renderKpis(kpis, portfolioTotals) {
+        portfolioTotals = portfolioTotals || { revenue: 0, cost: 0, net: 0, margin: 0 };
+        var netColor = kpis.netCashFlow >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
+        return '<div class="bccf-kpi">'
+                + '<div class="bccf-k">Total Revenue</div>'
+                + '<div class="bccf-v" style="color:var(--bccf-brand-500)">' + esc(fmtCurrency(kpis.totalRevenue)) + '</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(portfolioTotals.revenue)) + ' portfolio total</div>'
+            + '</div>'
+            + '<div class="bccf-kpi">'
+                + '<div class="bccf-k">Total Cost</div>'
+                + '<div class="bccf-v" style="color:var(--bccf-cost-500)">' + esc(fmtCurrency(kpis.totalCost)) + '</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(portfolioTotals.cost)) + ' portfolio total</div>'
+            + '</div>'
+            + '<div class="bccf-kpi accent">'
+                + '<div class="bccf-k">Net Cash Flow</div>'
+                + '<div class="bccf-v" style="color:' + netColor + '">' + esc(fmtCurrency(kpis.netCashFlow)) + '</div>'
+                + '<div class="bccf-sub">' + esc(fmtCurrency(portfolioTotals.net)) + ' portfolio / ' + esc(fmtPct(portfolioTotals.margin)) + ' overall</div>'
+            + '</div>'
+            + '<div class="bccf-kpi">'
+                + '<div class="bccf-k">Margin</div>'
+                + '<div class="bccf-v">' + esc(fmtPct(kpis.margin)) + '</div>'
+                + '<div class="bccf-sub">' + esc(fmtPct(portfolioTotals.margin)) + ' portfolio overall</div>'
+            + '</div>';
+    }
+
+    // ── Render Chart ─────────────────────────────────────────────────────────
+    // Verbatim port of Combined's renderChart, driven by portfolio aggregates.
+
+    function renderChart(periods, revPerPeriod, costPerPeriod, cumulativeBefore) {
+        var BAR_MAX_H = 140;
+        var allAmounts = (revPerPeriod || []).concat(costPerPeriod || []);
+        var maxAmt = allAmounts.reduce(function(m, v) { return Math.max(m, v); }, 1);
+        function barH(v) { return Math.max(2, Math.round((v / maxAmt) * BAR_MAX_H)); }
+        var curYYYYMM = currentYYYYMM();
+
+        var barCols = periods.map(function(label, i) {
+            var rev = revPerPeriod[i] || 0;
+            var cost = costPerPeriod[i] || 0;
+            var isNow = labelToYYYYMM(label) === curYYYYMM;
+            var haloStyle = isNow ? 'background:var(--bccf-brand-50);border-radius:6px 6px 0 0;' : '';
+            return '<div style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;flex:1;min-width:48px;height:' + BAR_MAX_H + 'px;' + haloStyle + '">'
+                + '<div style="display:flex;align-items:flex-end;gap:2px">'
+                    + '<div class="bccf-bar" data-tip="Revenue: ' + esc(fmtCurrency(rev)) + '" style="width:16px;height:' + barH(rev) + 'px;background:var(--bccf-brand-500);border-radius:3px 3px 0 0"></div>'
+                    + '<div class="bccf-bar" data-tip="Cost: ' + esc(fmtCurrency(cost)) + '" style="width:16px;height:' + barH(cost) + 'px;background:var(--bccf-cost-500);border-radius:3px 3px 0 0"></div>'
+                + '</div>'
+            + '</div>';
+        });
+
+        var labelCols = periods.map(function(label, i) {
+            var isNow = labelToYYYYMM(label) === curYYYYMM;
+            var haloStyle = isNow ? 'background:var(--bccf-brand-50);border-radius:0 0 6px 6px;' : '';
+            return '<div style="flex:1;min-width:48px;text-align:center;font-size:11px;color:var(--bccf-ink-500);padding:6px 0;' + haloStyle + '">' + esc(label) + '</div>';
+        });
+
+        // Cumulative net trend line
+        var net = periods.map(function(_, i) { return (revPerPeriod[i] || 0) - (costPerPeriod[i] || 0); });
+        var carry = Number(cumulativeBefore) || 0;
+        var cumNet = net.reduce(function(acc, n) {
+            var prev = acc.length === 0 ? carry : acc[acc.length - 1];
+            acc.push(prev + n);
+            return acc;
+        }, []);
+        var cumMax = Math.max(0, Math.max.apply(null, cumNet));
+        var cumMin = Math.min(0, Math.min.apply(null, cumNet));
+        var cumRange = (cumMax - cumMin) || 1;
+        var trendPoints = cumNet.map(function(v, i) {
+            var x = (i + 0.5) / periods.length * 100;
+            var y = 100 - ((v - cumMin) / cumRange) * 100;
+            return { x: x, y: y, value: v, label: periods[i] };
+        });
+        var polyPoints = trendPoints.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+        var dotsHtml = trendPoints.map(function(p) {
+            var color = p.value >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
+            return '<span class="bccf-trend-dot" data-tip="' + esc(fmtCurrency(p.value)) + '" style="position:absolute;left:' + p.x + '%;top:' + p.y + '%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:' + color + ';box-shadow:0 0 0 2px var(--bccf-surface);"></span>';
+        }).join('');
+        var svgOverlay = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible">'
+            + '<polyline points="' + polyPoints + '" fill="none" stroke="var(--bccf-success-500)" stroke-width="2" vector-effect="non-scaling-stroke" />'
+            + '</svg>'
+            + dotsHtml;
+
+        var legend = '<div style="display:flex;align-items:center;gap:16px;font-size:12px;color:var(--bccf-ink-500)">'
+            + '<span><span style="display:inline-block;width:10px;height:10px;background:var(--bccf-brand-500);border-radius:2px;vertical-align:middle;margin-right:6px"></span>Revenue</span>'
+            + '<span><span style="display:inline-block;width:10px;height:10px;background:var(--bccf-cost-500);border-radius:2px;vertical-align:middle;margin-right:6px"></span>Cost</span>'
+            + '<span style="display:inline-flex;align-items:center;gap:6px"><svg width="18" height="6" viewBox="0 0 18 6" style="display:block"><line x1="0" y1="3" x2="18" y2="3" stroke="var(--bccf-success-500)" stroke-width="2" /><circle cx="9" cy="3" r="1.6" fill="var(--bccf-success-500)" /></svg>Cumulative Net</span>'
+        + '</div>';
+        var headerHtml = '<div style="font-weight:600">Monthly portfolio cash flow</div>' + legend;
+
+        var barsHtml = '<div>'
+            + '<div style="position:relative">'
+                + '<div style="display:flex;align-items:flex-end;gap:8px;padding:16px 0 0">' + barCols.join('') + '</div>'
+                + svgOverlay
+            + '</div>'
+            + '<div style="display:flex;gap:8px">' + labelCols.join('') + '</div>'
+        + '</div>';
+
+        return '<div class="bccf-panel" style="margin-bottom:16px">'
+            + '<div class="bccf-panel-header">' + headerHtml + '</div>'
+            + '<div class="bccf-panel-body">' + barsHtml + '</div>'
+        + '</div>';
+    }
+
+    // ── Render Table — one row per project ───────────────────────────────────
+
+    function renderTable(periods, projects) {
+        if (!projects || !projects.length) {
+            return '<div class="bccf-panel">'
+                + '<div class="bccf-panel-body" style="padding:24px;text-align:center;color:var(--bccf-ink-500)">No projects match these filters.</div>'
+            + '</div>';
+        }
+
+        var headCols = periods.map(function(p) {
+            return '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500);white-space:nowrap">' + esc(p) + '</th>';
+        }).join('');
+        var thead = '<thead><tr>'
+            + '<th style="padding:8px 12px;text-align:left;font-size:12px;color:var(--bccf-ink-500)">Project</th>'
+            + headCols
+            + '<th style="padding:8px 12px;text-align:right;font-size:12px;color:var(--bccf-ink-500)">Total</th>'
+        + '</tr></thead>';
+
+        function projectRow(proj) {
+            var cells = proj.net.map(function(v) {
+                var color = v > 0 ? 'var(--bccf-success-500)' : (v < 0 ? 'var(--bccf-danger-500)' : 'var(--bccf-ink-500)');
+                return '<td style="padding:6px 12px;text-align:right;font-size:var(--bccf-text-sm);color:' + color + ';font-variant-numeric:tabular-nums">'
+                    + esc(fmtCurrency(v)) + '</td>';
+            }).join('');
+            var totalColor = proj.netTotal > 0 ? 'var(--bccf-success-500)' : (proj.netTotal < 0 ? 'var(--bccf-danger-500)' : 'var(--bccf-ink-700)');
+            var href = '/app/common/custom/custrecordentry.nl?rectype=customrecord_cseg_bc_project&id=' + encodeURIComponent(proj.id);
+            return '<tr>'
+                + '<td style="padding:6px 12px;font-size:var(--bccf-text-sm)">'
+                    + '<a href="' + href + '" target="_top" style="color:var(--bccf-brand-500);text-decoration:none">' + esc(proj.name) + '</a>'
+                + '</td>'
+                + cells
+                + '<td style="padding:6px 12px;text-align:right;font-size:var(--bccf-text-sm);font-weight:600;color:' + totalColor + ';font-variant-numeric:tabular-nums">' + esc(fmtCurrency(proj.netTotal)) + '</td>'
+            + '</tr>';
+        }
+
+        var rows = projects.map(projectRow).join('');
+
+        // Portfolio Net tfoot row
+        var portfolioNetCells = periods.map(function(_, i) {
+            var net = projects.reduce(function(s, p) { return s + (p.net[i] || 0); }, 0);
+            var color = net >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
+            return '<td style="padding:8px 12px;text-align:right;font-size:var(--bccf-text-sm);font-weight:600;color:' + color + ';border-top:2px solid var(--bccf-border);font-variant-numeric:tabular-nums">' + esc(fmtCurrency(net)) + '</td>';
+        }).join('');
+        var grandNet = projects.reduce(function(s, p) { return s + p.netTotal; }, 0);
+        var grandColor = grandNet >= 0 ? 'var(--bccf-success-500)' : 'var(--bccf-danger-500)';
+        var tfoot = '<tfoot><tr>'
+            + '<td style="padding:8px 12px;font-size:var(--bccf-text-sm);font-weight:700;color:var(--bccf-ink-900);border-top:2px solid var(--bccf-border)">Portfolio Net</td>'
+            + portfolioNetCells
+            + '<td style="padding:8px 12px;text-align:right;font-size:var(--bccf-text-sm);font-weight:700;color:' + grandColor + ';border-top:2px solid var(--bccf-border);font-variant-numeric:tabular-nums">' + esc(fmtCurrency(grandNet)) + '</td>'
+        + '</tr></tfoot>';
+
+        return '<div class="bccf-panel">'
+            + '<div class="bccf-panel-body" style="padding:0;overflow-x:auto">'
+                + '<table style="width:100%;border-collapse:collapse">' + thead + '<tbody>' + rows + '</tbody>' + tfoot + '</table>'
+            + '</div>'
+        + '</div>';
+    }
+
+    // ── Fetch + render ───────────────────────────────────────────────────────
+
+    var _lastDataUrl = null;
+    var _lastData = null;
+
+    function loadData(dataUrl) {
+        _lastDataUrl = dataUrl;
+        fetch(dataUrl)
+            .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+            .then(function(data) {
+                if (!data.ok) throw new Error(data.error || 'Data SL returned ok:false');
+                _lastData = data;
+                var kpiEl   = document.getElementById('bccf-kpis');
+                var chartEl = document.getElementById('bccf-chart');
+                var tableEl = document.getElementById('bccf-table');
+                if (kpiEl)   kpiEl.innerHTML   = renderKpis(data.kpis, data.portfolioTotals);
+                if (chartEl) chartEl.innerHTML = renderChart(data.periods, data.portfolioRevenuePerPeriod, data.portfolioCostPerPeriod, data.cumulativeBefore);
+                if (tableEl) tableEl.innerHTML = renderTable(data.periods, data.projects);
+            })
+            .catch(function(err) {
+                var msg = err.message || String(err);
+                var kpiEl = document.getElementById('bccf-kpis');
+                if (kpiEl) kpiEl.innerHTML = '<div class="bccf-error-card" style="grid-column:1/-1"><h4>Couldn\\u2019t load portfolio</h4><pre>' + esc(msg) + '</pre><button type="button" class="bccf-btn" data-action="retry">Retry</button></div>';
+            });
+    }
+
+    // ── Mode toggle (Cash/Accrual) — same pattern as report SLs ──────────────
+    function swapModeUrl(currentUrl, newMode) {
+        var u = new URL(currentUrl, window.location.href);
+        u.searchParams.set('mode', newMode);
+        return u.toString();
+    }
+    document.addEventListener('click', function(e) {
+        var toggleBtn = e.target.closest('[data-toggle-id="mode"] button');
+        if (toggleBtn) {
+            if (toggleBtn.classList.contains('active')) return;
+            var newMode = toggleBtn.dataset.value;
+            if (!newMode || !_lastDataUrl) return;
+            toggleBtn.closest('.bccf-toggle').querySelectorAll('button').forEach(function(b) {
+                b.classList.toggle('active', b.dataset.value === newMode);
+            });
+            loadData(swapModeUrl(_lastDataUrl, newMode));
+            try {
+                var iframeUrl = new URL(window.location.href);
+                iframeUrl.searchParams.set('mode', newMode);
+                history.replaceState(null, '', iframeUrl.toString());
+            } catch (err) { /* iframe history may be restricted */ }
+            return;
+        }
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'refresh' || btn.dataset.action === 'retry') {
+            if (_lastDataUrl) loadData(_lastDataUrl);
+        }
+    });
+
+    // ── Boot ─────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        var dataUrl = document.body.dataset.dataUrl;
+        if (dataUrl) loadData(dataUrl);
+    });
 
 })();
 `;

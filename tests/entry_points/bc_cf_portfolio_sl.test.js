@@ -99,6 +99,26 @@ describe('bc_cf_portfolio_sl — shell structure', () => {
             // Default = active:true + empty arrays = 0 non-default filters → bare "Filters" label
             expect(body).toMatch(/<span class="bccf-filters-label">Filters<\/span>/);
         });
+
+        it('CLIENT_SCRIPT defines loadData / renderKpis / renderChart / renderTable', () => {
+            expect(body).toMatch(/function loadData\(/);
+            expect(body).toMatch(/function renderKpis\(/);
+            expect(body).toMatch(/function renderChart\(/);
+            expect(body).toMatch(/function renderTable\(/);
+        });
+
+        it('CLIENT_SCRIPT references the portfolio response fields', () => {
+            expect(body).toMatch(/data\.projects\b/);
+            expect(body).toMatch(/portfolioRevenuePerPeriod/);
+            expect(body).toMatch(/portfolioCostPerPeriod/);
+            expect(body).toMatch(/cumulativeBefore/);
+            expect(body).toMatch(/portfolioTotals/);
+        });
+
+        it('renderTable emits project rows with target="_top" drill-in links', () => {
+            expect(body).toMatch(/customrecord_cseg_bc_project/);
+            expect(body).toMatch(/target="_top"/);
+        });
     });
 
     describe('with active=0 + projects=1807,2104', () => {

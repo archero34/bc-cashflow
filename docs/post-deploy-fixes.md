@@ -85,6 +85,31 @@ If either reverted to the unprefixed label, edit the field and update the Label 
 
 ---
 
+## 6. Script Deployment Audience (Roles)
+
+**Why:** SDF doesn't allow audience/role config on `<scriptdeployment>` elements (NetSuite security: account-level audience must be set per environment). Without this step, all 6 Suitelet deployments default to Administrator-only and non-admin smoke-tests get a "You do not have privileges to view this page" page.
+
+**Customization → Scripting → Script Deployments → search [deployment scriptid] → Edit → Audience tab.**
+
+For each deployment, grant audience. Easiest: check **Select All** under Roles. Tighter: pick the specific roles that should see the reports.
+
+| Deployment | Why this role needs access |
+|---|---|
+| `customdeploy_bc_timing_data_sl` | Schedule subtab uses it for load + save AJAX. Without it, every Schedule editor stays empty / errors. |
+| `customdeploy_bc_cf_data_sl` | JSON endpoint feeding the 4 report iframes. Reports won't populate. |
+| `customdeploy_bc_cf_combined_sl` | Combined report iframe |
+| `customdeploy_bc_cf_cost_report_sl` | Cost report iframe |
+| `customdeploy_bc_cf_rev_report_sl` | Revenue report iframe |
+| `customdeploy_bc_cf_portfolio_sl` | Portfolio rollup page |
+
+Also confirm on each:
+- [ ] **Status: Released** (not Testing)
+- [ ] **Available Without Login: OFF** (confirmed in Section 3 for `customdeploy_bc_cf_data_sl`; should also be OFF for `customdeploy_bc_timing_data_sl`)
+
+UE script deployments (`customdeploy_bc_cost_timing_ue`, `customdeploy_bc_rev_timing_ue`, `customdeploy_bc_cf_project_ue`, `customdeploy_bc_co_timing_ue`) don't need audience config — they fire on record load for any role that can view the source record.
+
+---
+
 ## Smoke test after fix-up
 
 - [ ] Open a BC Project: Cash Flow parent subtab visible with three children populated

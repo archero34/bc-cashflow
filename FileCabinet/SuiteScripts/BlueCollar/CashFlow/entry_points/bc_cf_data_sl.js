@@ -48,9 +48,9 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                 ELSE 'po'
             END AS source_type,
             CASE
-                WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL
                     THEN TO_CHAR(MIN(cr.createddate), 'YYYY-MM-DD')
-                WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
+                WHEN MIN(ctl.custrecord_bc_ctl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
                 ELSE NULL
             END AS created_date
@@ -94,9 +94,9 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                 ELSE 'so'
             END AS source_type,
             CASE
-                WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL
                     THEN TO_CHAR(MIN(cr.createddate), 'YYYY-MM-DD')
-                WHEN rtl.custrecord_bc_rtl_transaction IS NOT NULL
+                WHEN MIN(rtl.custrecord_bc_rtl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
                 ELSE NULL
             END AS created_date
@@ -139,9 +139,9 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                 ELSE 'so'
             END AS source_type,
             CASE
-                WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
+                WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL
                     THEN TO_CHAR(MIN(cr.createddate), 'YYYY-MM-DD')
-                WHEN rtl.custrecord_bc_rtl_transaction IS NOT NULL
+                WHEN MIN(rtl.custrecord_bc_rtl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t_rev.createddate), 'YYYY-MM-DD')
                 ELSE NULL
             END AS created_date
@@ -181,9 +181,9 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                 ELSE 'po'
             END AS source_type,
             CASE
-                WHEN ctl.custrecord_bc_ctl_change_order IS NOT NULL
+                WHEN MIN(ctl.custrecord_bc_ctl_change_order) IS NOT NULL
                     THEN TO_CHAR(MIN(cr2.createddate), 'YYYY-MM-DD')
-                WHEN ctl.custrecord_bc_ctl_transaction IS NOT NULL
+                WHEN MIN(ctl.custrecord_bc_ctl_transaction) IS NOT NULL
                     THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
                 ELSE NULL
             END AS created_date

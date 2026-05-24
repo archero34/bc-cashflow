@@ -86,11 +86,11 @@ define([], function () {
         .bccf-tabs a.active.cashflow, .bccf-tabs a.active.brand { color: var(--bccf-brand-500); border-bottom-color: var(--bccf-brand-500); }
         .bccf-tabs a.active.accrual { color: var(--bccf-ink-700); border-bottom-color: var(--bccf-ink-500); }
 
-        /* KPI card */
-        .bccf-kpi { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 14px 16px; }
+        /* E1.5 slim KPI — reclaims sticky real estate for long forecasts */
+        .bccf-kpi { background: var(--bccf-surface); border: 1px solid var(--bccf-border); border-radius: var(--bccf-r-lg); padding: 8px 12px; }
         .bccf-kpi .bccf-k { font-size: var(--bccf-text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--bccf-ink-500); font-weight: 500; }
-        .bccf-kpi .bccf-v { font-size: var(--bccf-text-2xl); font-weight: 600; color: var(--bccf-ink-900); letter-spacing: -0.01em; margin-top: 4px; line-height: 1; }
-        .bccf-kpi .bccf-sub { font-size: var(--bccf-text-xs); color: var(--bccf-ink-500); margin-top: 6px; }
+        .bccf-kpi .bccf-v { font-size: var(--bccf-text-xl); font-weight: 600; color: var(--bccf-ink-900); letter-spacing: -0.01em; margin-top: 2px; line-height: 1.1; }
+        .bccf-kpi .bccf-sub { font-size: var(--bccf-text-xs); color: var(--bccf-ink-500); margin-top: 3px; }
         .bccf-kpi.accent .bccf-v { color: var(--bccf-brand-500); }
 
         /* Badge */

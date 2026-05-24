@@ -69,6 +69,14 @@ describe('bc_cf_styles', () => {
             expect(out).toContain('--bccf-cost-500: #f97316');
         });
 
+        it('uses slim KPI dimensions (E1.5 §3.2.3)', () => {
+            const out = Styles.getStyles();
+            // Slim padding on .bccf-kpi
+            expect(out).toMatch(/\.bccf-kpi\s*\{[^}]*padding:\s*8px\s+12px/);
+            // Slim value type
+            expect(out).toMatch(/\.bccf-kpi\s+\.bccf-v\s*\{[^}]*font-size:\s*var\(--bccf-text-xl\)/);
+        });
+
         it('namespaces every class with bccf- prefix', () => {
             const out = Styles.getStyles();
             // Match only top-level class selectors: a dot preceded by whitespace, comma, or { (not chained

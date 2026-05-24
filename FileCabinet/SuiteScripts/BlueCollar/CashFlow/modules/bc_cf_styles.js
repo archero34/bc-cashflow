@@ -197,15 +197,16 @@ define([], function () {
             z-index: 25;
             background: var(--bccf-bg-50);
         }
-        .bccf-layout #bccf-table table thead {
+        /* Sticky on individual <th> cells, not <thead> — sticky-on-thead breaks
+           when an ancestor (.bccf-panel-body) has overflow-x:auto, which makes
+           that panel the sticky scroll container. Per-cell sticky has better
+           cross-browser support and works regardless of overflow context. */
+        .bccf-layout #bccf-table table thead th {
             position: sticky;
             top: 290px;
             z-index: 20;
             background: var(--bccf-surface);
             box-shadow: 0 1px 0 var(--bccf-border);
-        }
-        .bccf-layout #bccf-table table thead th {
-            background: var(--bccf-surface);
         }
     `;
 

@@ -323,6 +323,11 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             SELECT DISTINCT p.${BC_PROJECT.fields.manager}
             FROM ${BC_PROJECT.rectype} p
             WHERE p.${BC_PROJECT.fields.manager} IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM customrecord_bc_revenue_timing_line rtl WHERE rtl.custrecord_bc_rtl_project = p.id
+                  UNION
+                  SELECT 1 FROM customrecord_bc_cost_timing_line ctl WHERE ctl.custrecord_bc_ctl_project = p.id
+              )
         )
         ORDER BY e.entityid
     `;
@@ -337,6 +342,11 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             SELECT DISTINCT p.${BC_PROJECT.fields.customer}
             FROM ${BC_PROJECT.rectype} p
             WHERE p.${BC_PROJECT.fields.customer} IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM customrecord_bc_revenue_timing_line rtl WHERE rtl.custrecord_bc_rtl_project = p.id
+                  UNION
+                  SELECT 1 FROM customrecord_bc_cost_timing_line ctl WHERE ctl.custrecord_bc_ctl_project = p.id
+              )
         )
         ORDER BY c.entityid
     `;
@@ -351,6 +361,11 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             SELECT DISTINCT p.${BC_PROJECT.fields.subsidiary}
             FROM ${BC_PROJECT.rectype} p
             WHERE p.${BC_PROJECT.fields.subsidiary} IS NOT NULL
+              AND EXISTS (
+                  SELECT 1 FROM customrecord_bc_revenue_timing_line rtl WHERE rtl.custrecord_bc_rtl_project = p.id
+                  UNION
+                  SELECT 1 FROM customrecord_bc_cost_timing_line ctl WHERE ctl.custrecord_bc_ctl_project = p.id
+              )
         )
         ORDER BY s.name
     `;

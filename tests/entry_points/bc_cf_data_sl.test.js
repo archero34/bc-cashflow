@@ -435,6 +435,16 @@ describe('bc_cf_data_sl portfolio option-list SQL constants (E2)', () => {
         expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toBeDefined();
         expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toMatch(/subsidiary/i);
     });
+    it('AVAILABLE_MANAGERS_SQL chains through projects with timing data', () => {
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toMatch(/EXISTS/);
+        expect(Suitelet.AVAILABLE_MANAGERS_SQL).toMatch(/customrecord_bc_revenue_timing_line/);
+    });
+    it('AVAILABLE_CUSTOMERS_SQL chains through projects with timing data', () => {
+        expect(Suitelet.AVAILABLE_CUSTOMERS_SQL).toMatch(/EXISTS/);
+    });
+    it('AVAILABLE_SUBSIDIARIES_SQL chains through projects with timing data', () => {
+        expect(Suitelet.AVAILABLE_SUBSIDIARIES_SQL).toMatch(/EXISTS/);
+    });
 });
 
 describe('bc_cf_data_sl portfolio action (_loadPortfolio) — first-pass shape (E2)', () => {

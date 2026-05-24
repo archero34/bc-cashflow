@@ -67,6 +67,12 @@ describe('bc_cf_portfolio_sl — shell structure', () => {
             expect(body).toContain('data-action="open-daterange"');
         });
 
+        it('CLIENT_SCRIPT wires the date picker (port from Combined)', () => {
+            expect(body).toMatch(/function pickerEl\(/);
+            expect(body).toMatch(/function applyPicker\(/);
+            expect(body).toMatch(/data-action="apply-daterange"/);
+        });
+
         it('renders the Cash/Accrual toggle + Refresh button', () => {
             expect(body).toContain('data-toggle-id="mode"');
             expect(body).toContain('data-action="refresh"');

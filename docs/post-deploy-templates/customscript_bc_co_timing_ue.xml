@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<usereventscript scriptid="customscript_bc_co_timing_ue">
+  <name>BC CO Timing - Change Request Schedule</name>
+  <scriptfile>[/SuiteScripts/BlueCollar/CashFlow/entry_points/bc_co_timing_ue.js]</scriptfile>
+  <description>Renders the dual-pane Contract/Estimate Schedule subtab on BC Change Request records on beforeLoad.</description>
+  <isinactive>F</isinactive>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>F</notifyowner>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_bc_co_timing_ue">
+      <isdeployed>T</isdeployed>
+      <recordtype>[scriptid=customrecord_bc_change_req]</recordtype>
+      <status>RELEASED</status>
+      <loglevel>DEBUG</loglevel>
+    </scriptdeployment>
+  </scriptdeployments>
+</usereventscript>

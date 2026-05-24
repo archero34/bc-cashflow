@@ -8,3 +8,4 @@ node_modules/
 *.pem
 *.key
 .superpowers/
+.playwright-mcp/

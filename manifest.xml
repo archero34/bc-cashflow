@@ -6,11 +6,14 @@
       <feature required="true">CUSTOMRECORDS</feature>
       <feature required="true">SERVERSIDESCRIPTING</feature>
       <feature required="true">CUSTOMSEGMENTS</feature>
+      <feature required="true">ACCOUNTING</feature>
     </features>
     <!-- BC SuiteApp records are bundle-installed, not SDF-manageable.
-         They exist at runtime but cannot be declared as SDF dependencies.
-         Runtime deps: customrecord_bc_change_req, customrecord_bc_change_req_billing_item,
-         customrecord_bc_change_req_budget_item, customrecord_bc_budget_item,
-         customrecord_cseg_bc_project, customrecord_cseg_bc_cost_code -->
+         Two UE scripts that mount on these records (bc_cf_project_ue and
+         bc_co_timing_ue) cannot deploy via SDF because the parent records
+         do not exist at SDF-validate time on a fresh sandbox. Their .js
+         files DO deploy via the FileCabinet glob; the script + deployment
+         records must be created manually after BC SuiteApp install.
+         Reference XMLs: docs/post-deploy-templates/. -->
   </dependencies>
 </manifest>

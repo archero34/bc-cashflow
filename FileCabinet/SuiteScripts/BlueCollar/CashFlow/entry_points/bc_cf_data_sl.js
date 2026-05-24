@@ -92,7 +92,14 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
             CASE
                 WHEN MIN(rtl.custrecord_bc_rtl_change_order) IS NOT NULL THEN 'cr'
                 ELSE 'so'
-            END AS source_type
+            END AS source_type,
+            CASE
+                WHEN rtl.custrecord_bc_rtl_change_order IS NOT NULL
+                    THEN TO_CHAR(MIN(cr.createddate), 'YYYY-MM-DD')
+                WHEN rtl.custrecord_bc_rtl_transaction IS NOT NULL
+                    THEN TO_CHAR(MIN(t.createddate), 'YYYY-MM-DD')
+                ELSE NULL
+            END AS created_date
         FROM customrecord_bc_revenue_timing_line rtl
         LEFT JOIN transaction t ON t.id = rtl.custrecord_bc_rtl_transaction
         LEFT JOIN customrecord_bc_change_req cr
@@ -106,7 +113,7 @@ define(['N/log', 'N/query', '../modules/bc_timing_constants'], function (log, qu
                  THEN 'CO: ' || NVL(cr.custrecord_bc_change_order_number, 'Change Order')
                  ELSE NVL(t.tranid, 'Base Bid') END,
             TO_CHAR(rtl.custrecord_bc_rtl_period_date, 'YYYY-MM')
-        ORDER BY cost_group, period
+        ORDER BY created_date DESC NULLS LAST, cost_group, period
     `;
 
     /**

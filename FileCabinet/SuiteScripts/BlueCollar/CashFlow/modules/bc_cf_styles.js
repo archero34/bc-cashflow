@@ -159,6 +159,32 @@ define([], function () {
         .bccf-daterange-hint { font-size: 11px; color: var(--bccf-ink-500); }
         .bccf-daterange-actions button[disabled] { opacity: 0.4; cursor: not-allowed; }
 
+        /* Hover tooltip on bars — same pseudo-element pattern as .bccf-trend-dot.
+           Used by all 3 report charts (Combined revenue+cost bars, Cost coral bars,
+           Revenue navy bars). The bar gets data-tip="..." and the tooltip surfaces
+           above it on hover. Replaces the old amount-always-visible-above-bar UI. */
+        .bccf-bar { position: relative; }
+        .bccf-bar[data-tip]::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bccf-ink-900);
+            color: #fff;
+            padding: 5px 9px;
+            border-radius: var(--bccf-r-md);
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            margin-bottom: 6px;
+            transition: opacity var(--bccf-t-fast);
+            z-index: 10;
+        }
+        .bccf-bar[data-tip]:hover::after { opacity: 1; }
+
         /* Trend-line dot with hover tooltip (Combined chart) */
         .bccf-trend-dot { cursor: default; }
         .bccf-trend-dot::after {

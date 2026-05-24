@@ -388,8 +388,8 @@ define([
 
             return '<div style="display:flex;flex-direction:column;justify-content:flex-end;align-items:center;flex:1;min-width:48px;height:' + BAR_MAX_H + 'px;' + haloStyle + '">'
                 + '<div style="display:flex;align-items:flex-end;gap:2px">'
-                    + '<div class="bccf-bar" title="Revenue: ' + esc(fmtCurrency(rev)) + '" style="width:16px;height:' + revH + 'px;background:var(--bccf-brand-500);border-radius:3px 3px 0 0"></div>'
-                    + '<div class="bccf-bar" title="Cost: ' + esc(fmtCurrency(cost)) + '" style="width:16px;height:' + costH + 'px;background:var(--bccf-cost-500);border-radius:3px 3px 0 0"></div>'
+                    + '<div class="bccf-bar" data-tip="Revenue: ' + esc(fmtCurrency(rev)) + '" style="width:16px;height:' + revH + 'px;background:var(--bccf-brand-500);border-radius:3px 3px 0 0"></div>'
+                    + '<div class="bccf-bar" data-tip="Cost: ' + esc(fmtCurrency(cost)) + '" style="width:16px;height:' + costH + 'px;background:var(--bccf-cost-500);border-radius:3px 3px 0 0"></div>'
                 + '</div>'
             + '</div>';
         });

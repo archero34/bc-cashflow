@@ -6,23 +6,25 @@
 **Account**: TD2984799 — BlueCollar Demo Trailing (dev)
 **Repo**: https://github.com/archero34/bc-cashflow
 **Demo Project**: Data Airflow - Cash Flow Demo (ID: 1807)
-**Active branch**: `feature/v1.5-enhancements` (20 commits ahead of `main` — E1 plan + implementation + polish)
-**`main` status**: up to date with v1 redesign (PR #1 merged at `034c9de`)
+**Active branch**: `main` (E1.5 PR merged — `feature/v1.5-enhancements` retired)
+**`main` status**: carries v1 redesign + v1.5 E1 (date range filter) + v1.5 E1.5 (table densification)
 
 ---
 
 ## Resume here for next session
 
-1. **Push the branch + open PR for E1**:
+1. **Cut a new branch off `main` for E2** (portfolio Suitelet):
    ```bash
-   git push -u origin feature/v1.5-enhancements
-   gh pr create --title "v1.5 E1 — Date range filter on report Suitelets"
+   git checkout main && git pull
+   git checkout -b feature/v1.5-e2-portfolio
    ```
-   E1 is feature-complete, all 231 tests green, deployed and verified on TD2984799 sandbox (Combined / Cost / Revenue all working).
 
-2. **Brainstorm E2** (portfolio Suitelet) via `superpowers:brainstorming`. The picker component + URL contract + `availableBounds` server response are designed for E2 reuse — spec §7 in `docs/superpowers/specs/2026-05-23-cashflow-report-date-range-filter-design.md`.
+2. **Brainstorm E2** via `superpowers:brainstorming`. The reusable pieces are already in `main` and proven in production:
+   - E1's picker component + URL contract (`startPeriod` / `endPeriod`) + `availableBounds` response field — design spec §7 in `docs/superpowers/specs/2026-05-23-cashflow-report-date-range-filter-design.md`
+   - E1.5's `sortLines` comparator + `headerCell` helper + sticky-KPIs/chart CSS pattern + bars/labels-split chart layout + `.bccf-bar[data-tip]::after` hover tooltip — spec §7 in `docs/superpowers/specs/2026-05-23-cashflow-table-densification-design.md`
+   - Both pickers/sorts use `_lastData` closure + `history.replaceState` for state persistence across mode toggle without re-fetch
 
-3. **Customer sandbox deploy** still pending — decide whether to deploy now (post-E1) or hold for E2. Recommendation: deploy now; E2 will be additive.
+3. **Customer sandbox deploy** still pending. With the merged stack (v1 + E1 + E1.5) the customer would get the full v1.5 feature set. Decision: deploy now or wait for E2 to land? Recommendation: deploy now; E2 will be additive and won't disrupt the per-project report SLs.
 
 ---
 
@@ -36,7 +38,7 @@
 - **Design system rolled out across all 6 surfaces** — shared `bc_cf_styles.js` (CSS tokens + primitives), `bc_cf_ui.js` (HTML builders), `bc_cf_calculator.js` (pure math). All classes prefixed `bccf-*`.
 - **3 report Suitelets converted to shell-only** — server returns skeleton instantly; client fetches JSON from the new `bc_cf_data_sl` (action-routed: `?action=combined|cost|revenue`).
 - **Color encoding**: Revenue = navy `--bccf-brand-500 #1f3b5e`. Cost = coral `--bccf-cost-500 #f97316`. Net positive = green, negative = red. Spec §3.7.
-- **Combined chart**: paired bars per period + Net amount label above each pair + cumulative-net trend line overlay (green polyline with sign-colored dots). No final-period label (Net KPI already surfaces it).
+- **Combined chart**: paired bars per period + cumulative-net trend line overlay (green polyline with sign-colored dots). Three independent hover surfaces per period — Revenue bar, Cost bar, trend dot — each surfaces its value via `.bccf-bar[data-tip]::after` / `.bccf-trend-dot::after` dark tooltips. (Per-period net labels above bars were dropped in E1.5; the bars + trend line + hover speak for themselves.)
 - **Drillable transaction links restored** — sub-row labels link to SO / PO / Change Request via `target="_top"`. Labels now show transaction tranid (PO1377, SO0631, etc.) instead of vendor name.
 - **Cash/Accrual toggle + Refresh button** in each report header. Skeleton flashes on refresh + on save.
 - **Schedule editor reskin** (PO / SO / CO Schedule subtabs):
@@ -232,7 +234,7 @@ npm run deploy:dryrun
 - Architecture: new shell SL `bc_cf_portfolio_sl` + new `?action=portfolio` route on the existing `bc_cf_data_sl`
 - Mount point: TBD (standalone NS menu entry vs. INLINEHTML on a list view)
 
-**Start E2 after E1 ships and is verified in customer sandbox.**
+**Ready to brainstorm.** E1 + E1.5 both merged to `main`. Picker, sort plumbing, sticky chrome, and chart patterns are proven and available for verbatim reuse.
 
 ### E3 — Existing tracked items (Phase 2, unchanged from earlier sessions)
 
@@ -261,12 +263,11 @@ npm run deploy:dryrun
 - **2026-05-22 → 2026-05-23**: Brainstormed + designed the v1 redesign. Wrote spec (`docs/superpowers/specs/2026-05-22-cashflow-ui-redesign-design.md`) and 31-task plan (`docs/superpowers/plans/2026-05-22-cashflow-ui-redesign.md`). Executed all 31 tasks + 4 polish passes via subagent-driven development. Deployed continuously to TD2984799 sandbox. Committed everything to `feature/v1-redesign` branch on GitHub. Portability audit + fixes. Ready for customer sandbox.
 - **2026-05-23 (continued)**: PR #1 merged `feature/v1-redesign` into `main` at commit `034c9de`. Cut new branch `feature/v1.5-enhancements` off main. Brainstormed E1 (date range filter). Wrote spec at `docs/superpowers/specs/2026-05-23-cashflow-report-date-range-filter-design.md`, commit `6a944ba`.
 - **2026-05-23 (E1 implementation)**: Wrote 20-task plan via `superpowers:writing-plans` (commit `576abf6`). Executed end-to-end via `superpowers:subagent-driven-development` — fresh subagent per task, spec-compliance review + code-quality review at each checkpoint. All 6 phases complete: data SL contract (8 tasks), CSS primitives (1 task), Combined SL wiring (4 tasks), polish + sandbox iterations (2 hotfix commits), Cost SL mirror (1 task), Revenue SL mirror + base/CO project-totals data extension (1 task), regression sweep. 231 tests / 9 suites green. Deployed continuously to TD2984799 across iterations. PR #2 merged to `main`.
-- **2026-05-23 (E1.5 implementation)**: Brainstormed + spec'd table densification (sticky chrome + chronological default sort + click-to-sort headers + hover-tooltip bars). 17-task plan (`docs/superpowers/plans/2026-05-23-cashflow-table-densification.md`). Executed via subagent-driven development. 3 mid-flight hotfixes for SQL aggregation, change-req date field, sticky-thead unreliability. 267 tests / 9 suites green. Deployed to TD2984799. Branch `feature/v1.5-enhancements` carries both E1 and E1.5 ready for the next PR.
+- **2026-05-23 (E1.5 implementation)**: Brainstormed + spec'd table densification (sticky chrome + chronological default sort + click-to-sort headers + hover-tooltip bars). 17-task plan (`docs/superpowers/plans/2026-05-23-cashflow-table-densification.md`). Executed via subagent-driven development. 3 mid-flight hotfixes for SQL aggregation, change-req date field, sticky-thead unreliability. 267 tests / 9 suites green. Deployed to TD2984799. E1.5 PR merged to `main`; `feature/v1.5-enhancements` branch retired. Ready to start E2 brainstorm.
 
 ---
 
 ## Open questions / decisions for next session
 
-1. **Open PR for E1** — branch is 20 commits ahead of `main`. Push and open PR via `gh pr create`. E1 is a self-contained unit; can merge before E2 lands.
-2. **Customer sandbox deploy** — still pending. With v1.5 E1 now in place, the customer would get the full feature set (v1 redesign + portability fixes + date range filter). Recommendation: deploy `feature/v1.5-enhancements` (or merge to main first) to the customer sandbox now.
-3. **E2 brainstorming** — picker component + URL contract proven in production via E1. E2 (portfolio Suitelet) will reuse them per spec §7. Trigger via `superpowers:brainstorming`.
+1. **E2 brainstorming** — start the dedicated brainstorm via `superpowers:brainstorming`. All reusable pieces (picker, sort comparator, sticky CSS, headerCell, bars/labels split, `.bccf-bar` hover tooltip) are in `main` and verified in sandbox.
+2. **Customer sandbox deploy** — still pending. With v1 + E1 + E1.5 merged, the customer would get the full v1.5 feature set. Decide whether to deploy now or hold until E2 ships. Recommendation: deploy now — E2 is a new top-level Suitelet that doesn't disrupt the existing per-project reports.

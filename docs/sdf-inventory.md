@@ -6,18 +6,18 @@ The custom objects in the Data Airflow sandbox that support BC Cash Flow Forecas
 
 ## 1. Scripts (10)
 
-| # | Name | Script ID | Type | Mounted on | Purpose |
-|---|------|-----------|------|------------|---------|
-| 1 | BC Cash Flow - Combined Report | `customscript_bc_cf_combined_sl` | Suitelet | Iframe on BC Project record | Per-project combined report: KPIs, paired Revenue+Cost bars + cumulative-net trend, source-grouped table. |
-| 2 | BC Cash Flow - Cost Report | `customscript_bc_cf_cost_report_sl` | Suitelet | Iframe on BC Project record | Per-project cost-only report. |
-| 3 | BC Cash Flow - Revenue Report | `customscript_bc_cf_rev_report_sl` | Suitelet | Iframe on BC Project record | Per-project revenue-only report. KPIs surface Base Contract vs Change Orders. |
-| 4 | BC Cash Flow - Portfolio | `customscript_bc_cf_portfolio_sl` | Suitelet | Standalone page — BlueCollar → Project Control Center → Cash Flow Portfolio | Cross-project rollup, one row per project, 5-dimension filter pill (Active + Project / PM / Customer / Subsidiary). |
-| 5 | BC Cash Flow - Data Endpoint | `customscript_bc_cf_data_sl` | Suitelet (JSON) | Called by the 4 report Suitelets | Action-routed JSON endpoint. `?action=combined\|cost\|revenue\|portfolio&projectId=…&mode=cash\|accrual`. |
-| 6 | BC Timing Data AJAX Endpoint | `customscript_bc_timing_data_sl` | Suitelet (JSON) | Called by the 3 schedule editors | CRUD endpoint for cost / revenue / CO timing lines. |
-| 7 | BC Cost Timing - PO Schedule | `customscript_bc_cost_timing_ue` | User Event | Purchase Order | Stamps the schedule editor into `custbody_bc_cost_timing_html` on the Cash Flow subtab. |
-| 8 | BC Revenue Timing - SO Schedule | `customscript_bc_rev_timing_ue` | User Event | Sales Order | Stamps the schedule editor into `custbody_bc_rev_timing_html` on the Cash Flow subtab. |
-| 9 | BC Cash Flow - Project Reports | `customscript_bc_cf_project_ue` | User Event | BC Project (`customrecord_cseg_bc_project`) | Stamps the 3 report iframes into the 3 INLINEHTML fields on the BC Project record's Cash Flow subtab. |
-| 10 | BC CO Timing - Change Request Schedule | `customscript_bc_co_timing_ue` | User Event | BC Change Request (`customrecord_bc_change_req`) | Renders the dual-pane Contract / Estimate Schedule on the Cash Flow subtab. |
+| Name | Script ID | Type | Mounted on | Purpose |
+|------|-----------|------|------------|---------|
+| BC Cash Flow - Combined Report | `customscript_bc_cf_combined_sl` | Suitelet | Iframe on BC Project | Combined per-project report: paired Revenue+Cost bars, cumulative-net trend, source-grouped table. |
+| BC Cash Flow - Cost Report | `customscript_bc_cf_cost_report_sl` | Suitelet | Iframe on BC Project | Cost-only per-project report. |
+| BC Cash Flow - Revenue Report | `customscript_bc_cf_rev_report_sl` | Suitelet | Iframe on BC Project | Revenue-only per-project report. KPIs surface Base Contract vs Change Orders. |
+| BC Cash Flow - Portfolio | `customscript_bc_cf_portfolio_sl` | Suitelet | Standalone — BlueCollar → Project Control Center → Cash Flow Portfolio | Cross-project rollup with 5-dim filter pill (Active + Project / PM / Customer / Subsidiary). |
+| BC Cash Flow - Data Endpoint | `customscript_bc_cf_data_sl` | Suitelet (JSON) | Called by the 4 report Suitelets | Action-routed JSON endpoint. Returns combined / cost / revenue / portfolio data based on the `action` parameter. |
+| BC Timing Data AJAX Endpoint | `customscript_bc_timing_data_sl` | Suitelet (JSON) | Called by the 3 schedule editors | CRUD endpoint for cost / revenue / CO timing lines. |
+| BC Cost Timing - PO Schedule | `customscript_bc_cost_timing_ue` | User Event | Purchase Order | Stamps the schedule editor into `custbody_bc_cost_timing_html`. |
+| BC Revenue Timing - SO Schedule | `customscript_bc_rev_timing_ue` | User Event | Sales Order | Stamps the schedule editor into `custbody_bc_rev_timing_html`. |
+| BC Cash Flow - Project Reports | `customscript_bc_cf_project_ue` | User Event | BC Project | Stamps the 3 report iframes into the 3 INLINEHTML fields on the Cash Flow subtab. |
+| BC CO Timing - Change Request Schedule | `customscript_bc_co_timing_ue` | User Event | BC Change Request | Renders the dual-pane Contract / Estimate Schedule. |
 
 Every script has a single matching deployment (`customscript_*` → `customdeploy_*`).
 
@@ -124,53 +124,65 @@ Each field is an INLINEHTML field that a User Event script writes HTML into on `
 
 ---
 
-## 6. Relationship Diagram
+## 6. Supporting Modules
 
-```
-                          BC Project                BC Change Request
-                          (customrecord_cseg_       (customrecord_bc_
-                           bc_project)               change_req)
-                          BC Cost Code
-                          (customrecord_cseg_
-                           bc_cost_code)
-                              ▲   ▲   ▲
-                              │   │   │ referenced by
-                              │   │   │
-              ┌───────────────┴───┴───┴───────────────┐
-              │                                       │
-   customrecord_bc_cost_timing_line       customrecord_bc_revenue_timing_line
-              │                                       │
-              │ template ref                          │ template ref
-              ▼                                       ▼
-       customrecord_bc_cost_timing_template ──┐
-                                              │ parent
-                                              ▼
-                                  customrecord_bc_ctt_line
+The entry-point scripts depend on a small set of pure SuiteScript modules in the file cabinet. They are not deployed as scripts — they are imported via `define([...])` by the entry points.
 
+| Module | File | Purpose |
+|--------|------|---------|
+| Schedule math | `bc_cf_calculator.js` | Pure functions for spread shapes (S-curve / Linear / Front / Back), normalization, generate, rebalance, end-date computation. |
+| HTML builders | `bc_cf_ui.js` | Shared HTML helpers (esc, panel, kpi, badge, toggle, skeleton, error card). |
+| Design tokens | `bc_cf_styles.js` | Shared CSS variable palette and primitive styles for every Cash Flow surface. |
+| Report utilities | `bc_cf_report_utils.js` | Legacy report helpers; mostly orphaned after the v1 redesign. |
+| Schedule editor UI | `bc_timing_ui.js` | Calculator toolbar + grid HTML + the inline client IIFE rendered into the INLINEHTML mount fields. |
+| Schedule engine | `bc_timing_engine.js` | Server-side math engine for the schedule editor (weights, regenerate, rebalance). |
+| Timing DAO | `bc_timing_dao.js` | SuiteQL reads + `N/record` writes for cost / revenue timing line records. Called by the Timing Data Suitelet. |
+| Timing constants | `bc_timing_constants.js` | Brand config + list-value internal IDs + field-ID shorthand used by every entry point. |
 
-   ── Report path ───────────────────────────────────────────────────
+---
 
-   bc_cf_data_sl  (?action=combined|cost|revenue|portfolio)
-        ▲
-        │ fetched by
-        ├── bc_cf_combined_sl        (iframe on BC Project)
-        ├── bc_cf_cost_report_sl     (iframe on BC Project)
-        ├── bc_cf_rev_report_sl      (iframe on BC Project)
-        └── bc_cf_portfolio_sl       (standalone — Reports menu)
+## 7. Process Flow Diagram
 
-   BC Project → bc_cf_project_ue → stamps the 3 iframes into
-                custrecord_bc_cf_combined_html
-                custrecord_bc_cf_cost_html
-                custrecord_bc_cf_revenue_html
+Three end-user actions, traced step by step through the records and scripts that carry them.
 
+### Flow A · User edits a timing schedule on a transaction
 
-   ── Schedule editor path ──────────────────────────────────────────
+1. **User opens** a Purchase Order, Sales Order, or BC Change Request.
+2. **User Event script fires** on `beforeLoad`:
+   - `customscript_bc_cost_timing_ue` (PO)
+   - `customscript_bc_rev_timing_ue` (SO)
+   - `customscript_bc_co_timing_ue` (CR)
+3. **UE stamps the schedule editor HTML** into the INLINEHTML mount field:
+   - PO → `custbody_bc_cost_timing_html`
+   - SO → `custbody_bc_rev_timing_html`
+   - CR → `custrecord_bc_co_timing_html`
+4. **User clicks Generate** (or edits a row, or clicks Rebalance / Save). The editor JS runs locally; math comes from `bc_cf_calculator.js` and `bc_timing_engine.js`.
+5. **Editor JS posts to the Timing Data Suitelet** (`customscript_bc_timing_data_sl`).
+6. **Timing Data Suitelet** uses `bc_timing_dao.js` to read or write:
+   - `customrecord_bc_cost_timing_line`
+   - `customrecord_bc_revenue_timing_line`
 
-   bc_timing_data_sl  (CRUD)
-        ▲
-        │ AJAX save/load
-        │
-   Purchase Order   → bc_cost_timing_ue → custbody_bc_cost_timing_html
-   Sales Order      → bc_rev_timing_ue  → custbody_bc_rev_timing_html
-   Change Request   → bc_co_timing_ue   → custrecord_bc_co_timing_html
-```
+### Flow B · User opens Cash Flow reports on a BC Project record
+
+1. **User opens** a BC Project record (`customrecord_cseg_bc_project`).
+2. **Project User Event fires** (`customscript_bc_cf_project_ue`) on `beforeLoad`.
+3. **UE stamps 3 iframes** into the 3 INLINEHTML fields on the Cash Flow subtab:
+   - `custrecord_bc_cf_combined_html`
+   - `custrecord_bc_cf_cost_html`
+   - `custrecord_bc_cf_revenue_html`
+4. **Each iframe loads its report Suitelet**:
+   - `customscript_bc_cf_combined_sl`
+   - `customscript_bc_cf_cost_report_sl`
+   - `customscript_bc_cf_rev_report_sl`
+5. **Each report Suitelet returns a skeleton HTML page**, then its client JS fetches JSON from the Data Endpoint Suitelet (`customscript_bc_cf_data_sl`).
+6. **Data Endpoint runs SuiteQL** over `customrecord_bc_cost_timing_line` + `customrecord_bc_revenue_timing_line`, returns aggregated JSON.
+7. **Report client JS renders** KPIs, chart, and source-grouped table.
+
+### Flow C · User opens the cross-project Portfolio report
+
+1. **User clicks** BlueCollar → Project Control Center → Cash Flow Portfolio.
+2. **Portfolio Suitelet loads** (`customscript_bc_cf_portfolio_sl`) and returns a skeleton page.
+3. **Client JS fetches JSON** from the same Data Endpoint Suitelet, but with `action=portfolio` and the active filter values.
+4. **Data Endpoint rolls up** every BC project's timing lines into one response.
+5. **Portfolio client JS renders** the filter pill, KPIs, chart, and one-row-per-project table.
+

@@ -304,26 +304,29 @@ table.bccf-data-table {
     width: 100%;
     border-collapse: collapse;
     margin: 1em 0 1.4em;
-    font-size: 9.5pt;
+    font-size: 9pt;
     page-break-inside: auto;
     border: 1px solid var(--bccf-border);
     border-radius: var(--bccf-r-md);
     overflow: hidden;
+    table-layout: fixed;
 }
 
 table.bccf-data-table th,
 table.bccf-data-table td {
     border-bottom: 1px solid var(--bccf-border);
-    padding: 0.5em 0.7em;
+    padding: 0.45em 0.6em;
     text-align: left;
     vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 table.bccf-data-table thead th {
     background: var(--bccf-brand-500);
     color: #fff;
     font-weight: 600;
-    font-size: 9pt;
+    font-size: 8.5pt;
     letter-spacing: 0.02em;
     text-transform: uppercase;
     border-bottom: none;
@@ -338,16 +341,203 @@ table.bccf-data-table tbody tr:last-child td {
 }
 
 table.bccf-data-table td code {
-    font-size: 0.88em;
+    font-size: 0.92em;
     background: transparent;
     border-color: transparent;
     padding: 0;
+    color: var(--bccf-brand-500);
+    font-weight: 500;
+    word-break: break-all;
+}
+
+/* ── Diagram ───────────────────────────────────────────────── */
+
+.bccf-diagram {
+    margin: 1.2em 0 0;
+    page-break-inside: auto;
+}
+
+.bccf-flow {
+    border: 1px solid var(--bccf-border);
+    border-left: 4px solid var(--bccf-brand-500);
+    border-radius: var(--bccf-r-md);
+    padding: 1.1em 1.2em 1.3em;
+    margin-bottom: 1.4em;
+    background: var(--bccf-surface);
+    page-break-inside: avoid;
+}
+
+.bccf-flow-title {
+    font-size: 11pt;
+    font-weight: 600;
+    color: var(--bccf-brand-500);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.9em;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid var(--bccf-border);
+}
+
+.bccf-flow-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5em;
+    margin-bottom: 0.7em;
+    flex-wrap: wrap;
+}
+
+.bccf-flow-row:last-child {
+    margin-bottom: 0;
+}
+
+.bccf-node-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.bccf-node {
+    background: var(--bccf-bg-50);
+    border: 1px solid var(--bccf-border);
+    border-radius: var(--bccf-r-md);
+    padding: 0.5em 0.7em;
+    font-size: 9pt;
+    line-height: 1.35;
+}
+
+/* Flow narrative — numbered steps */
+
+.bccf-flow-intro {
+    color: var(--bccf-ink-700);
+    margin: 0 0 1.4em;
+    font-size: 10pt;
+}
+
+.bccf-flow-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6em;
+    margin-bottom: 0.4em;
+}
+
+.bccf-flow-tag {
+    display: inline-block;
+    background: var(--bccf-brand-500);
+    color: #fff;
+    font-size: 8.5pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.25em 0.7em;
+    border-radius: var(--bccf-r-sm);
+}
+
+.bccf-flow-headline {
+    font-size: 11.5pt;
+    font-weight: 600;
     color: var(--bccf-ink-900);
 }
 
-table.bccf-data-table td:first-child code {
-    color: var(--bccf-brand-500);
-    font-weight: 500;
+.bccf-flow-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0.6em 0 0;
+    counter-reset: bccf-step;
+}
+
+.bccf-flow-step {
+    counter-increment: bccf-step;
+    position: relative;
+    padding: 0.3em 0 0.9em 3.2em;
+    border-left: 2px solid var(--bccf-bg-100);
+    margin-left: 1.1em;
+}
+
+.bccf-flow-step:last-child {
+    border-left-color: transparent;
+    padding-bottom: 0.3em;
+}
+
+.bccf-flow-step::before {
+    content: counter(bccf-step);
+    position: absolute;
+    left: -1.05em;
+    top: 0;
+    width: 2.1em;
+    height: 2.1em;
+    border-radius: 50%;
+    background: var(--bccf-brand-500);
+    color: #fff;
+    font-size: 10pt;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.bccf-flow-step-action {
+    font-weight: 600;
+    color: var(--bccf-ink-900);
+    font-size: 10pt;
+    margin: 0 0 0.4em;
+    line-height: 1.4;
+}
+
+.bccf-flow-step-detail {
+    margin: 0;
+    color: var(--bccf-ink-700);
+    font-size: 9.5pt;
+    line-height: 1.5;
+}
+
+.bccf-pill-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.4em 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em;
+}
+
+.bccf-pill-list li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    background: var(--bccf-bg-50);
+    border: 1px solid var(--bccf-border);
+    border-radius: var(--bccf-r-sm);
+    padding: 0.2em 0.55em;
+    font-size: 9pt;
+}
+
+.bccf-pill {
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.1em 0.45em;
+    border-radius: var(--bccf-r-sm);
+    color: #fff;
+    white-space: nowrap;
+}
+
+.bccf-pill-ue { background: var(--bccf-brand-500); }
+.bccf-pill-sl { background: var(--bccf-brand-500); }
+.bccf-pill-record { background: var(--bccf-cost-500); }
+.bccf-pill-segment { background: #7c5cff; }
+.bccf-pill-field { background: var(--bccf-success-500); }
+.bccf-pill-module { background: var(--bccf-ink-700); }
+
+.bccf-pill-list code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 8.5pt;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--bccf-ink-900);
+    word-break: break-all;
 }
 
 /* Code block (relationship diagram) */
@@ -504,6 +694,162 @@ pre.bccf-codeblock code {
 }
 `;
 
+// ----------------------------- Diagram HTML -----------------------------
+
+function pill(kind, label) {
+    return `<span class="bccf-pill bccf-pill-${kind}">${label}</span>`;
+}
+
+function pillItem(kind, label, id) {
+    return `<li>${pill(kind, label)}<code>${id}</code></li>`;
+}
+
+const DIAGRAM_HTML = `
+<p class="bccf-flow-intro">Three end-user actions, traced step by step through the records and scripts that carry them. Use this when supporting users who hit an error, or when explaining what's happening behind the schedule editor or the reports.</p>
+
+<div class="bccf-flow">
+  <div class="bccf-flow-header">
+    <span class="bccf-flow-tag">Flow A</span>
+    <span class="bccf-flow-headline">User edits a timing schedule on a transaction</span>
+  </div>
+  <ol class="bccf-flow-steps">
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">User opens a Purchase Order, Sales Order, or BC Change Request.</p>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">User Event script fires on <code>beforeLoad</code>.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('ue', 'UE', 'customscript_bc_cost_timing_ue')}
+        ${pillItem('ue', 'UE', 'customscript_bc_rev_timing_ue')}
+        ${pillItem('ue', 'UE', 'customscript_bc_co_timing_ue')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">UE stamps the schedule editor HTML into the INLINEHTML mount field on the Cash Flow subtab.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('field', 'Inline HTML', 'custbody_bc_cost_timing_html')}
+        ${pillItem('field', 'Inline HTML', 'custbody_bc_rev_timing_html')}
+        ${pillItem('field', 'Inline HTML', 'custrecord_bc_co_timing_html')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">User picks a distribution, clicks Generate, edits rows, or clicks Rebalance / Save. The editor JS runs locally; the math comes from the helper modules.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('module', 'Module', 'bc_cf_calculator.js')}
+        ${pillItem('module', 'Module', 'bc_timing_engine.js')}
+        ${pillItem('module', 'Module', 'bc_timing_ui.js')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Editor JS posts to the Timing Data Suitelet for save and load.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('sl', 'Suitelet', 'customscript_bc_timing_data_sl')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Timing Data Suitelet uses the DAO module to read and write the timing line records.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('module', 'Module', 'bc_timing_dao.js')}
+        ${pillItem('record', 'Record', 'customrecord_bc_cost_timing_line')}
+        ${pillItem('record', 'Record', 'customrecord_bc_revenue_timing_line')}
+      </ul>
+    </li>
+  </ol>
+</div>
+
+<div class="bccf-flow">
+  <div class="bccf-flow-header">
+    <span class="bccf-flow-tag">Flow B</span>
+    <span class="bccf-flow-headline">User opens Cash Flow reports on a BC Project record</span>
+  </div>
+  <ol class="bccf-flow-steps">
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">User opens a BC Project record.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('segment', 'Custom Segment', 'customrecord_cseg_bc_project')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Project User Event fires on <code>beforeLoad</code>.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('ue', 'UE', 'customscript_bc_cf_project_ue')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">UE stamps 3 iframes into the 3 INLINEHTML fields on the Cash Flow subtab.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('field', 'Inline HTML', 'custrecord_bc_cf_combined_html')}
+        ${pillItem('field', 'Inline HTML', 'custrecord_bc_cf_cost_html')}
+        ${pillItem('field', 'Inline HTML', 'custrecord_bc_cf_revenue_html')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Each iframe loads its report Suitelet, which returns a skeleton HTML page.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('sl', 'Suitelet', 'customscript_bc_cf_combined_sl')}
+        ${pillItem('sl', 'Suitelet', 'customscript_bc_cf_cost_report_sl')}
+        ${pillItem('sl', 'Suitelet', 'customscript_bc_cf_rev_report_sl')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Client JS in each iframe fetches JSON from the Data Endpoint Suitelet.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('sl', 'Suitelet', 'customscript_bc_cf_data_sl')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Data Endpoint runs SuiteQL over the timing line records and returns aggregated JSON.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('record', 'Record', 'customrecord_bc_cost_timing_line')}
+        ${pillItem('record', 'Record', 'customrecord_bc_revenue_timing_line')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Client JS renders KPIs, chart, and source-grouped table using the shared UI module.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('module', 'Module', 'bc_cf_ui.js')}
+        ${pillItem('module', 'Module', 'bc_cf_styles.js')}
+      </ul>
+    </li>
+  </ol>
+</div>
+
+<div class="bccf-flow">
+  <div class="bccf-flow-header">
+    <span class="bccf-flow-tag">Flow C</span>
+    <span class="bccf-flow-headline">User opens the cross-project Portfolio report</span>
+  </div>
+  <ol class="bccf-flow-steps">
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">User clicks BlueCollar → Project Control Center → Cash Flow Portfolio.</p>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Portfolio Suitelet loads and returns a skeleton page.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('sl', 'Suitelet', 'customscript_bc_cf_portfolio_sl')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Client JS fetches JSON from the Data Endpoint using <code>action=portfolio</code> and any active filters.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('sl', 'Suitelet', 'customscript_bc_cf_data_sl')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Data Endpoint rolls up every BC project's timing lines into one response.</p>
+      <ul class="bccf-pill-list">
+        ${pillItem('segment', 'Custom Segment', 'customrecord_cseg_bc_project')}
+        ${pillItem('record', 'Record', 'customrecord_bc_cost_timing_line')}
+        ${pillItem('record', 'Record', 'customrecord_bc_revenue_timing_line')}
+      </ul>
+    </li>
+    <li class="bccf-flow-step">
+      <p class="bccf-flow-step-action">Portfolio client JS renders the filter pill, KPIs, paired-bar chart, and one-row-per-project table.</p>
+    </li>
+  </ol>
+</div>
+`;
+
 // ----------------------------- Assembly -----------------------------
 
 function buildHtml() {
@@ -512,7 +858,15 @@ function buildHtml() {
     // Strip the leading H1 + intro paragraph (replaced by cover)
     const mdBody = md.replace(/^#\s+[^\n]+\n+([^\n#]+\n+)?/, '');
 
-    const renderedBody = markdownToHtml(mdBody);
+    let renderedBody = markdownToHtml(mdBody);
+
+    // Replace the rendered Process Flow Diagram section body with the rich HTML diagram.
+    // Keeps the H2 heading (so the TOC still finds it) and swaps everything after.
+    renderedBody = renderedBody.replace(
+        /(<h2 id="7-process-flow-diagram">[^<]+<\/h2>)[\s\S]*$/,
+        `$1\n${DIAGRAM_HTML}`
+    );
+
     const { html: tocHtml, count: tocCount } = buildToc(renderedBody);
 
     const cover = `

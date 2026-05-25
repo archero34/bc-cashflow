@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BC Cash Flow — Object Inventory</title>
+<style>
+:root {
+    --bccf-bg-50: #f7f8fa;
+    --bccf-bg-100: #eef0f4;
+    --bccf-surface: #ffffff;
+    --bccf-border: #e2e6ec;
+    --bccf-ink-500: #5b6472;
+    --bccf-ink-700: #2f3742;
+    --bccf-ink-900: #121821;
+    --bccf-brand-500: #1f3b5e;
+    --bccf-brand-600: #16304d;
+    --bccf-brand-50: #eaeef4;
+    --bccf-success-500: #1f9d55;
+    --bccf-cost-500: #f97316;
+    --bccf-r-sm: 4px;
+    --bccf-r-md: 6px;
+    --bccf-r-lg: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: "Inter", "Inter Variable", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: var(--bccf-ink-900);
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+}
+
+main {
+    max-width: 8.0in;
+    margin: 0 auto;
+    padding: 0.6in 0.5in;
+}
+
+/* Typography */
+
+h1 {
+    font-size: 28pt;
+    font-weight: 700;
+    color: var(--bccf-brand-500);
+    margin: 0 0 0.35em;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    page-break-after: avoid;
+}
+
+h2 {
+    font-size: 18pt;
+    font-weight: 700;
+    color: var(--bccf-brand-500);
+    margin: 0 0 0.5em;
+    letter-spacing: -0.005em;
+    padding-bottom: 0.3em;
+    border-bottom: 3px solid var(--bccf-brand-500);
+    page-break-before: always;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 12.5pt;
+    font-weight: 600;
+    color: var(--bccf-ink-900);
+    margin: 1.6em 0 0.5em;
+    page-break-after: avoid;
+}
+
+h3 code {
+    font-size: 0.92em;
+    background: var(--bccf-brand-50);
+    color: var(--bccf-brand-500);
+    border-color: var(--bccf-brand-50);
+}
+
+p { margin: 0 0 0.7em; color: var(--bccf-ink-700); }
+ul, ol { margin: 0 0 0.85em; padding-left: 1.4em; }
+li { margin-bottom: 0.25em; }
+strong { color: var(--bccf-ink-900); font-weight: 600; }
+em { font-style: italic; color: var(--bccf-ink-700); }
+
+code {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.88em;
+    background: var(--bccf-bg-50);
+    padding: 0.08em 0.4em;
+    border-radius: var(--bccf-r-sm);
+    border: 1px solid var(--bccf-border);
+    color: var(--bccf-ink-700);
+    word-break: break-word;
+}
+
+a { color: var(--bccf-brand-500); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+hr {
+    border: none;
+    border-top: 1px solid var(--bccf-border);
+    margin: 2em 0;
+}
+
+/* Data tables */
+
+table.bccf-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0 1.4em;
+    font-size: 9.5pt;
+    page-break-inside: auto;
+    border: 1px solid var(--bccf-border);
+    border-radius: var(--bccf-r-md);
+    overflow: hidden;
+}
+
+table.bccf-data-table th,
+table.bccf-data-table td {
+    border-bottom: 1px solid var(--bccf-border);
+    padding: 0.5em 0.7em;
+    text-align: left;
+    vertical-align: top;
+}
+
+table.bccf-data-table thead th {
+    background: var(--bccf-brand-500);
+    color: #fff;
+    font-weight: 600;
+    font-size: 9pt;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    border-bottom: none;
+}
+
+table.bccf-data-table tbody tr:nth-child(even) {
+    background: var(--bccf-bg-50);
+}
+
+table.bccf-data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+table.bccf-data-table td code {
+    font-size: 0.88em;
+    background: transparent;
+    border-color: transparent;
+    padding: 0;
+    color: var(--bccf-ink-900);
+}
+
+table.bccf-data-table td:first-child code {
+    color: var(--bccf-brand-500);
+    font-weight: 500;
+}
+
+/* Code block (relationship diagram) */
+
+pre.bccf-codeblock {
+    background: var(--bccf-bg-50);
+    border: 1px solid var(--bccf-border);
+    border-left: 4px solid var(--bccf-brand-500);
+    border-radius: var(--bccf-r-md);
+    padding: 1em 1.2em;
+    margin: 1.2em 0;
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 8.5pt;
+    line-height: 1.45;
+    color: var(--bccf-ink-900);
+    overflow-x: auto;
+    page-break-inside: avoid;
+}
+
+pre.bccf-codeblock code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    color: inherit;
+}
+
+/* Cover */
+
+.bccf-cover {
+    padding: 2.2in 0 1in;
+    page-break-after: always;
+    text-align: left;
+    border-left: 6px solid var(--bccf-brand-500);
+    padding-left: 1.5em;
+}
+
+.bccf-cover-eyebrow {
+    font-size: 10pt;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--bccf-brand-500);
+    font-weight: 600;
+    margin-bottom: 0.5em;
+}
+
+.bccf-cover h1 {
+    font-size: 38pt;
+    margin: 0 0 0.15em;
+    line-height: 1.1;
+}
+
+.bccf-cover-subtitle {
+    font-size: 14pt;
+    color: var(--bccf-ink-500);
+    font-weight: 400;
+    margin-bottom: 3.5em;
+}
+
+.bccf-cover-meta {
+    font-size: 10pt;
+    color: var(--bccf-ink-500);
+    line-height: 1.9;
+    border-top: 1px solid var(--bccf-border);
+    padding-top: 1.2em;
+    margin-top: 3em;
+}
+
+.bccf-cover-meta-row { display: flex; gap: 2em; }
+.bccf-cover-meta-row span:first-child {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: var(--bccf-ink-700);
+    min-width: 6em;
+}
+
+/* TOC */
+
+.bccf-toc { padding: 1em 0 0; page-break-after: always; }
+
+.bccf-toc h2 {
+    page-break-before: avoid;
+    border-bottom: 3px solid var(--bccf-brand-500);
+    font-size: 16pt;
+    margin-top: 0;
+}
+
+.bccf-toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 1.5em 0 0;
+    counter-reset: bccf-section;
+}
+
+.bccf-toc li {
+    counter-increment: bccf-section;
+    padding: 0.55em 0;
+    border-bottom: 1px dotted var(--bccf-border);
+    font-size: 12pt;
+    display: flex;
+    align-items: baseline;
+}
+
+.bccf-toc li:last-child { border-bottom: none; }
+
+.bccf-toc li::before {
+    content: counter(bccf-section, decimal-leading-zero) " · ";
+    color: var(--bccf-brand-500);
+    font-weight: 600;
+    margin-right: 0.7em;
+    min-width: 2.5em;
+    font-feature-settings: "tnum";
+}
+
+.bccf-toc a {
+    color: var(--bccf-ink-900);
+    flex: 1;
+    text-decoration: none;
+}
+
+.bccf-toc a:hover { color: var(--bccf-brand-500); }
+
+/* Footer */
+
+.bccf-footer {
+    margin-top: 3em;
+    padding-top: 1em;
+    border-top: 1px solid var(--bccf-border);
+    font-size: 9pt;
+    color: var(--bccf-ink-500);
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Print rules */
+
+@page {
+    size: letter;
+    margin: 0.55in 0.5in 0.55in 0.5in;
+}
+
+@media print {
+    html, body { background: #fff; }
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    main { padding: 0; max-width: none; }
+    a { color: inherit; text-decoration: none; }
+    h2 { page-break-before: always; }
+    h2:first-of-type { page-break-before: avoid; }
+    .bccf-cover, .bccf-toc { page-break-after: always; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<div class="bccf-cover">
+    <div class="bccf-cover-eyebrow">BlueCollar Cash Flow Suite</div>
+    <h1>Object Inventory</h1>
+    <div class="bccf-cover-subtitle">Custom objects in the Data Airflow sandbox</div>
+    <div class="bccf-cover-meta">
+        <div class="bccf-cover-meta-row"><span>Account</span><span>Data Airflow LLC sandbox</span></div>
+        <div class="bccf-cover-meta-row"><span>Issued</span><span>May 2026</span></div>
+        <div class="bccf-cover-meta-row"><span>Source</span><span>docs/sdf-inventory.md</span></div>
+    </div>
+</div>
+
+<nav class="bccf-toc">
+    <h2 id="contents">Contents</h2>
+    <ol>
+<li><a href="#1-scripts-10">1. Scripts (10)</a></li>
+<li><a href="#2-custom-records-4">2. Custom Records (4)</a></li>
+<li><a href="#3-custom-record-fields">3. Custom Record Fields</a></li>
+<li><a href="#4-custom-lists-6">4. Custom Lists (6)</a></li>
+<li><a href="#5-inline-html-mount-fields-6">5. Inline HTML Mount Fields (6)</a></li>
+<li><a href="#6-relationship-diagram">6. Relationship Diagram</a></li>
+</ol>
+</nav>
+<hr>
+
+<h2 id="1-scripts-10">1. Scripts (10)</h2>
+
+<table class="bccf-data-table">
+<thead><tr><th>#</th><th>Name</th><th>Script ID</th><th>Type</th><th>Mounted on</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>BC Cash Flow - Combined Report</td><td><code>customscript_bc_cf_combined_sl</code></td><td>Suitelet</td><td>Iframe on BC Project record</td><td>Per-project combined report: KPIs, paired Revenue+Cost bars + cumulative-net trend, source-grouped table.</td></tr>
+<tr><td>2</td><td>BC Cash Flow - Cost Report</td><td><code>customscript_bc_cf_cost_report_sl</code></td><td>Suitelet</td><td>Iframe on BC Project record</td><td>Per-project cost-only report.</td></tr>
+<tr><td>3</td><td>BC Cash Flow - Revenue Report</td><td><code>customscript_bc_cf_rev_report_sl</code></td><td>Suitelet</td><td>Iframe on BC Project record</td><td>Per-project revenue-only report. KPIs surface Base Contract vs Change Orders.</td></tr>
+<tr><td>4</td><td>BC Cash Flow - Portfolio</td><td><code>customscript_bc_cf_portfolio_sl</code></td><td>Suitelet</td><td>Standalone page — BlueCollar → Project Control Center → Cash Flow Portfolio</td><td>Cross-project rollup, one row per project, 5-dimension filter pill (Active + Project / PM / Customer / Subsidiary).</td></tr>
+<tr><td>5</td><td>BC Cash Flow - Data Endpoint</td><td><code>customscript_bc_cf_data_sl</code></td><td>Suitelet (JSON)</td><td>Called by the 4 report Suitelets</td><td>Action-routed JSON endpoint. `?action=combined\</td><td>cost\</td><td>revenue\</td><td>portfolio&amp;projectId=…&amp;mode=cash\</td><td>accrual`.</td></tr>
+<tr><td>6</td><td>BC Timing Data AJAX Endpoint</td><td><code>customscript_bc_timing_data_sl</code></td><td>Suitelet (JSON)</td><td>Called by the 3 schedule editors</td><td>CRUD endpoint for cost / revenue / CO timing lines.</td></tr>
+<tr><td>7</td><td>BC Cost Timing - PO Schedule</td><td><code>customscript_bc_cost_timing_ue</code></td><td>User Event</td><td>Purchase Order</td><td>Stamps the schedule editor into <code>custbody_bc_cost_timing_html</code> on the Cash Flow subtab.</td></tr>
+<tr><td>8</td><td>BC Revenue Timing - SO Schedule</td><td><code>customscript_bc_rev_timing_ue</code></td><td>User Event</td><td>Sales Order</td><td>Stamps the schedule editor into <code>custbody_bc_rev_timing_html</code> on the Cash Flow subtab.</td></tr>
+<tr><td>9</td><td>BC Cash Flow - Project Reports</td><td><code>customscript_bc_cf_project_ue</code></td><td>User Event</td><td>BC Project (<code>customrecord_cseg_bc_project</code>)</td><td>Stamps the 3 report iframes into the 3 INLINEHTML fields on the BC Project record's Cash Flow subtab.</td></tr>
+<tr><td>10</td><td>BC CO Timing - Change Request Schedule</td><td><code>customscript_bc_co_timing_ue</code></td><td>User Event</td><td>BC Change Request (<code>customrecord_bc_change_req</code>)</td><td>Renders the dual-pane Contract / Estimate Schedule on the Cash Flow subtab.</td></tr>
+</tbody></table>
+
+<p>Every script has a single matching deployment (<code>customscript_*</code> → <code>customdeploy_*</code>).</p>
+
+<hr>
+
+<h2 id="2-custom-records-4">2. Custom Records (4)</h2>
+
+<table class="bccf-data-table">
+<thead><tr><th>Script ID</th><th>Name</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>customrecord_bc_cost_timing_line</code></td><td>BC Cost Timing Line</td><td>Time-phased cost forecast per PO or Change Order. No GL impact.</td></tr>
+<tr><td><code>customrecord_bc_revenue_timing_line</code></td><td>BC Revenue Timing Line</td><td>Time-phased revenue forecast per contract. No GL impact.</td></tr>
+<tr><td><code>customrecord_bc_cost_timing_template</code></td><td>BC Cost Timing Template</td><td>Reusable spread-pattern templates (S-curve / Linear / Front / Back).</td></tr>
+<tr><td><code>customrecord_bc_ctt_line</code></td><td>BC Cost Timing Template Line</td><td>Individual period within a timing template (period number + percentage).</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="3-custom-record-fields">3. Custom Record Fields</h2>
+
+<h3 id="customrecord_bc_cost_timing_line-17-fields"><code>customrecord_bc_cost_timing_line</code> (17 fields)</h3>
+
+<table class="bccf-data-table">
+<thead><tr><th>Field ID</th><th>Label</th><th>Type</th><th>Source / Target</th></tr></thead>
+<tbody>
+<tr><td><code>custrecord_bc_ctl_transaction</code></td><td>Transaction</td><td>List/Record</td><td>Transaction</td></tr>
+<tr><td><code>custrecord_bc_ctl_project</code></td><td>Project</td><td>List/Record</td><td>BC Project (<code>customrecord_cseg_bc_project</code>)</td></tr>
+<tr><td><code>custrecord_bc_ctl_period_date</code></td><td>Period Date</td><td>Date</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_ctl_percentage</code></td><td>Percentage</td><td>Percent</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_ctl_amount</code></td><td>Amount</td><td>Currency</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_ctl_cumulative_pct</code></td><td>Cumulative %</td><td>Percent</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_ctl_cumulative_amt</code></td><td>Cumulative Amount</td><td>Currency</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_ctl_status</code></td><td>Status</td><td>List/Record</td><td><code>customlist_bc_ctl_status</code></td></tr>
+<tr><td><code>custrecord_bc_ctl_label</code></td><td>Label / Note</td><td>Free-form Text</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_ctl_source</code></td><td>Source</td><td>List/Record</td><td><code>customlist_bc_ctl_source</code></td></tr>
+<tr><td><code>custrecord_bc_ctl_source_group</code></td><td>Source Group</td><td>List/Record</td><td><code>customlist_bc_ctl_source_group</code></td></tr>
+<tr><td><code>custrecord_bc_ctl_timing_type</code></td><td>Timing Type</td><td>List/Record</td><td><code>customlist_bc_ctl_timing_type</code></td></tr>
+<tr><td><code>custrecord_bc_ctl_source_template</code></td><td>Source Template</td><td>List/Record</td><td>BC Cost Timing Template</td></tr>
+<tr><td><code>custrecord_bc_ctl_change_order</code></td><td>Related Change Order</td><td>List/Record</td><td>BC Change Request (<code>customrecord_bc_change_req</code>)</td></tr>
+<tr><td><code>custrecord_bc_ctl_cost_code</code></td><td>Related Cost Code</td><td>List/Record</td><td>BC Cost Code (<code>customrecord_cseg_bc_cost_code</code>)</td></tr>
+<tr><td><code>custrecord_bc_ctl_cost_type</code></td><td>Cost Type (GL Account)</td><td>List/Record</td><td>Account</td></tr>
+<tr><td><code>custrecord_bc_ctl_needs_recalc</code></td><td>Needs Recalculation</td><td>Check Box</td><td>—</td></tr>
+</tbody></table>
+
+<h3 id="customrecord_bc_revenue_timing_line-15-fields"><code>customrecord_bc_revenue_timing_line</code> (15 fields)</h3>
+
+<table class="bccf-data-table">
+<thead><tr><th>Field ID</th><th>Label</th><th>Type</th><th>Source / Target</th></tr></thead>
+<tbody>
+<tr><td><code>custrecord_bc_rtl_transaction</code></td><td>Contract (Sales Order)</td><td>List/Record</td><td>Transaction</td></tr>
+<tr><td><code>custrecord_bc_rtl_project</code></td><td>Project</td><td>List/Record</td><td>BC Project</td></tr>
+<tr><td><code>custrecord_bc_rtl_period_date</code></td><td>Period Date</td><td>Date</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_rtl_percentage</code></td><td>Percentage</td><td>Percent</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_rtl_amount</code></td><td>Amount</td><td>Currency</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_rtl_cumulative_pct</code></td><td>Cumulative %</td><td>Percent</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_rtl_cumulative_amt</code></td><td>Cumulative Amount</td><td>Currency</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_rtl_status</code></td><td>Status</td><td>List/Record</td><td><code>customlist_bc_ctl_status</code></td></tr>
+<tr><td><code>custrecord_bc_rtl_label</code></td><td>Label / Note</td><td>Free-form Text</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_rtl_source</code></td><td>Source</td><td>List/Record</td><td><code>customlist_bc_ctl_source</code></td></tr>
+<tr><td><code>custrecord_bc_rtl_source_group</code></td><td>Source Group</td><td>List/Record</td><td><code>customlist_bc_ctl_source_group</code></td></tr>
+<tr><td><code>custrecord_bc_rtl_timing_type</code></td><td>Timing Type</td><td>List/Record</td><td><code>customlist_bc_ctl_timing_type</code></td></tr>
+<tr><td><code>custrecord_bc_rtl_source_template</code></td><td>Source Template</td><td>List/Record</td><td>BC Cost Timing Template</td></tr>
+<tr><td><code>custrecord_bc_rtl_change_order</code></td><td>Related Change Order</td><td>List/Record</td><td>BC Change Request</td></tr>
+<tr><td><code>custrecord_bc_rtl_needs_recalc</code></td><td>Needs Recalculation</td><td>Check Box</td><td>—</td></tr>
+</tbody></table>
+
+<h3 id="customrecord_bc_cost_timing_template-3-fields"><code>customrecord_bc_cost_timing_template</code> (3 fields)</h3>
+
+<table class="bccf-data-table">
+<thead><tr><th>Field ID</th><th>Label</th><th>Type</th><th>Source / Target</th></tr></thead>
+<tbody>
+<tr><td><code>custrecord_bc_ctt_spread_type</code></td><td>Spread Type</td><td>List/Record</td><td><code>customlist_bc_ctt_spread_type</code></td></tr>
+<tr><td><code>custrecord_bc_ctt_period_interval</code></td><td>Period Interval</td><td>List/Record</td><td><code>customlist_bc_ctt_period_interval</code></td></tr>
+<tr><td><code>custrecord_bc_ctt_num_periods</code></td><td>Number of Periods</td><td>Integer Number</td><td>—</td></tr>
+</tbody></table>
+
+<h3 id="customrecord_bc_ctt_line-3-fields"><code>customrecord_bc_ctt_line</code> (3 fields)</h3>
+
+<table class="bccf-data-table">
+<thead><tr><th>Field ID</th><th>Label</th><th>Type</th><th>Source / Target</th></tr></thead>
+<tbody>
+<tr><td><code>custrecord_bc_cttl_parent</code></td><td>Template</td><td>List/Record</td><td>BC Cost Timing Template</td></tr>
+<tr><td><code>custrecord_bc_cttl_period_number</code></td><td>Period Number</td><td>Integer Number</td><td>—</td></tr>
+<tr><td><code>custrecord_bc_cttl_percentage</code></td><td>Percentage</td><td>Percent</td><td>—</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="4-custom-lists-6">4. Custom Lists (6)</h2>
+
+<table class="bccf-data-table">
+<thead><tr><th>Script ID</th><th>Name</th><th>Values</th><th>Used by</th></tr></thead>
+<tbody>
+<tr><td><code>customlist_bc_ctl_source</code></td><td>BC Timing Line Source</td><td>Template, Manual</td><td><code>*_source</code> on cost and revenue timing-line records</td></tr>
+<tr><td><code>customlist_bc_ctl_source_group</code></td><td>BC Timing Source Group</td><td>Base Contract, Change Order, Base PO</td><td><code>*_source_group</code> on cost and revenue timing-line records</td></tr>
+<tr><td><code>customlist_bc_ctl_status</code></td><td>BC Timing Line Status</td><td>Forecasted, Actualized, Received, Overdue</td><td><code>*_status</code> on cost and revenue timing-line records</td></tr>
+<tr><td><code>customlist_bc_ctl_timing_type</code></td><td>BC Timing Type</td><td>Cash Flow, Accrual</td><td><code>*_timing_type</code> on cost and revenue timing-line records; backs the Cash / Accrual UI toggle</td></tr>
+<tr><td><code>customlist_bc_ctt_period_interval</code></td><td>BC Period Interval</td><td>Weekly, Bi-Weekly, Monthly</td><td><code>custrecord_bc_ctt_period_interval</code> on the template record</td></tr>
+<tr><td><code>customlist_bc_ctt_spread_type</code></td><td>BC Spread Type</td><td>Even, Front-Loaded, Back-Loaded, Milestone, Custom</td><td><code>custrecord_bc_ctt_spread_type</code> on the template record</td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="5-inline-html-mount-fields-6">5. Inline HTML Mount Fields (6)</h2>
+
+<p>Each field is an INLINEHTML field that a User Event script writes HTML into on <code>beforeLoad</code>. They have no stored value.</p>
+
+<table class="bccf-data-table">
+<thead><tr><th>Field ID</th><th>Label</th><th>Lives on</th><th>Stamped by</th></tr></thead>
+<tbody>
+<tr><td><code>custbody_bc_cost_timing_html</code></td><td>Cost Timing Schedule</td><td>Purchase Order</td><td><code>bc_cost_timing_ue.js</code></td></tr>
+<tr><td><code>custbody_bc_rev_timing_html</code></td><td>Revenue Timing Schedule</td><td>Sales Order</td><td><code>bc_rev_timing_ue.js</code></td></tr>
+<tr><td><code>custrecord_bc_co_timing_html</code></td><td>CO Timing Schedule</td><td>BC Change Request</td><td><code>bc_co_timing_ue.js</code></td></tr>
+<tr><td><code>custrecord_bc_cf_combined_html</code></td><td>Combined Cash Flow Forecast</td><td>BC Project</td><td><code>bc_cf_project_ue.js</code></td></tr>
+<tr><td><code>custrecord_bc_cf_cost_html</code></td><td>Cost Cash Flow Timeline</td><td>BC Project</td><td><code>bc_cf_project_ue.js</code></td></tr>
+<tr><td><code>custrecord_bc_cf_revenue_html</code></td><td>Revenue Cash Flow Timeline</td><td>BC Project</td><td><code>bc_cf_project_ue.js</code></td></tr>
+</tbody></table>
+
+<hr>
+
+<h2 id="6-relationship-diagram">6. Relationship Diagram</h2>
+
+<pre class="bccf-codeblock"><code>                          BC Project                BC Change Request
+                          (customrecord_cseg_       (customrecord_bc_
+                           bc_project)               change_req)
+                          BC Cost Code
+                          (customrecord_cseg_
+                           bc_cost_code)
+                              ▲   ▲   ▲
+                              │   │   │ referenced by
+                              │   │   │
+              ┌───────────────┴───┴───┴───────────────┐
+              │                                       │
+   customrecord_bc_cost_timing_line       customrecord_bc_revenue_timing_line
+              │                                       │
+              │ template ref                          │ template ref
+              ▼                                       ▼
+       customrecord_bc_cost_timing_template ──┐
+                                              │ parent
+                                              ▼
+                                  customrecord_bc_ctt_line
+
+
+   ── Report path ───────────────────────────────────────────────────
+
+   bc_cf_data_sl  (?action=combined|cost|revenue|portfolio)
+        ▲
+        │ fetched by
+        ├── bc_cf_combined_sl        (iframe on BC Project)
+        ├── bc_cf_cost_report_sl     (iframe on BC Project)
+        ├── bc_cf_rev_report_sl      (iframe on BC Project)
+        └── bc_cf_portfolio_sl       (standalone — Reports menu)
+
+   BC Project → bc_cf_project_ue → stamps the 3 iframes into
+                custrecord_bc_cf_combined_html
+                custrecord_bc_cf_cost_html
+                custrecord_bc_cf_revenue_html
+
+
+   ── Schedule editor path ──────────────────────────────────────────
+
+   bc_timing_data_sl  (CRUD)
+        ▲
+        │ AJAX save/load
+        │
+   Purchase Order   → bc_cost_timing_ue → custbody_bc_cost_timing_html
+   Sales Order      → bc_rev_timing_ue  → custbody_bc_rev_timing_html
+   Change Request   → bc_co_timing_ue   → custrecord_bc_co_timing_html</code></pre>
+
+<div class="bccf-footer">
+    <span>BlueCollar Cash Flow Suite · Object Inventory</span>
+    <span>Generated 2026-05-24</span>
+</div>
+</main>
+</body>
+</html>
